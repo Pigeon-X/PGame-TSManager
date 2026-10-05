@@ -5,40 +5,28 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Threading;
+using Newtonsoft.Json;
 using PGameTSManager.Annotations;
 
 namespace PGameTSManager
 {
     public class ServerContainer : INotifyPropertyChanged
     {
+        private static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+
         private readonly ManagerConfig _managerConfig;
         private readonly ServerProfile _profile;
         private readonly Paragraph _para;
         private Process? _process;
-        private StreamWriter? _consoleLog;
-        private StreamWriter? _stdin;
-
-        private StreamWriter? OpenConsoleLog(string runtimeDirectory)
-        {
-            try
-            {
-                var sw = new StreamWriter(Path.Combine(runtimeDirectory, "console.log"), false, new UTF8Encoding(false)) { AutoFlush = true };
-                sw.WriteLine("[PGame-TSManager] " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " 开始捕获输出");
-                return sw;
-            }
-            catch { return null; }
-        }
-
-        private void LogAndAdd(string? line)
-        {
-            if (line == null) return;
-            try { _consoleLog?.WriteLine(line); } catch { }
-            AddText(line + "\n");
-        }
+        private DispatcherTimer? _tailTimer;
+        private long _tailPos;
+        private string? _logPath;
 
         public bool IsRunning
         {
@@ -55,6 +43,7 @@ namespace PGameTSManager
                     if (process != null)
                     {
                         try { process.Kill(); } catch { }
+                        StopTail();
                         OnPropertyChanged(nameof(IsRunning));
                     }
                 }
@@ -94,12 +83,10 @@ namespace PGameTSManager
         {
         }
 
-        /// <summary>服务器配置目录：1.PigeonServers\&lt;服&gt;（只放 config.json + tshock）。</summary>
         private string ServerDirectory => _profile.IsProfileMode
             ? _profile.ResolvedRootPath
             : Path.GetFullPath(Path.Combine(ManagerConfig.Resolve(_managerConfig.serverDir), _profile.name));
 
-        /// <summary>运行沙箱：exe / bin / ServerPlugins / server.properties / Logs 都放这里。</summary>
         private string RuntimeDirectory => _managerConfig.ResolveRuntimeDir(_profile);
 
         private void Start()
@@ -117,18 +104,15 @@ namespace PGameTSManager
         private void StartCore()
         {
             _para.Inlines.Clear();
+            StopTail();
 
-            var manifest = _profile.LoadManifest();
-            if (manifest == null)
-            {
-                throw new FileNotFoundException($"找不到该服的 config.json：{Path.Combine(ServerDirectory, ServerProfile.ManifestFileName)}");
-            }
+            var manifest = _profile.LoadManifest()
+                ?? throw new FileNotFoundException($"找不到该服的 config.json：{Path.Combine(ServerDirectory, ServerProfile.ManifestFileName)}");
 
             var serverDirectory = ServerDirectory;
             var runtimeDirectory = RuntimeDirectory;
 
             if (_managerConfig.backupBeforeStart) BackupServerFiles(serverDirectory);
-
             EnsureRuntimeSandbox(runtimeDirectory, serverDirectory);
             WriteServerProperties(runtimeDirectory, serverDirectory, manifest);
 
@@ -149,60 +133,59 @@ namespace PGameTSManager
             if (!File.Exists(executable)) throw new FileNotFoundException($"找不到服务端可执行文件：{executable}");
 
             var arguments = BuildArguments(runtimeDirectory, manifest);
-            var showWindow = _managerConfig.showServerWindow;
+            var showWindow = ManagerConfig.ShowWindowOverride ?? _managerConfig.showServerWindow;
 
-            var info = new ProcessStartInfo
+            ProcessStartInfo info;
+            if (showWindow)
             {
-                FileName = executable,
-                Arguments = arguments,
-                WorkingDirectory = runtimeDirectory,
-                UseShellExecute = showWindow,
-                CreateNoWindow = !showWindow
-            };
-            if (!showWindow)
+                // 有窗口模式：单独一个可见控制台
+                info = new ProcessStartInfo
+                {
+                    FileName = executable,
+                    Arguments = arguments,
+                    WorkingDirectory = runtimeDirectory,
+                    UseShellExecute = true,
+                    WindowStyle = ProcessWindowStyle.Normal
+                };
+            }
+            else
             {
-                info.RedirectStandardInput = true;
-                info.RedirectStandardOutput = true;
-                info.RedirectStandardError = true;
-                info.StandardOutputEncoding = Encoding.UTF8;
-                info.StandardInputEncoding = new UTF8Encoding(false);
+                // 默认模式：只有 PGame-TSManager 窗口。
+                // 用「隐藏控制台 + 输出重定向到文件」：
+                //   - 保留真实控制台 → TShock 的 stdin 不会 EOF，不会自己退出
+                //   - 控制台隐藏     → 看不到多余的窗口
+                //   - 输出进 console.log，由管理器读取显示
+                _logPath = Path.Combine(runtimeDirectory, "console.log");
+                try { File.WriteAllText(_logPath, string.Empty, new UTF8Encoding(false)); } catch { }
+                var cmd = "/c " + Quote(executable) + " " + arguments + " >> " + Quote(_logPath) + " 2>&1";
+                info = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = cmd,
+                    WorkingDirectory = runtimeDirectory,
+                    UseShellExecute = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
             }
 
             _process = new Process { StartInfo = info, EnableRaisingEvents = true };
             _process.Exited += (_, _) =>
             {
                 var code = _process != null && _process.HasExited ? _process.ExitCode : -999;
-                try { _consoleLog?.WriteLine("---process exited with code = " + code + "---"); } catch { }
-                AddText($"---process exited with code = {code}---\n");
+                AddText($"---服务器已退出（退出码 {code}）---\n");
                 _process?.Dispose();
                 _process = null;
+                StopTail();
                 OnPropertyChanged(nameof(IsRunning));
             };
-            if (!showWindow)
-            {
-                _consoleLog = OpenConsoleLog(runtimeDirectory);
-                _process.OutputDataReceived += (_, args) => LogAndAdd(args.Data);
-                _process.ErrorDataReceived += (_, args) => LogAndAdd(args.Data);
-            }
 
-            AddText($"[启动] {Name}  →  {executable}\n");
-            AddText($"[启动] 参数 {arguments}\n");
+            AddText($"[启动] {Name}\n");
             _process.Start();
-            if (!showWindow)
-            {
-                // 必须一直持有 stdin 的 StreamWriter：否则一旦被回收/关闭，
-                // TShock 的控制台读线程会读到 EOF 并“干净退出”(exit 0)
-                _stdin = _process.StandardInput;
-                _stdin.AutoFlush = true;
-                _process.BeginOutputReadLine();
-                _process.BeginErrorReadLine();
-                _stdin.WriteLine();
-            }
 
+            if (!showWindow) StartTail();
             OnPropertyChanged(nameof(IsRunning));
         }
 
-        /// <summary>命令行参数：-config &lt;本服 properties&gt; -port .. -lang .. [-pass ..] [-maxplayers ..] [额外参数]</summary>
         private string BuildArguments(string runtimeDirectory, ServerManifest manifest)
         {
             var parts = new List<string>
@@ -218,11 +201,9 @@ namespace PGameTSManager
             return string.Join(" ", parts);
         }
 
-        /// <summary>生成该服的 server.properties，把 TShock 配置目录指向它自己的 tshock\，世界指向共享 Worlds\。</summary>
         private void WriteServerProperties(string runtimeDirectory, string serverDirectory, ServerManifest manifest)
         {
             var worlds = ManagerConfig.Resolve(_managerConfig.worldDir);
-            var tshockDir = Path.Combine(serverDirectory, "tshock");
             var world = manifest.World ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(world) && !world.EndsWith(".wld", StringComparison.OrdinalIgnoreCase)) world += ".wld";
             var worldPath = string.IsNullOrWhiteSpace(world) ? Path.Combine(worlds, "world.wld") : Path.Combine(worlds, world);
@@ -241,12 +222,10 @@ namespace PGameTSManager
                 ""
             });
             File.WriteAllText(Path.Combine(runtimeDirectory, "server.properties"), text, new UTF8Encoding(false));
-
-            Directory.CreateDirectory(ManagerConfig.Resolve(_managerConfig.worldDir));
-            Directory.CreateDirectory(tshockDir);
+            Directory.CreateDirectory(worlds);
+            Directory.CreateDirectory(Path.Combine(serverDirectory, "tshock"));
         }
 
-        /// <summary>建立运行沙箱：硬链接 exe/GeoIP.dat，目录联接 bin/i18n/runtimes/x64（不占额外空间）。</summary>
         private void EnsureRuntimeSandbox(string runtimeDirectory, string serverDirectory)
         {
             Directory.CreateDirectory(runtimeDirectory);
@@ -256,11 +235,8 @@ namespace PGameTSManager
             LinkFile(Path.Combine(master, exeName), Path.Combine(runtimeDirectory, exeName));
             LinkFile(Path.Combine(master, "GeoIP.dat"), Path.Combine(runtimeDirectory, "GeoIP.dat"));
             foreach (var d in new[] { "bin", "i18n", "runtimes", "x64" })
-            {
                 LinkDirectory(Path.Combine(master, d), Path.Combine(runtimeDirectory, d));
-            }
-            // 沙箱里的 tshock\ 用目录联接指到本服真实配置目录，
-            // 这样 TShock 的 tshock\config.json、sscconfig.json、插件数据都落在 1.PigeonServers\<服>\tshock\
+
             var realTshock = Path.Combine(serverDirectory, "tshock");
             Directory.CreateDirectory(realTshock);
             var linkTshock = Path.Combine(runtimeDirectory, "tshock");
@@ -269,11 +245,11 @@ namespace PGameTSManager
                 var item = new DirectoryInfo(linkTshock);
                 if ((item.Attributes & FileAttributes.ReparsePoint) == 0)
                 {
-                    // 之前误建的实体目录：只删空壳（内容属于真实目录，不要动真实目录）
                     try { if (!item.EnumerateFileSystemInfos().Any()) Directory.Delete(linkTshock, true); } catch { }
                 }
             }
             if (!Directory.Exists(linkTshock)) LinkDirectory(realTshock, linkTshock);
+
             Directory.CreateDirectory(Path.Combine(runtimeDirectory, "ServerPlugins"));
             Directory.CreateDirectory(Path.Combine(runtimeDirectory, "Logs"));
         }
@@ -313,29 +289,103 @@ namespace PGameTSManager
 
         private static string Quote(string value) => "\"" + value.Replace("\"", "\\\"") + "\"";
 
-        /// <summary>启动前备份该服的 TShock 配置。</summary>
+        // ---------- 日志回显（隐藏控制台模式） ----------
+
+        private void StartTail()
+        {
+            if (string.IsNullOrEmpty(_logPath)) return;
+            _tailPos = 0;
+            _tailTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+            _tailTimer.Tick += (_, _) => TailOnce();
+            _tailTimer.Start();
+        }
+
+        private void StopTail()
+        {
+            try { _tailTimer?.Stop(); } catch { }
+            _tailTimer = null;
+        }
+
+        private void TailOnce()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(_logPath) || !File.Exists(_logPath)) return;
+                using var fs = new FileStream(_logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                if (fs.Length < _tailPos) _tailPos = 0;
+                fs.Seek(_tailPos, SeekOrigin.Begin);
+                using var sr = new StreamReader(fs, Encoding.UTF8);
+                var text = sr.ReadToEnd();
+                _tailPos = fs.Position;
+                if (!string.IsNullOrEmpty(text)) AddText(text);
+            }
+            catch { }
+        }
+
+        // ---------- 发指令：走该服 REST（不需要控制台） ----------
+
+        public void SendText(string msg)
+        {
+            if (_process == null) throw new InvalidOperationException("服务器未运行。");
+            var manifest = _profile.LoadManifest();
+            var port = manifest?.RestPort ?? 0;
+            var token = ReadRestToken();
+            if (port <= 0 || string.IsNullOrEmpty(token))
+            {
+                AddText("[提示] 该服未开启 REST，无法发送指令。\n");
+                return;
+            }
+            try
+            {
+                var url = $"http://127.0.0.1:{port}/v2/server/rawcmd?token={Uri.EscapeDataString(token)}";
+                var body = JsonConvert.SerializeObject(new { cmd = msg });
+                var content = new StringContent(body, Encoding.UTF8, "application/json");
+                var resp = Http.PostAsync(url, content).GetAwaiter().GetResult();
+                var text = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                AddText($"> {msg}\n{text}\n");
+            }
+            catch (Exception ex)
+            {
+                AddText($"[指令发送失败] {ex.Message}\n");
+            }
+        }
+
+        private string? ReadRestToken()
+        {
+            try
+            {
+                var cfg = Path.Combine(ServerDirectory, "tshock", "config.json");
+                if (!File.Exists(cfg)) return null;
+                var root = JsonConvert.DeserializeObject<dynamic>(File.ReadAllText(cfg));
+                var dict = root?.Settings?["Rest外部应用令牌字典"];
+                if (dict == null) return null;
+                foreach (var p in ((Newtonsoft.Json.Linq.JObject)dict).Properties()) return p.Name;
+            }
+            catch { }
+            return null;
+        }
+
+        // ---------- 备份 / 目录 ----------
+
         private void BackupServerFiles(string serverDirectory)
         {
             try
             {
                 var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
-                var safeName = SanitizeFileName(Name);
-                var profileBackupDir = Path.Combine(ManagerConfig.Resolve(_managerConfig.backupDir), safeName);
-                var target = Path.Combine(profileBackupDir, stamp);
-                var candidates = new[]
+                var target = Path.Combine(ManagerConfig.Resolve(_managerConfig.backupDir), SanitizeFileName(Name), stamp);
+                var copied = false;
+                foreach (var file in new[]
                 {
                     Path.Combine(serverDirectory, "tshock", _managerConfig.configFile),
                     Path.Combine(serverDirectory, "tshock", "sscconfig.json")
-                };
-                var copied = false;
-                foreach (var file in candidates)
+                })
                 {
                     if (!File.Exists(file)) continue;
                     Directory.CreateDirectory(target);
                     File.Copy(file, Path.Combine(target, Path.GetFileName(file)), true);
                     copied = true;
                 }
-                if (copied) PruneBackups(profileBackupDir, _managerConfig.backupKeep);
+                if (copied) PruneBackups(Path.Combine(ManagerConfig.Resolve(_managerConfig.backupDir), SanitizeFileName(Name)), _managerConfig.backupKeep);
             }
             catch { }
         }
@@ -356,13 +406,14 @@ namespace PGameTSManager
             return new string(value.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
         }
 
+        // ---------- 文本 UI ----------
+
         private void AddText(string text)
         {
             if (string.IsNullOrEmpty(text)) return;
             var dispatcher = _para.Dispatcher;
             if (dispatcher == null) return;
-            try { dispatcher.BeginInvoke(new Action(() => AppendText(text))); }
-            catch { }
+            try { dispatcher.BeginInvoke(new Action(() => AppendText(text))); } catch { }
         }
 
         private void AppendText(string text)
@@ -378,19 +429,6 @@ namespace PGameTSManager
                 OnTextChanged?.Invoke(this);
             }
             catch { }
-        }
-
-        public void SendText(string msg)
-        {
-            var process = _process;
-            if (process == null) throw new InvalidOperationException("服务器未运行。");
-            if (!process.StartInfo.RedirectStandardInput || _stdin == null)
-            {
-                AddText("[提示] 当前是“可见窗口”模式，请直接在服务器窗口里输入指令。\n");
-                return;
-            }
-            AddText($"{msg}\n");
-            _stdin.WriteLine(msg);
         }
 
         public override string ToString() => Name;

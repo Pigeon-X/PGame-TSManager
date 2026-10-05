@@ -160,6 +160,30 @@ powershell -ExecutionPolicy Bypass -File maintenance\tools\Remove-UnrelatedFiles
   -ManagerDir D:\59934\Desktop\PGame-TSManager
 ```
 
+## 目录里的几个特殊文件夹
+
+| 目录 | 是什么 | 能不能删 |
+| --- | --- | --- |
+| `bin\` | TShock 运行时本体（OTAPI/TerrariaServer/ModFramework/HttpServer）+ **插件的依赖库**（linq2db、Microsoft.Data.Sqlite、SQLitePCLRaw.*、Mono.Cecil.*、MonoMod.*） | ❌ 不能删 |
+| `runtimes\` | 插件依赖带的**原生库目录**：SQLite 原生引擎 `e_sqlite3`，按平台各一份。Windows 只需 `win-x64\`，其余是死重量 | 只删非 win-* 平台即可 |
+| `x64\` | TShock 自己建的空目录 | 空的可删 |
+| `_runtime\<服>\` | 每服的**运行沙箱**（exe 硬链接、bin/i18n/runtimes 用目录联接、tshock 联接回真配置目录、ServerPlugins 按该服 config.json 同步）。程序自动生成 | 可删，下次启动重建 |
+| `Plugins\` | 插件总库，**只放 TShock 插件本体** | ❌ 不能删 |
+| `Worlds\` | 世界文件 | ❌ 不能删 |
+
+```powershell
+# 精简 runtimes（只留 Windows 平台）
+powershell -ExecutionPolicy Bypass -File maintenance\tools\Trim-Runtimes.ps1 -ManagerDir D:\59934\Desktop\PGame-TSManager
+```
+
+## 运行方式
+
+- 默认 **只有 PGame-TSManager 一个窗口**：服务器用隐藏控制台运行（保住 stdin 不会 EOF 自退），
+  输出写进 `_runtime\<服>\console.log` 由管理器面板显示。
+- 管理器输入框发指令走该服的 **REST**（`/v2/server/rawcmd`），不需要控制台。
+- 想给某台服务器单独开可见控制台：把 `config.json` 的 `showServerWindow` 改成 `true`。
+- 调试可用命令行 `--nowindow`（强制无窗口）配合 `--startall`。
+
 ## 启动方式
 
 **直接双击 exe 启动，不再用 bat：**

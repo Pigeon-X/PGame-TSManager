@@ -1,4 +1,4 @@
-# PGame-TSManager 维护日志
+﻿# PGame-TSManager 维护日志
 
 - 2026-10-05：建立 Pigeon-X TSManager 维护仓库；内联 TerrariaServerAPI；建立 TShock 更新、配置中文、REST、插件维护、SSC 和 /help 冻结目录。
 - 2026-10-05：更名 TSManager -> PGame-TSManager（源码目录、解决方案、程序集均为 PGame-TSManager）；命名空间统一为 PGameTSManager；新增 serverProfiles 多服务器映射，直接接管既有服务端目录，不覆盖任何配置；启动前自动备份 server.properties / tshock\config.json / tshock\sscconfig.json。- 2026-10-05：新增 --selfcheck 无界面自检（写 selfcheck.txt，退出码 0/1）；config.json 与相对路径统一以程序目录为基准；本地与远程三个服务器（流光城 / 泰拉大陆 / 流光神域）部署完成并自检通过。
@@ -8,3 +8,4 @@
 - 2026-10-05：新增程序图标（PGame-TSManager.ico，16-256 多尺寸，嵌入 exe 并作为窗口图标）；新增 showServerWindow（默认 true，每服启动开独立可见控制台窗口）；新增 Remove-UnrelatedFiles.ps1 清理脚本；本地清出 340MB、远程清出 390MB；启动改为双击 exe / 桌面快捷方式，移除所有 .bat/.cmd 启动方式；远程三服已在 RDP 会话（Session 2）以可见窗口重启。
 - 2026-10-05：管理器改为「三服都在 PGame-TSManager 里开启」：新增「全部启动 / 全部停止」按钮与 --startall 命令行（打开窗口并自动启动三服）；showServerWindow 默认改回 false（服务器在管理器内运行，输出在管理器控制台面板）。本地+远程均已部署，远程管理器与三服均在 RDP 会话（Session 2）可见运行。
 - 2026-10-05：确立维护方针——以 PGame-TSManager 为唯一主体；TShock 更新由本仓库做兼容/汉化映射/config-REST 修复，SSC 保留英文，其余不动；插件编译好统一入 Plugins\，插件依赖库（不含 TShockAPI/TerrariaPlugin 引用）归入 bin\；各服启停由 1.PigeonServers\<服>\config.json 决定。新增 Sort-PluginDependencies.ps1；扩展 Remove-UnrelatedFiles.ps1（清归档/Backups/沙箱日志/停用插件/生成物）。本地依赖 5 个、远程 15 个已归入 bin\。
+- 2026-10-05：明确 _runtime 用途（每服运行沙箱：exe 硬链接 + bin/i18n/runtimes 目录联接 + tshock 联接回真配置 + 该服 ServerPlugins）并写进 README；启动改为「只有 PGame-TSManager 一个窗口」——服务器用隐藏控制台（stdin 不会 EOF 自退）+ 输出重定向到 console.log 由管理器回显，发指令改走各服 REST rawcmd；新增 --nowindow 调试开关；新增 Trim-Runtimes.ps1，runtimes 只保留 Windows 平台（28.5MB -> 5.7MB，本地+远程各省 23MB）。

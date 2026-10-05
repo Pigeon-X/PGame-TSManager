@@ -86,6 +86,10 @@ namespace PGameTSManager
         [JsonIgnore]
         public static string BaseDir => AppContext.BaseDirectory;
 
+        /// <summary>命令行 --nowindow 时临时覆盖 showServerWindow（仅调试用）。</summary>
+        [JsonIgnore]
+        public static bool? ShowWindowOverride = null;
+
         public static string Resolve(string path)
         {
             if (string.IsNullOrWhiteSpace(path)) return BaseDir;

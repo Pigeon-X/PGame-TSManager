@@ -53,6 +53,12 @@ namespace PGameTSManager
                 return;
             }
 
+            // --nowindow：调试用，强制不开服务器窗口（正式启动默认有窗口）
+            if (e.Args.Any(a => string.Equals(a, "--nowindow", StringComparison.OrdinalIgnoreCase)))
+            {
+                ManagerConfig.ShowWindowOverride = false;
+            }
+
             PGameTSManager.MainWindow.StartAllOnLoad = e.Args.Any(a => string.Equals(a, "--startall", StringComparison.OrdinalIgnoreCase));
 
             var window = new MainWindow();
