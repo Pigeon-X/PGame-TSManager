@@ -9,3 +9,9 @@
 - SSC 配置保持英文，不改键、不翻译。
 - REST 修复记录在 ../rest-fixes。
 - 配置中文映射记录在 ../config-translation。
+
+## 构建前置
+
+- 本仓库只保存源码，不提交 OTAPI、XNA、TerrariaServerAPI 编译产物或其它 DLL。
+- 构建 TSManager 前需在外部准备对应版本的 OTAPI/XNA/TShield 参考程序集。
+- 缺少这些参考程序集时，dotnet build 会出现 OTAPI/XNA 类型缺失错误，不代表源码结构损坏。
