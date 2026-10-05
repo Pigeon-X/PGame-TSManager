@@ -75,3 +75,14 @@ PGame-TSManager 只负责 启动 / 停止 / 转发控制台，**不生成、不�
 
 TerrariaServerAPI 源码保留在仓库中作为参考，但已从解决方案构建链移除，
 避免旧 OTAPI/XNA 引用阻断 PGame-TSManager。
+## 自检（一键部署后验证）
+
+```powershell
+PGame-TSManager.exe --selfcheck
+```
+
+无界面运行，检查 config.json 与每台服务器的目录 / TShock.Server.exe / tshock\config.json，
+结果写入同目录 selfcheck.txt，退出码 0=全部就绪、1=有缺失。
+
+- 程序以自身所在目录为基准解析 config.json 与相对路径（不受工作目录影响）。
+- 自检只读，不会启动服务器、不会改写任何配置。

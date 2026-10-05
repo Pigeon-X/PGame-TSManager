@@ -1,8 +1,7 @@
 <Application x:Class="PGameTSManager.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:PGameTSManager"
-             StartupUri="MainWindow.xaml">
+             xmlns:local="clr-namespace:PGameTSManager">
     <Application.Resources>
         <local:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
         <local:ToContainerConverter x:Key="ToContainerConverter"/>

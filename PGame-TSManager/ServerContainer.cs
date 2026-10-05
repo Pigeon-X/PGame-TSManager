@@ -93,10 +93,11 @@ namespace PGameTSManager
         private bool IsProfileMode => _profile.IsProfileMode;
 
         private string ServerDirectory => IsProfileMode
-            ? Path.GetFullPath(_profile.rootPath)
-            : Path.GetFullPath(Path.Combine(_managerConfig.serverDir, _profile.name));
+            ? _profile.ResolvedRootPath
+            : Path.GetFullPath(Path.Combine(ManagerConfig.Resolve(_managerConfig.serverDir), _profile.name));
 
-        private string LegacyConfigFile => Path.Combine(_managerConfig.serverDir, _profile.name, _managerConfig.configFile);
+        private string LegacyConfigFile => Path.Combine(
+            ManagerConfig.Resolve(_managerConfig.serverDir), _profile.name, _managerConfig.configFile);
 
         private void Start()
         {
@@ -179,18 +180,19 @@ namespace PGameTSManager
         private void BuildLegacyArguments(ProcessStartInfo info, string serverDirectory)
         {
             var serverConfig = LoadServerConfig();
+            var worldDir = ManagerConfig.Resolve(_managerConfig.worldDir);
 
             if (_managerConfig.useTShockLaunchArguments)
             {
                 var propertiesPath = Path.Combine(serverDirectory, _managerConfig.serverPropertiesFile);
                 if (!File.Exists(propertiesPath))
                 {
-                    File.WriteAllText(propertiesPath, BuildTShockServerProperties(serverConfig, _managerConfig.worldDir), Encoding.UTF8);
+                    File.WriteAllText(propertiesPath, BuildTShockServerProperties(serverConfig, worldDir), Encoding.UTF8);
                 }
 
                 info.ArgumentList.Add("-config");
                 info.ArgumentList.Add(propertiesPath);
-                AddWorldArgument(info, serverConfig, _managerConfig.worldDir);
+                AddWorldArgument(info, serverConfig, worldDir);
                 info.ArgumentList.Add("-port");
                 info.ArgumentList.Add(serverConfig.port.ToString(CultureInfo.InvariantCulture));
                 info.ArgumentList.Add("-maxplayers");
@@ -210,8 +212,8 @@ namespace PGameTSManager
             else
             {
                 info.ArgumentList.Add(Path.GetFullPath(LegacyConfigFile));
-                info.ArgumentList.Add(Path.GetFullPath(_managerConfig.pluginDir));
-                info.ArgumentList.Add(Path.GetFullPath(_managerConfig.worldDir));
+                info.ArgumentList.Add(ManagerConfig.Resolve(_managerConfig.pluginDir));
+                info.ArgumentList.Add(worldDir);
                 info.ArgumentList.Add(_profile.name);
                 info.ArgumentList.Add(Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
             }
@@ -221,7 +223,7 @@ namespace PGameTSManager
         {
             try
             {
-                var dir = Path.Combine(_managerConfig.serverDir, _profile.name);
+                var dir = Path.Combine(ManagerConfig.Resolve(_managerConfig.serverDir), _profile.name);
                 Directory.CreateDirectory(dir);
                 var configFile = LegacyConfigFile;
                 if (!File.Exists(configFile))
@@ -276,7 +278,8 @@ namespace PGameTSManager
             {
                 var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
                 var safeName = SanitizeFileName(Name);
-                var target = Path.Combine(AppContext.BaseDirectory, _managerConfig.backupDir, safeName, stamp);
+                var profileBackupDir = Path.Combine(ManagerConfig.Resolve(_managerConfig.backupDir), safeName);
+                var target = Path.Combine(profileBackupDir, stamp);
 
                 var candidates = new[]
                 {
@@ -296,7 +299,7 @@ namespace PGameTSManager
 
                 if (copied)
                 {
-                    PruneBackups(Path.Combine(AppContext.BaseDirectory, _managerConfig.backupDir, safeName), _managerConfig.backupKeep);
+                    PruneBackups(profileBackupDir, _managerConfig.backupKeep);
                 }
             }
             catch

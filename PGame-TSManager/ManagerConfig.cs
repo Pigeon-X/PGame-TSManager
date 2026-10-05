@@ -16,7 +16,7 @@ namespace PGameTSManager
         /// <summary>显示名称，同时作为界面标签。</summary>
         public string name = string.Empty;
 
-        /// <summary>已存在的服务端目录（绝对或相对本程序目录的路径）。</summary>
+        /// <summary>已存在的服务端目录（绝对路径，或相对本程序目录的路径）。</summary>
         public string rootPath = string.Empty;
 
         /// <summary>可执行文件名，默认 TShock.Server.exe。</summary>
@@ -33,10 +33,26 @@ namespace PGameTSManager
 
         [JsonIgnore]
         public bool IsProfileMode => !string.IsNullOrWhiteSpace(rootPath);
+
+        /// <summary>把 rootPath 解析为绝对路径（相对路径以本程序目录为基准）。</summary>
+        [JsonIgnore]
+        public string ResolvedRootPath => Path.GetFullPath(
+            Path.IsPathRooted(rootPath) ? rootPath : Path.Combine(ManagerConfig.BaseDir, rootPath));
     }
 
     public class ManagerConfig
     {
+        /// <summary>本程序所在目录，所有相对路径都以它为基准，避免受工作目录影响。</summary>
+        [JsonIgnore]
+        public static string BaseDir => AppContext.BaseDirectory;
+
+        /// <summary>把相对路径解析为以程序目录为基准的绝对路径。</summary>
+        public static string Resolve(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return BaseDir;
+            return Path.GetFullPath(Path.IsPathRooted(path) ? path : Path.Combine(BaseDir, path));
+        }
+
         // —— 旧版“在 Servers 下自建目录”模式，保留以兼容历史配置 ——
         public string worldDir = "Worlds";
         public string pluginDir = "Plugins";
@@ -59,15 +75,16 @@ namespace PGameTSManager
         private static ManagerConfig? _instance;
         public static ManagerConfig Instance => _instance ??= LoadConfig() ?? new ManagerConfig();
 
-        private const string ConfigFileName = "config.json";
+        private static string ConfigFilePath => Path.Combine(BaseDir, "config.json");
 
         private static ManagerConfig? LoadConfig()
         {
-            if (File.Exists(ConfigFileName))
+            var path = ConfigFilePath;
+            if (File.Exists(path))
             {
                 try
                 {
-                    return JsonConvert.DeserializeObject<ManagerConfig>(File.ReadAllText(ConfigFileName));
+                    return JsonConvert.DeserializeObject<ManagerConfig>(File.ReadAllText(path));
                 }
                 catch
                 {
@@ -84,7 +101,7 @@ namespace PGameTSManager
         {
             try
             {
-                File.WriteAllText(ConfigFileName, JsonConvert.SerializeObject(this, Formatting.Indented));
+                File.WriteAllText(ConfigFilePath, JsonConvert.SerializeObject(this, Formatting.Indented));
             }
             catch
             {
@@ -100,13 +117,15 @@ namespace PGameTSManager
         {
             if (serverProfiles != null && serverProfiles.Count > 0)
             {
-                return serverProfiles.Where(p => p != null && p.enabled);
+                return serverProfiles.Where(p => p != null && p.enabled).ToList();
             }
 
-            if (Directory.Exists(serverDir))
+            var legacyDir = Resolve(serverDir);
+            if (Directory.Exists(legacyDir))
             {
-                return Directory.GetDirectories(serverDir)
-                    .Select(dir => new ServerProfile { name = Path.GetFileName(dir) });
+                return Directory.GetDirectories(legacyDir)
+                    .Select(dir => new ServerProfile { name = Path.GetFileName(dir) })
+                    .ToList();
             }
 
             return Enumerable.Empty<ServerProfile>();
@@ -120,12 +139,12 @@ namespace PGameTSManager
 
             try
             {
-                if (!Directory.Exists(worldDir))
-                    Directory.CreateDirectory(worldDir);
-                if (!Directory.Exists(pluginDir))
-                    Directory.CreateDirectory(pluginDir);
-                if (!Directory.Exists(serverDir))
-                    Directory.CreateDirectory(serverDir);
+                foreach (var dir in new[] { worldDir, pluginDir, serverDir })
+                {
+                    var full = Resolve(dir);
+                    if (!Directory.Exists(full))
+                        Directory.CreateDirectory(full);
+                }
             }
             catch
             {
