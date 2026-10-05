@@ -33,6 +33,7 @@ namespace PGameTSManager
         private readonly ServerProfile _profile;
         private readonly Paragraph _para;
         private Process? _process;
+        private StreamWriter? _stdin;
 
         public bool IsRunning
         {
@@ -243,7 +244,8 @@ namespace PGameTSManager
             AddText($"[启动] {Name}  (共享 ServerPlugins，无窗口)\n");
             _process.Start();
             try { _process.BeginOutputReadLine(); _process.BeginErrorReadLine(); } catch { }
-            try { _process.StandardInput.AutoFlush = true; } catch { }
+            // 直接往服务器进程的 stdin 写指令（和旧版 TSM 一样），不依赖 REST
+            try { _stdin = _process.StandardInput; _stdin.AutoFlush = true; } catch { }
 
             OnPropertyChanged(nameof(IsRunning));
             OnPropertyChanged(nameof(StatusBrush));
@@ -315,38 +317,19 @@ namespace PGameTSManager
             return new string(value.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
         }
 
-        // ---------- 发指令：走该服 REST（不需要控制台） ----------
+        // ---------- 发指令：往服务器控制台注入按键（不依赖 REST / PGameAPI / stdin） ----------
         public void SendText(string msg)
         {
-            if (_process == null) throw new InvalidOperationException("服务器未运行。");
-            var manifest = _profile.LoadManifest();
-            var port = manifest?.RestPort ?? 0;
-            var token = ReadRestToken();
-            if (port <= 0 || string.IsNullOrEmpty(token)) { AddText("[提示] 该服未开启 REST，无法发送指令。\n"); return; }
-            try
+            var process = _process;
+            if (process == null) throw new InvalidOperationException("服务器未运行。");
+            if (ConsoleInjector.Send((uint)process.Id, msg, out var err))
             {
-                var url = $"http://127.0.0.1:{port}/v2/server/rawcmd?token={Uri.EscapeDataString(token)}";
-                var body = JsonConvert.SerializeObject(new { cmd = msg });
-                var content = new StringContent(body, Encoding.UTF8, "application/json");
-                var resp = Http.PostAsync(url, content).GetAwaiter().GetResult();
-                AddText($"> {msg}\n{resp.Content.ReadAsStringAsync().GetAwaiter().GetResult()}\n");
+                AddText($"> {msg}\n");
             }
-            catch (Exception ex) { AddText($"[指令发送失败] {ex.Message}\n"); }
-        }
-
-        private string? ReadRestToken()
-        {
-            try
+            else
             {
-                var cfg = Path.Combine(ServerDirectory, "tshock", "config.json");
-                if (!File.Exists(cfg)) return null;
-                var root = JsonConvert.DeserializeObject<dynamic>(File.ReadAllText(cfg));
-                var dict = root?.Settings?["Rest外部应用令牌字典"];
-                if (dict == null) return null;
-                foreach (var p in ((Newtonsoft.Json.Linq.JObject)dict).Properties()) return p.Name;
+                AddText($"[指令发送失败] {err}\n");
             }
-            catch { }
-            return null;
         }
 
         // ---------- 彩色文本 ----------
