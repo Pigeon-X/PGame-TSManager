@@ -28,6 +28,37 @@ namespace PGameTSManager
         private DispatcherTimer? _tailTimer;
         private long _tailPos;
         private string? _logPath;
+        private string? consoleTitle;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        private const int SW_HIDE = 0;
+
+        /// <summary>按标题找到刚创建的控制台窗口并隐藏（后台轮询最多 15 秒）。</summary>
+        private void HideConsoleWindowAsync()
+        {
+            var title = consoleTitle;
+            if (string.IsNullOrEmpty(title)) return;
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                for (var i = 0; i < 150; i++)
+                {
+                    try
+                    {
+                        var h = FindWindow(null, title);
+                        if (h != IntPtr.Zero)
+                        {
+                            ShowWindow(h, SW_HIDE);
+                            return;
+                        }
+                    }
+                    catch { }
+                    System.Threading.Thread.Sleep(100);
+                }
+            });
+        }
 
         public bool IsRunning
         {
@@ -175,34 +206,22 @@ namespace PGameTSManager
                 // cmd 自己会拿到一个（隐藏的）控制台，服务器用 start /b 继承它 →
                 // stdin 是真正的控制台输入，TShock 6.2 不会因 EOF 自行退出；同时看不到任何窗口。
                 Directory.CreateDirectory(Path.Combine(runtimeDirectory, "Logs"));
-                // 用 WMI 创建进程：只有这种创建方式会给 cmd 分配一个真实（可隐藏）的控制台，
-                // 服务器继承后 stdin 不会 EOF，TShock 6.2 才会一直运行；同时不弹任何窗口。
-                var cmdLine = "cmd.exe /c cd /d " + Quote(runtimeDirectory) + " && " + Quote(executable) + " " + arguments;
-                LaunchViaWmi(cmdLine, out var launchedPid);
-
-                AddText($"[启动] {Name}\n");
-                StartTail(runtimeDirectory);
-
-                if (launchedPid > 0)
+                // ★ B 方案：让服务器拿到「真实控制台」，再把窗口藏起来。
+                //   GUI（WPF）父进程默认没有控制台，子进程会拿不到 stdin → TShock 报错时
+                //   Console.ForegroundColor 抛 IOException → 被主循环吞掉 → 静默 exit 0。
+                //   做法：用 cmd 起（CreateNoWindow=false 时 Windows 会给 cmd 分配一个新控制台），
+                //   服务器继承该控制台；再用 FindWindow 按标题把那个控制台窗口 SW_HIDE 掉。
+                consoleTitle = "PGame-" + Name + "-" + Guid.NewGuid().ToString("N").Substring(0, 6);
+                var cmdArgs = "/c title " + consoleTitle + " & cd /d " + Quote(runtimeDirectory) +
+                              " & " + Quote(executable) + " " + arguments;
+                info = new ProcessStartInfo
                 {
-                    _process = Process.GetProcessById(launchedPid);
-                    _process.EnableRaisingEvents = true;
-                    _process.Exited += (_, _) =>
-                    {
-                        var code = _process != null && _process.HasExited ? _process.ExitCode : -999;
-                        AddText($"---服务器已退出（退出码 {code}）---\n");
-                        _process?.Dispose();
-                        _process = null;
-                        StopTail();
-                        OnPropertyChanged(nameof(IsRunning));
-                        OnPropertyChanged(nameof(StatusBrush));
-                        OnPropertyChanged(nameof(StatusText));
-                    };
-                }
-                OnPropertyChanged(nameof(IsRunning));
-                OnPropertyChanged(nameof(StatusBrush));
-                OnPropertyChanged(nameof(StatusText));
-                return;
+                    FileName = "cmd.exe",
+                    Arguments = cmdArgs,
+                    WorkingDirectory = runtimeDirectory,
+                    UseShellExecute = false,
+                    CreateNoWindow = false      // 关键：让 Windows 给 cmd 分配一个新控制台
+                };
             }
 
             _process = new Process { StartInfo = info, EnableRaisingEvents = true };
@@ -222,6 +241,7 @@ namespace PGameTSManager
 
             AddText($"[启动] {Name}\n");
             _process.Start();
+            if (!showWindow) HideConsoleWindowAsync();
             if (info.RedirectStandardOutput) _process.BeginOutputReadLine();
             if (info.RedirectStandardError) _process.BeginErrorReadLine();
 

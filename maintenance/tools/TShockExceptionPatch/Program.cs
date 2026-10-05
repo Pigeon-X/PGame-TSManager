@@ -12,7 +12,25 @@ internal static class Program
     {
         if (args.Length < 1) { Console.WriteLine("用法: TShockExceptionPatch <OTAPI.dll>"); return 1; }
         var path = args[0];
-        var asm = AssemblyDefinition.ReadAssembly(path);
+        // 关键：必须用 InMemory，否则 Cecil 会一直持有文件句柄，Write 同路径必报
+            // “file is being used by another process”
+            var resolver = new DefaultAssemblyResolver();
+            var selfDir = Path.GetDirectoryName(Path.GetFullPath(path));
+            resolver.AddSearchDirectory(selfDir);
+            foreach (var extra in new[] { Path.Combine(selfDir, "..", "bin"), Path.Combine(selfDir, "..", "ServerPlugins") })
+            {
+                if (Directory.Exists(extra)) resolver.AddSearchDirectory(Path.GetFullPath(extra));
+            }
+
+            var asm = AssemblyDefinition.ReadAssembly(path, new ReaderParameters
+            {
+                InMemory = true,
+                AssemblyResolver = resolver
+            });
+            _ = new ReaderParameters
+            {
+                InMemory = true
+            });
         var module = asm.MainModule;
 
         var target = AllTypes(module.Types)
