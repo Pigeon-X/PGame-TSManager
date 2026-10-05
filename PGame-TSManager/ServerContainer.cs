@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -144,7 +145,7 @@ namespace PGameTSManager
                 {
                     BackupServerFiles(serverDirectory);
                 }
-                info.Arguments = _profile.arguments ?? string.Empty;
+                info.Arguments = PrepareProfileServer(serverDirectory);
             }
             else
             {
@@ -177,6 +178,37 @@ namespace PGameTSManager
             OnPropertyChanged(nameof(IsRunning));
         }
 
+        /// <summary>
+        /// 映射模式启动前：读取每服 config.json（TSM 配置），按「总插件库」同步 ServerPlugins，
+        /// 返回该服实际使用的启动参数。不生成、不覆盖任何服务器配置。
+        /// </summary>
+        private string PrepareProfileServer(string serverDirectory)
+        {
+            var manifest = _profile.LoadManifest();
+            var arguments = !string.IsNullOrWhiteSpace(_profile.arguments)
+                ? _profile.arguments
+                : manifest?.Arguments ?? string.Empty;
+
+            var pluginList = (_profile.plugins != null && _profile.plugins.Count > 0)
+                ? _profile.plugins
+                : manifest?.Plugins ?? new List<string>();
+            var prune = manifest?.PrunePlugins ?? _managerConfig.prunePlugins;
+
+            if (_managerConfig.syncPluginsOnStart && pluginList.Count > 0)
+            {
+                try
+                {
+                    var library = _managerConfig.ResolvePluginLibrary(_profile, manifest);
+                    PluginSync.Apply(serverDirectory, library, pluginList, prune, _managerConfig.disabledPluginDir, AddText);
+                }
+                catch (Exception ex)
+                {
+                    AddText($"[插件同步] 失败：{ex.Message}\n");
+                }
+            }
+
+            return arguments;
+        }
         private void BuildLegacyArguments(ProcessStartInfo info, string serverDirectory)
         {
             var serverConfig = LoadServerConfig();

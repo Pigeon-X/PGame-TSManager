@@ -20,6 +20,13 @@ namespace PGameTSManager
                 return;
             }
 
+            // 按每服 config.json 从总插件库同步 ServerPlugins（不启动服务器）。
+            if (e.Args.Any(a => string.Equals(a, "--syncplugins", StringComparison.OrdinalIgnoreCase)))
+            {
+                Shutdown(SelfCheck.SyncPlugins());
+                return;
+            }
+
             var window = new MainWindow();
             window.Show();
         }

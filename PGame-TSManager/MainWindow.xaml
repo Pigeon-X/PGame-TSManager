@@ -7,12 +7,12 @@
         xmlns:Linq="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json" x:Class="PGameTSManager.MainWindow"
         mc:Ignorable="d"
         DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
-        Title="{Binding Path=Title, Mode=OneWay}" Height="450" Width="768" Name="Window" Loaded="Window_Loaded">
+        Title="{Binding Path=Title, Mode=OneWay}" Height="480" Width="820" Name="Window" Loaded="Window_Loaded">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="100"/>
-            <ColumnDefinition Width="100"/>
+            <ColumnDefinition Width="110"/>
+            <ColumnDefinition Width="110"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height ="40"/>
@@ -21,7 +21,7 @@
         </Grid.RowDefinitions>
         <ComboBox Grid.Row="0" Grid.Column="0" x:Name="ComboBox" Margin="5" VerticalAlignment="Stretch"
                   HorizontalAlignment="Stretch" ItemsSource="{Binding Containers, ElementName=Window, Mode=OneWay}"
-                  SelectionChanged="ComboBox_SelectionChanged">
+                  SelectionChanged="ComboBox_SelectionChanged" ToolTip="选择服务器">
             <ComboBox.ItemTemplate>
                 <DataTemplate>
                     <CheckBox HorizontalAlignment="Center" Margin="5" Content="{Binding Name}"
@@ -29,20 +29,21 @@
                 </DataTemplate>
             </ComboBox.ItemTemplate>
         </ComboBox>
-        <Button x:Name="StartButton" Margin="5" Content="Start" HorizontalAlignment="Stretch"
+        <Button x:Name="StartButton" Margin="5" Content="启动" HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch" Grid.Row="0" Grid.Column="1" Click="StartButton_Click"
                 DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
                 IsEnabled="{Binding Path=IsRunning, Mode=OneWay, Converter={StaticResource InverseBooleanConverter}}" />
-        <Button x:Name="KillButton" Margin="5" Content="Kill" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+        <Button x:Name="KillButton" Margin="5" Content="停止" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                 Grid.Row="0" Grid.Column="2" Click="KillButton_Click"
                 DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
                 IsEnabled="{Binding IsRunning, Mode=OneWay}" />
         <RichTextBox x:Name="CliTextBox" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Background="Black"
-                     Foreground="LightGray" FontFamily="Consolas" IsReadOnly="True" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Visible" />
+                     Foreground="LightGray" FontFamily="Consolas" IsReadOnly="True" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Visible"
+                     ToolTip="服务器控制台输出" />
         <TextBox x:Name="TextBox" Margin="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Grid.Row="2"
                  Grid.Column="0" Grid.ColumnSpan="2" TextWrapping="NoWrap" FontSize="15"
-                 PreviewKeyDown="TextBox_PreviewKeyDown" />
-        <Button x:Name="SendAllButton" Margin="5" Content="SendAll" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                Grid.Row="2" Grid.Column="2" Click="SendAllButton_Click" />
+                 PreviewKeyDown="TextBox_PreviewKeyDown" ToolTip="输入服务器指令后按回车发送" />
+        <Button x:Name="SendAllButton" Margin="5" Content="全部发送" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                Grid.Row="2" Grid.Column="2" Click="SendAllButton_Click" ToolTip="把输入框内容发送给所有正在运行的服务器" />
     </Grid>
 </Window>
