@@ -25,6 +25,29 @@ internal static class Program
         Console.WriteLine(s);
     }
 
+    /// <summary>字符 -> 虚拟键码（很多控制台会忽略 VK=0 的事件，必须填）</summary>
+    private static ushort VkOf(char c)
+    {
+        if (c >= 'a' && c <= 'z') return (ushort)(0x41 + (c - 'a'));
+        if (c >= 'A' && c <= 'Z') return (ushort)(0x41 + (c - 'A'));
+        if (c >= '0' && c <= '9') return (ushort)(0x30 + (c - '0'));
+        switch (c)
+        {
+            case ' ': return 0x20;
+            case '\r': return 0x0D;
+            case '\n': return 0x0D;
+            case '/': return 0xBF;   // VK_OEM_2
+            case '\\': return 0xDC;  // VK_OEM_5
+            case '-': return 0xBD;   // VK_OEM_MINUS
+            case '=': return 0xBB;   // VK_OEM_PLUS
+            case '.': return 0xBE;   // VK_OEM_PERIOD
+            case ',': return 0xBC;   // VK_OEM_COMMA
+            case ';': return 0xBA;   // VK_OEM_1
+            case '\'': return 0xDE;  // VK_OEM_7
+            default: return 0;
+        }
+    }
+
     private static int Main(string[] args)
     {
         if (args.Length < 2) { Console.WriteLine("用法: ConsoleInject <PID> <指令>"); return 1; }
@@ -44,7 +67,7 @@ internal static class Program
             var list = new List<INPUT_RECORD>();
             foreach (var ch in text + "\r")
                 foreach (var down in new[] { true, false })
-                    list.Add(new INPUT_RECORD { EventType = 1, KeyEvent = new KEY_EVENT_RECORD { bKeyDown = down, wRepeatCount = 1, UnicodeChar = ch } });
+                    list.Add(new INPUT_RECORD { EventType = 1, KeyEvent = new KEY_EVENT_RECORD { bKeyDown = down, wRepeatCount = 1, wVirtualKeyCode = VkOf(ch), UnicodeChar = ch } });
 
             if (!WriteConsoleInputW(h, list.ToArray(), (uint)list.Count, out var written))
             { Log("WriteConsoleInput 失败 err=" + Marshal.GetLastWin32Error()); return 4; }

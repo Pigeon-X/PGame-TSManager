@@ -91,6 +91,96 @@ namespace PGameTSManager
             r["LogCmd"]    = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4C8DF6"));
         }
 
+        private static System.Windows.Forms.NotifyIcon? _tray;
+
+        /// <summary>托盘图标：最小化到托盘后可从托盘恢复。</summary>
+        private static void SetupTrayIcon(Window window)
+        {
+            try
+            {
+                _tray = new System.Windows.Forms.NotifyIcon
+                {
+                    Text = "PGame-TSManager",
+                    Visible = false,
+                    Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location)
+                };
+                var menu = new System.Windows.Forms.ContextMenuStrip();
+                menu.Items.Add("显示管理器", null, (_, _) => RestoreFromTray(window));
+                menu.Items.Add("退出", null, (_, _) => { LogCrash("TrayExit", null); Current.Shutdown(); });
+                _tray.ContextMenuStrip = menu;
+                _tray.DoubleClick += (_, _) => RestoreFromTray(window);
+            }
+            catch (Exception ex) { LogCrash("SetupTrayIcon", ex); }
+        }
+
+        private static void RestoreFromTray(Window window)
+        {
+            try
+            {
+                if (_tray != null) _tray.Visible = false;
+                window.Show();
+                window.WindowState = WindowState.Normal;
+                window.Activate();
+                window.Topmost = true; window.Topmost = false;
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// 点 × 时询问：最小化到托盘 / 关闭 / 取消。
+        /// 选"关闭"还要再确认一次（是与否）。
+        /// </summary>
+        private static void OnMainWindowClosing(Window window, System.ComponentModel.CancelEventArgs e)
+        {
+            e.Cancel = true;   // 一律先拦下，由我们决定
+            try
+            {
+                var choice = System.Windows.MessageBox.Show(
+                    window,
+                    "要最小化到托盘，还是退出 PGame-TSManager？\n\n" +
+                    "【是】= 最小化到托盘（它在后台继续管理你的服务器）\n" +
+                    "【否】= 退出程序\n" +
+                    "【取消】= 什么都不做",
+                    "PGame-TSManager",
+                    MessageBoxButton.YesNoCancel,
+                    MessageBoxImage.Question,
+                    MessageBoxResult.Cancel);
+
+                if (choice == MessageBoxResult.Yes)
+                {
+                    if (_tray != null)
+                    {
+                        _tray.Visible = true;
+                        try { _tray.ShowBalloonTip(2000, "PGame-TSManager", "已最小化到托盘，双击图标可恢复。", System.Windows.Forms.ToolTipIcon.Info); } catch { }
+                    }
+                    window.Hide();
+                    return;
+                }
+
+                if (choice == MessageBoxResult.No)
+                {
+                    var confirm = System.Windows.MessageBox.Show(
+                        window,
+                        "确定要退出吗？\n\n正在运行的服务器会一起被关闭。",
+                        "确认退出",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Warning,
+                        MessageBoxResult.No);
+                    if (confirm == MessageBoxResult.Yes)
+                    {
+                        if (_tray != null) { _tray.Visible = false; _tray.Dispose(); _tray = null; }
+                        LogCrash("MainWindowClosing", null);
+                        e.Cancel = false;
+                        Current.Shutdown();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogCrash("OnMainWindowClosing", ex);
+            }
+        }
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
@@ -110,7 +200,8 @@ namespace PGameTSManager
                 e.Args.Any(a => string.Equals(a, "--startall", StringComparison.OrdinalIgnoreCase));
 
             var window = new MainWindow();
-            window.Closing += (_, _) => { LogCrash("MainWindowClosing", null); Current.Shutdown(); };
+            SetupTrayIcon(window);
+            window.Closing += (_, e) => OnMainWindowClosing(window, e);
             window.Show();
             window.WindowState = WindowState.Normal;
             window.ShowInTaskbar = true;

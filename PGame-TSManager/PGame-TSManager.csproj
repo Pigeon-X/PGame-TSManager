@@ -5,6 +5,7 @@
     <TargetFramework>net9.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>PGame-TSManager</AssemblyName>
     <RootNamespace>PGameTSManager</RootNamespace>
     <AssemblyTitle>PGame-TSManager</AssemblyTitle>
