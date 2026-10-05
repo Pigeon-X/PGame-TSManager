@@ -27,7 +27,7 @@ namespace PGameTSManager
     /// </summary>
     public class ServerContainer : INotifyPropertyChanged
     {
-        private static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        private static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
 
         private readonly ManagerConfig _managerConfig;
         private readonly ServerProfile _profile;
@@ -318,47 +318,95 @@ namespace PGameTSManager
         }
 
         // ---------- 发指令 ----------
-        // 优先：往服务器控制台注入按键（完全等价于人工敲键盘，不依赖 REST / PGameAPI）
-        // 兜底：走该服 REST 的 rawcmd 端点（若该服 REST 实现了这个端点）
+        // 走 TShock 官方 REST 的 rawcmd（已按 TShock 6.2.1 源码核对过）：
+        //   POST /v3/server/rawcmd?token=<外部应用令牌>&cmd=<指令>
+        //   返回 {"status":"200","response":["输出行", ...]}
+        //   TShock 的 HandleCommand 要求指令带前导 '/'，所以这里自动补。
+        //   ⚠ 旧写法 /v2/server/rawcmd 在 6.2.1 上不存在 → 必然 404（之前发不出指令就是这个原因）。
+        // 另外两条路在 TShock 6.2 上都不可用，故不再使用：
+        //   - 重定向 stdin：TShock 明确拒绝（"Input redirection is not supported"）
+        //   - 控制台按键注入：写入成功但服务器不读取（输入被 OTAPI detour 接管）
         public void SendText(string msg)
         {
-            var process = _process;
-            if (process == null) throw new InvalidOperationException("服务器未运行。");
+            if (_process == null) throw new InvalidOperationException("服务器未运行。");
 
-            if (ConsoleInjector.Send((uint)process.Id, msg, out var injectErr))
-            {
-                AddText($"> {msg}\n");
-                return;
-            }
+            var cmd = (msg ?? "").Trim();
+            if (cmd.Length == 0) return;
+            if (cmd[0] != '/') cmd = "/" + cmd;          // TShock 要求前导斜杠
 
-            var restErr = TrySendViaRest(msg);
+            var restErr = TrySendViaRest(cmd);
             if (restErr == null) return;
 
-            AddText($"[指令发送失败] 注入失败({injectErr})；REST 也失败({restErr})\n");
+            // 兜底：往服务器 stdin 写一行（部分版本/插件组合下有效）
+            if (_stdin != null)
+            {
+                try { _stdin.WriteLine(cmd); AddText($"> {cmd}（stdin 兜底）\n"); return; } catch { }
+            }
+
+            AddText($"[指令发送失败] {restErr}\n");
         }
 
-        /// <summary>兜底：REST /v2/server/rawcmd。成功返回 null，失败返回错误描述。</summary>
-        private string? TrySendViaRest(string msg)
+        /// <summary>REST /v3/server/rawcmd。成功返回 null，失败返回错误描述。</summary>
+        private string? TrySendViaRest(string cmd)
+        {
+            var err = SendCommandViaRest(cmd, out var output);
+            if (err == null) AddText($"> {cmd}\n{output}\n");
+            return err;
+        }
+
+        /// <summary>
+        /// 把一条指令通过该服的 TShock REST 送进服务器控制台。
+        /// 不依赖界面、不依赖进程对象，可被 --send 命令行模式复用。
+        /// 成功返回 null 且 output = 命令回显；失败返回错误描述。
+        /// </summary>
+        public string? SendCommandViaRest(string cmd, out string output)
+        {
+            output = "";
+            var manifest = _profile.LoadManifest();
+            var port = manifest?.RestPort ?? 0;
+            if (port <= 0) return "该服未配置 REST 端口（config.json 的 REST端口）";
+            var token = ReadRestToken();
+            if (string.IsNullOrEmpty(token)) return "该服 tshock\\config.json 里没有 REST 令牌（Rest外部应用令牌字典）";
+
+            string? lastErr = null;
+            // v3 为准；/server/rawcmd 是 TShock 注册的重定向，作为兜底
+            foreach (var path in new[] { "v3/server/rawcmd", "server/rawcmd" })
+            {
+                try
+                {
+                    var url = $"http://127.0.0.1:{port}/{path}?token={Uri.EscapeDataString(token)}&cmd={Uri.EscapeDataString(cmd)}";
+                    using var content = new StringContent("", Encoding.UTF8, "application/x-www-form-urlencoded");
+                    using var resp = Http.PostAsync(url, content).GetAwaiter().GetResult();
+                    var body = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                    if (!resp.IsSuccessStatusCode) { lastErr = $"HTTP {(int)resp.StatusCode}（{path}）"; continue; }
+
+                    output = FormatRestResponse(body);
+                    return null;
+                }
+                catch (Exception ex) { lastErr = ex.Message; }
+            }
+            return lastErr ?? "未知错误";
+        }
+
+        /// <summary>REST 返回 JSON 里的 response 可能是字符串或字符串数组，统一成可读文本。</summary>
+        private static string FormatRestResponse(string body)
         {
             try
             {
-                var manifest = _profile.LoadManifest();
-                var port = manifest?.RestPort ?? 0;
-                if (port <= 0) return "该服未配置 REST 端口";
-                var token = ReadRestToken();
-                if (string.IsNullOrEmpty(token)) return "该服 REST 没有令牌";
+                var obj = JsonConvert.DeserializeObject<dynamic>(body);
+                string text;
+                var resp = obj?.response;
+                if (resp == null) text = body;
+                else if (resp is Newtonsoft.Json.Linq.JArray arr)
+                    text = string.Join("\n", arr.Select(x => x?.ToString() ?? ""));
+                else text = resp.ToString();
 
-                var url = $"http://127.0.0.1:{port}/v2/server/rawcmd?token={Uri.EscapeDataString(token)}";
-                var content = new StringContent(JsonConvert.SerializeObject(new { cmd = msg }), Encoding.UTF8, "application/json");
-                var resp = Http.PostAsync(url, content).GetAwaiter().GetResult();
-                var text = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-                if (!resp.IsSuccessStatusCode) return $"HTTP {(int)resp.StatusCode}（端点可能不存在）";
-                AddText($"> {msg}\n{text}\n");
-                return null;
+                // 去掉 Terraria 客户端颜色标记 [c/FF0000:文字] → 文字（面板自己上色，读起来更清爽）
+                text = System.Text.RegularExpressions.Regex.Replace(text, @"\[c/([0-9A-Fa-f]{6}):(.*?)\]", "$2");
+                return text.Replace("\r", "").TrimEnd();
             }
-            catch (Exception ex) { return ex.Message; }
+            catch { return body; }
         }
-
         private string? ReadRestToken()
         {
             try

@@ -12,3 +12,5 @@
 - 2026-10-05：锁定两条硬规则——① PGame-TSManager.exe 启动必须可视化显示窗口（WindowState=Normal、ShowInTaskbar=True、Activate+置前后台），不允许隐藏/无窗口；② 绝不带出 TShock 控制台窗口，服务器一律隐藏控制台运行（用 SW_HIDE 直启 exe，保留真实控制台以免 stdin EOF 自退）。面板回显改为读 TShock 自己写的 _runtime\<服>\Logs\<日期>.log。远程服务器定位为「源测试端」。
 
 - 2026-10-06：最小化/关闭交互定稿（选项 B 落地）——点 × 弹「缩小到托盘 / 关闭程序 / 取消」，选「关闭」再弹一次是与否确认；新增 _exiting 放行标志，修掉确认退出时 Current.Shutdown() 再次触发 Closing 可能二次弹窗的问题；托盘菜单「退出」同样直接放行。远程三服复测：TSM 窗口 Visible、TShock 窗口 0、2021/2023/2024 + REST 7878/7879/7880 全部 200、插件 15/29/29 无异常。
+
+- 2026-10-06：**发指令链路打通**。查官方 TShock 6.2.1 源码（TShockAPI\Rest\RestManager.cs）发现 rawcmd 端点是 /v3/server/rawcmd，旧的 /v2/server/rawcmd 必然 404 —— 这就是长期发不出指令的真正原因。TSM 改为 REST 主通道（自动补前导 /，解析 response 数组，去掉 [c/xxx:] 颜色标记），删除失效的 ConsoleInjector；新增 --send 无界面发指令模式。远程三服实测 exit=0 并回显命令列表；新增 maintenance\command-channel\README.md。

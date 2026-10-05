@@ -40,3 +40,9 @@ powershell -ExecutionPolicy Bypass -File ..\tools\Test-TShockConfig.ps1 -ServerP
 ```
 
 `REST 令牌字段` 一项会直接指出仍是英文键或值缺失的令牌。
+## 指令端点（重要）
+
+TShock 6.2.1 的 rawcmd 端点是 **`/v3/server/rawcmd`**（`/v2/server/rawcmd` 不存在，会 404）。
+详见 `..\command-channel\README.md`。
+
+TSM 发指令、`--send` 命令行模式都走这个端点。

@@ -196,6 +196,9 @@ namespace PGameTSManager
             if (e.Args.Any(a => string.Equals(a, "--syncplugins", StringComparison.OrdinalIgnoreCase)))
             { Shutdown(SelfCheck.SyncPlugins()); return; }
 
+            if (e.Args.Any(a => string.Equals(a, "--send", StringComparison.OrdinalIgnoreCase)))
+            { Shutdown(Cli.Send(e.Args)); return; }
+
             ApplyTheme();
 
             if (e.Args.Any(a => string.Equals(a, "--nowindow", StringComparison.OrdinalIgnoreCase)))
