@@ -1,4 +1,4 @@
-# PGame-TSManager
+﻿# PGame-TSManager
 
 Multi-server manager for TShock（鸽子服 TShock 多开管理器）。
 
@@ -86,3 +86,11 @@ PGame-TSManager.exe --selfcheck
 
 - 程序以自身所在目录为基准解析 config.json 与相对路径（不受工作目录影响）。
 - 自检只读，不会启动服务器、不会改写任何配置。
+## 维护校验
+
+```powershell
+powershell -ExecutionPolicy Bypass -File maintenance\tools\Test-TShockConfig.ps1 -ServerPath '<服务端目录>'
+```
+
+只读校验该服务端目录：config.json 中文键、REST 令牌字段（用户名/用户组）、SSC 保持英文。
+退出码 0 = 通过。详见 maintenance/README.md。
