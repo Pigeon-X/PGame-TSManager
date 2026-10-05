@@ -133,7 +133,7 @@ namespace PGameTSManager
             if (!File.Exists(executable)) throw new FileNotFoundException($"找不到服务端可执行文件：{executable}");
 
             var arguments = BuildArguments(runtimeDirectory, manifest);
-            var showWindow = ManagerConfig.ShowWindowOverride ?? _managerConfig.showServerWindow;
+            var showWindow = false;   // 规则：绝不显示 TShock 窗口，永远隐藏控制台
 
             ProcessStartInfo info;
             if (showWindow)
@@ -150,18 +150,14 @@ namespace PGameTSManager
             }
             else
             {
-                // 默认模式：只有 PGame-TSManager 窗口。
-                // 用「隐藏控制台 + 输出重定向到文件」：
-                //   - 保留真实控制台 → TShock 的 stdin 不会 EOF，不会自己退出
-                //   - 控制台隐藏     → 看不到多余的窗口
-                //   - 输出进 console.log，由管理器读取显示
-                _logPath = Path.Combine(runtimeDirectory, "console.log");
-                try { File.WriteAllText(_logPath, string.Empty, new UTF8Encoding(false)); } catch { }
-                var cmd = "/c " + Quote(executable) + " " + arguments + " >> " + Quote(_logPath) + " 2>&1";
+                // 规则：只有 PGame-TSManager 一个窗口，绝不带出 TShock 控制台。
+                // 直接用「隐藏窗口」启动：进程仍然拥有一个真实控制台（stdin 不会 EOF，
+                // TShock 6.2 不会自己退出），但窗口是隐藏的，看不到。
+                // 面板回显改为读 TShock 自己写的日志：_runtime\<服>\Logs\<日期>.log
                 info = new ProcessStartInfo
                 {
-                    FileName = "cmd.exe",
-                    Arguments = cmd,
+                    FileName = executable,
+                    Arguments = arguments,
                     WorkingDirectory = runtimeDirectory,
                     UseShellExecute = true,
                     WindowStyle = ProcessWindowStyle.Hidden
@@ -182,7 +178,7 @@ namespace PGameTSManager
             AddText($"[启动] {Name}\n");
             _process.Start();
 
-            if (!showWindow) StartTail();
+            if (!showWindow) StartTail(runtimeDirectory);
             OnPropertyChanged(nameof(IsRunning));
         }
 
@@ -291,11 +287,14 @@ namespace PGameTSManager
 
         // ---------- 日志回显（隐藏控制台模式） ----------
 
-        private void StartTail()
+        private string? _logDir;
+
+        private void StartTail(string runtimeDirectory)
         {
-            if (string.IsNullOrEmpty(_logPath)) return;
+            _logDir = Path.Combine(runtimeDirectory, "Logs");
+            Directory.CreateDirectory(_logDir);
             _tailPos = 0;
-            _tailTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+            _tailTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
             _tailTimer.Tick += (_, _) => TailOnce();
             _tailTimer.Start();
         }
@@ -310,7 +309,10 @@ namespace PGameTSManager
         {
             try
             {
-                if (string.IsNullOrEmpty(_logPath) || !File.Exists(_logPath)) return;
+                if (string.IsNullOrEmpty(_logDir) || !Directory.Exists(_logDir)) return;
+                var newest = new DirectoryInfo(_logDir).GetFiles("*.log").OrderByDescending(f => f.LastWriteTimeUtc).FirstOrDefault();
+                if (newest == null) return;
+                if (_logPath != newest.FullName) { _logPath = newest.FullName; _tailPos = 0; }
                 using var fs = new FileStream(_logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                 if (fs.Length < _tailPos) _tailPos = 0;
                 fs.Seek(_tailPos, SeekOrigin.Begin);

@@ -13,7 +13,6 @@ namespace PGameTSManager
     {
         public App()
         {
-            // 兜底：任何未处理异常都记到 crash.log，并尽量让管理器继续运行（子进程不能被带走）
             DispatcherUnhandledException += (_, e) =>
             {
                 LogCrash("DispatcherUnhandledException", e.Exception);
@@ -53,16 +52,29 @@ namespace PGameTSManager
                 return;
             }
 
-            // --nowindow：调试用，强制不开服务器窗口（正式启动默认有窗口）
             if (e.Args.Any(a => string.Equals(a, "--nowindow", StringComparison.OrdinalIgnoreCase)))
             {
+                // 只影响“服务器”窗口，不影响管理器自身窗口：管理器永远可视化显示
                 ManagerConfig.ShowWindowOverride = false;
             }
 
-            PGameTSManager.MainWindow.StartAllOnLoad = e.Args.Any(a => string.Equals(a, "--startall", StringComparison.OrdinalIgnoreCase));
+            PGameTSManager.MainWindow.StartAllOnLoad =
+                e.Args.Any(a => string.Equals(a, "--startall", StringComparison.OrdinalIgnoreCase));
 
             var window = new MainWindow();
             window.Show();
+
+            // 强制可视化：正常状态 + 显示在任务栏 + 提到前台
+            window.WindowState = WindowState.Normal;
+            window.ShowInTaskbar = true;
+            window.Activate();
+            try
+            {
+                window.Topmost = true;
+                window.Topmost = false;
+                window.Focus();
+            }
+            catch { }
         }
     }
 }

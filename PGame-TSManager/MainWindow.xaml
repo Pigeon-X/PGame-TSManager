@@ -7,7 +7,7 @@
         xmlns:Linq="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json" x:Class="PGameTSManager.MainWindow"
         mc:Ignorable="d"
         DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
-        Title="{Binding Path=Title, Mode=OneWay}" Height="520" Width="860" Name="Window" Loaded="Window_Loaded" Icon="PGame-TSManager.ico">
+        Title="{Binding Path=Title, Mode=OneWay}" Height="520" Width="860" Name="Window" Loaded="Window_Loaded" Icon="PGame-TSManager.ico" WindowState="Normal" ShowInTaskbar="True">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
