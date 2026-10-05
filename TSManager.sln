@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TSManager", "TSManager\TSManager.csproj", "{FF11E74D-07F4-4470-B18A-FFCEE6330179}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TerrariaServerAPI", "TerrariaServerAPI\TerrariaServerAPI\TerrariaServerAPI.csproj", "{40D4FD5F-1D49-40E1-99A2-02FC03926CE7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FF11E74D-07F4-4470-B18A-FFCEE6330179}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FF11E74D-07F4-4470-B18A-FFCEE6330179}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FF11E74D-07F4-4470-B18A-FFCEE6330179}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FF11E74D-07F4-4470-B18A-FFCEE6330179}.Release|Any CPU.Build.0 = Release|Any CPU
+		{40D4FD5F-1D49-40E1-99A2-02FC03926CE7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{40D4FD5F-1D49-40E1-99A2-02FC03926CE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{40D4FD5F-1D49-40E1-99A2-02FC03926CE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{40D4FD5F-1D49-40E1-99A2-02FC03926CE7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E9928D61-CE4E-427C-8CFB-8884EDEEBAF4}
+	EndGlobalSection
+EndGlobal

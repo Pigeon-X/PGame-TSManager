@@ -1,0 +1,12 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.dll
+*.pdb
+*.exe
+*.zip
+*.log
+TSManager/Plugins/*
+!TSManager/Plugins/.gitkeep
