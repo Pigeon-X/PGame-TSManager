@@ -137,6 +137,29 @@ PGame-TSManager\                          ← 运行时只此一份
 }
 ```
 
+## 维护方针（以 PGame-TSManager 为主）
+
+- **唯一主体**：`PGame-TSManager` 就是这套 TShock 的运行目录，三个服都在它里面开。
+- **TShock 更新**：从官方 git / Actions 取新版，由本仓库负责**兼容适配**、
+  **配置汉化映射**、**config / REST 修复**。
+- **SSC 保持英文**：不翻译、不改键、不改字段。
+- **其余不做改动**：不动 /help，不动玩法逻辑。
+- **插件更新**：所有 TShock 插件编译好后**统一放进 `Plugins\`**（插件总库）。
+  哪个服用哪些插件，只改 `1.PigeonServers\<服>\config.json` 的「插件」清单。
+- **插件依赖库放 `bin\`**：`Plugins\` 里只允许放 TShock 插件本体。
+  不含 `TShockAPI` / `TerrariaPlugin` 引用的 DLL（如 linq2db、Microsoft.Data.Sqlite、
+  SQLitePCLRaw.*、Mono.Cecil.*、MonoMod.*）属于**插件的依赖**，一律放 `bin\`。
+
+```powershell
+# 自动把 Plugins\ 里的依赖库归类到 bin\（并同步修正各服插件清单）
+powershell -ExecutionPolicy Bypass -File maintenance\tools\Sort-PluginDependencies.ps1 `
+  -ManagerDir D:\59934\Desktop\PGame-TSManager
+
+# 清理残余与备份（归档/Backups/沙箱日志/停用插件/生成物）
+powershell -ExecutionPolicy Bypass -File maintenance\tools\Remove-UnrelatedFiles.ps1 `
+  -ManagerDir D:\59934\Desktop\PGame-TSManager
+```
+
 ## 启动方式
 
 **直接双击 exe 启动，不再用 bat：**
