@@ -126,17 +126,21 @@ namespace PGameTSManager
                 throw new FileNotFoundException($"找不到服务端可执行文件：{executable}");
             }
 
+            var showWindow = _managerConfig.showServerWindow;
             var info = new ProcessStartInfo
             {
                 FileName = executable,
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
                 WorkingDirectory = serverDirectory,
-                StandardOutputEncoding = Encoding.UTF8,
-                StandardInputEncoding = Encoding.UTF8
+                UseShellExecute = showWindow,
+                CreateNoWindow = !showWindow
             };
+            if (!showWindow)
+            {
+                info.RedirectStandardInput = true;
+                info.RedirectStandardOutput = true;
+                info.StandardOutputEncoding = Encoding.UTF8;
+                info.StandardInputEncoding = Encoding.UTF8;
+            }
 
             if (IsProfileMode)
             {
@@ -150,6 +154,13 @@ namespace PGameTSManager
             else
             {
                 BuildLegacyArguments(info, serverDirectory);
+            }
+
+            // 可见窗口模式（UseShellExecute=true）不支持 ArgumentList，转成字符串
+            if (showWindow && info.ArgumentList.Count > 0)
+            {
+                info.Arguments = string.Join(" ", info.ArgumentList.Select(QuoteArgument));
+                info.ArgumentList.Clear();
             }
 
             _process = new Process
@@ -166,14 +177,20 @@ namespace PGameTSManager
                 OnPropertyChanged(nameof(IsRunning));
             };
 
-            _process.OutputDataReceived += (_, args) =>
+            if (!showWindow)
             {
-                AddText($"{args.Data}\n");
-            };
+                _process.OutputDataReceived += (_, args) =>
+                {
+                    AddText($"{args.Data}\n");
+                };
+            }
             _process.Start();
-            _process.StandardInput.AutoFlush = true;
-            _process.BeginOutputReadLine();
-            _process.StandardInput.WriteLine();
+            if (!showWindow)
+            {
+                _process.StandardInput.AutoFlush = true;
+                _process.BeginOutputReadLine();
+                _process.StandardInput.WriteLine();
+            }
 
             OnPropertyChanged(nameof(IsRunning));
         }
@@ -313,6 +330,13 @@ namespace PGameTSManager
             return Path.Combine(serverDirectory, configured);
         }
 
+        /// <summary>把单个参数按 Windows 规则加引号（供 UseShellExecute 模式拼接命令行）。</summary>
+        private static string QuoteArgument(string argument)
+        {
+            if (string.IsNullOrEmpty(argument)) return "\"\"";
+            if (argument.IndexOfAny(new[] { ' ', '\t', '"' }) < 0) return argument;
+            return "\"" + argument.Replace("\"", "\\\"") + "\"";
+        }
         private void BackupServerFiles(string serverDirectory)
         {
             try
@@ -430,6 +454,11 @@ namespace PGameTSManager
         {
             var process = _process;
             if (process == null) throw new InvalidOperationException("服务器未运行。");
+            if (!process.StartInfo.RedirectStandardInput)
+            {
+                AddText("[提示] 当前是“可见窗口”模式，请直接在服务器窗口里输入指令。\n");
+                return;
+            }
             AddText($"{msg}\n");
             process.StandardInput.WriteLine(msg);
         }

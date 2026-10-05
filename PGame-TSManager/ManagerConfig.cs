@@ -140,6 +140,11 @@ namespace PGameTSManager
         /// 实测：TShock 的插件目录固定等于 exe 所在目录，所以一个 exe 对应一套插件。
         /// </summary>
         public bool useSharedRuntime = true;
+        /// <summary>
+        /// true = 每台服务器启动时开一个独立的可见控制台窗口（可直接看日志、敲指令）；
+        /// false = 输出捕获到管理器内置控制台（可在管理器输入框发指令）。
+        /// </summary>
+        public bool showServerWindow = true;
         /// <summary>共享运行时目录；留空 = 程序目录。</summary>
         public string sharedRuntimeDir = "";
         /// <summary>总插件库目录，相对程序目录。</summary>
