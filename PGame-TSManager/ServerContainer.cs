@@ -147,7 +147,9 @@ namespace PGameTSManager
             {
                 FileName = executable,
                 Arguments = BuildArguments(tshockDir, manifest, root),
-                WorkingDirectory = root,            // ★ 共享根目录：ServerPlugins / bin / i18n 都在这里
+                // ★ 工作目录 = 本服目录：ServerLog.txt / Logs / buildings 各服各的，不会互相抢文件
+                //   （插件目录认的是 exe 所在目录 = 管理器根，所以插件仍然是三服共享的一份）
+                WorkingDirectory = serverDirectory,
                 CreateNoWindow = true,              // ★ 绝不弹 TShock 窗口
                 UseShellExecute = false,
                 RedirectStandardInput = true,
