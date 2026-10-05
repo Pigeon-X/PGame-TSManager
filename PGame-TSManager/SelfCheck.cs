@@ -61,9 +61,11 @@ namespace PGameTSManager
                 else { ok = false; sb.AppendLine("    目录状态   : [失败：不存在]"); }
 
                 var exeName = string.IsNullOrWhiteSpace(p.executable) ? cfg.serverExecutable : p.executable;
-                var exe = Path.Combine(dir, exeName);
-                if (File.Exists(exe)) sb.AppendLine("    服务端程序 : [正常] " + exeName);
-                else { ok = false; sb.AppendLine("    服务端程序 : [失败：缺失] " + exeName); }
+                var exe = cfg.useSharedRuntime
+                    ? Path.Combine(ManagerConfig.Resolve(cfg.sharedRuntimeDir), exeName)
+                    : Path.Combine(dir, exeName);
+                if (File.Exists(exe)) sb.AppendLine("    服务端程序 : [正常] " + exeName + (cfg.useSharedRuntime ? "（共享运行时）" : ""));
+                else { ok = false; sb.AppendLine("    服务端程序 : [失败：缺失] " + exe); }
 
                 var tshockConfig = Path.Combine(dir, "tshock", "config.json");
                 sb.AppendLine("    TShock配置 : " + (File.Exists(tshockConfig) ? "[正常] tshock\\config.json" : "[警告] tshock\\config.json 不存在"));
@@ -84,11 +86,11 @@ namespace PGameTSManager
                         ok = false;
                         sb.AppendLine("    [失败] 总插件库缺少: " + string.Join(", ", miss));
                     }
-                    var spDir = Path.Combine(dir, "ServerPlugins");
+                    var spDir = cfg.useSharedRuntime ? library : Path.Combine(dir, "ServerPlugins");
                     var have = Directory.Exists(spDir)
                         ? Directory.GetFiles(spDir).Count(f => pluginList.Contains(Path.GetFileName(f), StringComparer.OrdinalIgnoreCase))
                         : 0;
-                    sb.AppendLine("    已同步插件 : " + have + " / " + pluginList.Count + "（启动时会自动同步）");
+                    sb.AppendLine("    插件就绪   : " + have + " / " + pluginList.Count + (cfg.useSharedRuntime ? "（共享 ServerPlugins）" : "（本服 ServerPlugins）"));
                 }
             }
 

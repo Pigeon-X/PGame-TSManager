@@ -287,13 +287,22 @@ namespace PGameTSManager
                 ? _managerConfig.serverExecutable
                 : _profile.executable;
 
-            var candidates = new[]
-            {
-                Path.Combine(serverDirectory, configured),
-                configured,
-                Path.Combine(AppContext.BaseDirectory, configured),
-                Path.Combine(AppContext.BaseDirectory, "TShock.Server.exe")
-            };
+            var sharedDir = ManagerConfig.Resolve(_managerConfig.sharedRuntimeDir);
+            var candidates = _managerConfig.useSharedRuntime
+                ? new[]
+                {
+                    Path.Combine(sharedDir, configured),
+                    Path.Combine(serverDirectory, configured),
+                    configured,
+                    Path.Combine(AppContext.BaseDirectory, configured)
+                }
+                : new[]
+                {
+                    Path.Combine(serverDirectory, configured),
+                    configured,
+                    Path.Combine(sharedDir, configured),
+                    Path.Combine(AppContext.BaseDirectory, configured)
+                };
             foreach (var candidate in candidates)
             {
                 if (File.Exists(candidate))

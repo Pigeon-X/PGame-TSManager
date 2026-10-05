@@ -94,61 +94,54 @@ powershell -ExecutionPolicy Bypass -File maintenance\tools\Test-TShockConfig.ps1
 
 只读校验该服务端目录：config.json 中文键、REST 令牌字段（用户名/用户组）、SSC 保持英文。
 退出码 0 = 通过。详见 maintenance/README.md。
-## 目录结构（三服共用总插件库）
+## 目录结构（PGame-TSManager = 一个 TShock）
+
+PGame-TSManager 本身就是这套 TShock 的运行目录；三台服务器只是「三个世界 + 三份配置」。
+运行时与插件只存一份，不再每个服复制。
 
 ```
-PGame-TSManager\
-├─ PGame-TSManager.exe          管理器
-├─ config.json                  管理器配置（serverProfiles 指向 1.PigeonServers）
-├─ Plugins\                     总插件库（三服共用，插件唯一来源）
-├─ 1.PigeonServers\
-│   ├─ 流光城\
-│   │   ├─ config.json          TSM 每服配置：启动参数 + 用总插件库的哪些插件
-│   │   ├─ ServerPlugins\       启动时按 config.json 从 Plugins\ 同步
-│   │   ├─ ServerPlugins.disabled\  未启用的插件移动到这里（不删除）
-│   │   ├─ tshock\              该服独立配置（config.json 中文 / sscconfig.json 英文）
-│   │   └─ TShock.Server.exe ...
-│   ├─ 泰拉大陆\
-│   └─ 流光神域\
-├─ maintenance\                 维护工具与规则
-└─ Backups\                     启动前自动备份
+PGame-TSManager\                  ← 一个 TShock（运行时只此一份）
+├─ TShock.Server.exe
+├─ bin\  i18n\  runtimes\  x64\  GeoIP.dat      TShock 运行依赖
+├─ ServerPlugins\                              唯一插件目录（三服共用）
+├─ PGame-TSManager.exe / config.json           管理器与配置
+├─ maintenance\  Backups\
+└─ 1.PigeonServers\
+    ├─ 流光城\    config.json + server.properties + tshock\ + 地图\ + Logs\
+    ├─ 泰拉大陆\  config.json + server.properties + tshock\ + world\ + Logs\
+    └─ 流光神域\  config.json + server.properties + tshock\ + world\ + Logs\
 ```
 
-每服 `config.json` 示例：
+每台服务器启动时：工作目录 = 自己的目录（tshock 配置、世界、日志、插件数据各归各的），
+程序本体 = 根目录的 TShock.Server.exe（运行时与插件三服共用）。
+
+> 实测结论：TShock 的插件目录固定等于 **TShock.Server.exe 所在目录**，
+> 因此「一个 exe」必然「一套插件」。想让各服加载不同插件，就必须各留一份运行时。
+
+每服 `config.json`（TSM 配置）：
 
 ```json
 {
   "服务器名称": "流光城",
   "启用": true,
   "启动参数": "-lang 7 -port 2021 -world \"地图\\1.PigeonGame.wld\"",
-  "总插件库": "..\\..\\Plugins",
-  "覆盖插件目录": true,
-  "插件": ["AntiCheatingTool.dll", "Chrome.Title.dll", "..."],
-  "备注": "流光城 端口 2021 / REST 7878"
+  "总插件库": "",
+  "覆盖插件目录": false,
+  "插件": ["AntiCheatingTool.dll", "..."],
+  "说明": "插件由根目录 ServerPlugins 统一提供；本清单用于自检该服插件是否齐备。"
 }
 ```
 
-- `插件`：该服启用的插件文件名（相对总插件库）。空 = 不做插件同步。
-- `启动参数`：留空则用管理器 `config.json` 里 profile 的 `arguments`。
-- `覆盖插件目录`：true 时，未列出的第三方插件移入 `ServerPlugins.disabled`。
-- TShock 自身文件（`TShockAPI.*`）永远保留，不参与同步。
+- `启动参数`：该服启动参数（工作目录 = 本服目录）。
+- `插件`：该服需要的插件清单，自检时核对是否都在共享 `ServerPlugins` 里。
+- `覆盖插件目录`：共享模式下保持 `false`。
 
-## 插件同步
-
-启动服务器前自动执行；也可单独执行（不启动服务器）：
+## 一键把三服合并成一个 TShock
 
 ```powershell
-PGame-TSManager.exe --syncplugins
+powershell -ExecutionPolicy Bypass -File maintenance\tools\To-SingleTShockLayout.ps1 `
+  -ManagerDir D:\59934\Desktop\PGame-TSManager
 ```
 
-结果写入 `syncplugins.txt`。可用它把总插件库的内容同步到各服，或检查同步差异。
-
-## 新建/迁移三服结构
-
-```powershell
-powershell -ExecutionPolicy Bypass -File maintenance\tools\New-PigeonServersLayout.ps1 `
-  -ManagerDir D:\59934\Desktop\PGame-TSManager `
-  -SourceRoot D:\59934\Desktop\流光服
-```
-
-默认**移动**三个服到 `1.PigeonServers\`；加 `-Copy` 则复制保留原目录。
+把各服的 `TShock.Server.exe`、`bin`、`i18n`、`runtimes`、`x64`、`GeoIP.dat`、`ServerPlugins`
+提升/合并到管理器根目录，各服只留配置与世界；移出的文件进 `_归档_<时间戳>\`（不删除）。

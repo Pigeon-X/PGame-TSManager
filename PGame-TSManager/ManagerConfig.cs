@@ -134,6 +134,14 @@ namespace PGameTSManager
         public List<ServerProfile> serverProfiles = new();
 
         // —— 总插件库（三服共用）——
+        /// <summary>
+        /// 一个 TShock 运行时模式（默认 true）：TShock.Server.exe 与 ServerPlugins 只放在管理器根目录，
+        /// 每台服务器目录只保留自己的 tshock 配置、世界与 TSM config.json。
+        /// 实测：TShock 的插件目录固定等于 exe 所在目录，所以一个 exe 对应一套插件。
+        /// </summary>
+        public bool useSharedRuntime = true;
+        /// <summary>共享运行时目录；留空 = 程序目录。</summary>
+        public string sharedRuntimeDir = "";
         /// <summary>总插件库目录，相对程序目录。</summary>
         public string pluginLibrary = "Plugins";
         /// <summary>启动前按每服 config.json 同步 ServerPlugins。</summary>
