@@ -211,17 +211,20 @@ namespace PGameTSManager
                 //   Console.ForegroundColor 抛 IOException → 被主循环吞掉 → 静默 exit 0。
                 //   做法：用 cmd 起（CreateNoWindow=false 时 Windows 会给 cmd 分配一个新控制台），
                 //   服务器继承该控制台；再用 FindWindow 按标题把那个控制台窗口 SW_HIDE 掉。
-                consoleTitle = "PGame-" + Name + "-" + Guid.NewGuid().ToString("N").Substring(0, 6);
-                var cmdArgs = "/c title " + consoleTitle + " & cd /d " + Quote(runtimeDirectory) +
-                              " & " + Quote(executable) + " " + arguments;
-                info = new ProcessStartInfo
-                {
-                    FileName = "cmd.exe",
-                    Arguments = cmdArgs,
-                    WorkingDirectory = runtimeDirectory,
-                    UseShellExecute = true,      // ShellExecute 会为 cmd 新建控制台
-                    WindowStyle = ProcessWindowStyle.Minimized   // 先最小化，随后按标题隐藏
-                };
+                // ★ B2 方案：用 WMI Win32_Process.Create 启动。
+                //   WMI 由服务端代建进程，会给 cmd 分配一个真实控制台（服务器继承后
+                //   Console.ForegroundColor 等调用不会抛，TShock 才能稳定运行），
+                //   而且不会弹出可见窗口。这是本机实测最稳的方式。
+                var commandLine = "cmd.exe /c cd /d " + Quote(runtimeDirectory) +
+                                  " && start \"\" /b " + Quote(executable) + " " + arguments;
+                LaunchViaWmi(commandLine, runtimeDirectory, executable);
+
+                AddText($"[启动] {Name}\n");
+                StartTail(runtimeDirectory);
+                OnPropertyChanged(nameof(IsRunning));
+                OnPropertyChanged(nameof(StatusBrush));
+                OnPropertyChanged(nameof(StatusText));
+                return;
             }
 
             _process = new Process { StartInfo = info, EnableRaisingEvents = true };
@@ -251,10 +254,22 @@ namespace PGameTSManager
             OnPropertyChanged(nameof(StatusText));
         }
 
-        /// <summary>用 WMI 创建进程（唯一能保证 TShock 有真实控制台、又不弹窗的方式）。</summary>
-        private void LaunchViaWmi(string commandLine, out int pid)
+        /// <summary>
+        /// 用 WMI Win32_Process.Create 启动服务器（B2 方案）。
+        /// 除了创建进程，还会轮询把真正的 TShock.Server 进程挂到 _process 上，
+        /// 这样「停止」按钮和运行状态才准。整个过程写 launch.log 便于排查。
+        /// </summary>
+        private void LaunchViaWmi(string commandLine, string runtimeDirectory, string executable)
         {
-            pid = 0;
+            var logPath = Path.Combine(runtimeDirectory, "launch.log");
+            void Log(string s)
+            {
+                try { File.AppendAllText(logPath, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + "  " + s + "\n"); } catch { }
+                AddText("[启动] " + s + "\n");
+            }
+
+            Log("WMI Create: " + commandLine);
+            var pid = 0u;
             try
             {
                 using var cls = new ManagementClass("Win32_Process");
@@ -262,13 +277,51 @@ namespace PGameTSManager
                 inParams["CommandLine"] = commandLine;
                 var outParams = cls.InvokeMethod("Create", inParams, null);
                 var rc = outParams?["ReturnValue"];
-                if (outParams != null) pid = Convert.ToInt32(outParams["ProcessId"] ?? 0);
-                if (pid <= 0) AddText($"[启动] WMI 创建进程失败：ReturnValue={rc}\n");
+                pid = Convert.ToUInt32(outParams?["ProcessId"] ?? 0u);
+                Log($"ReturnValue={rc} ProcessId={pid}");
             }
             catch (Exception ex)
             {
-                AddText($"[启动] WMI 调用异常：{ex.GetType().Name}: {ex.Message}\n");
+                Log("WMI 异常: " + ex.GetType().Name + ": " + ex.Message);
+                return;
             }
+
+            // 轮询找真正的服务器进程（cmd 会立刻退出，跑的是 TShock.Server.exe）
+            var want = Path.GetFullPath(executable);
+            for (var i = 0; i < 100; i++)
+            {
+                System.Threading.Thread.Sleep(200);
+                try
+                {
+                    foreach (var pr in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(executable)))
+                    {
+                        string path;
+                        try { path = pr.MainModule?.FileName ?? ""; } catch { continue; }
+                        if (!string.Equals(Path.GetFullPath(path), want, StringComparison.OrdinalIgnoreCase)) continue;
+
+                        _process = pr;
+                        _process.EnableRaisingEvents = true;
+                        _process.Exited += (_, _) =>
+                        {
+                            var code = _process != null && _process.HasExited ? _process.ExitCode : -999;
+                            Log($"---服务器已退出（退出码 {code}）---");
+                            _process?.Dispose();
+                            _process = null;
+                            StopTail();
+                            OnPropertyChanged(nameof(IsRunning));
+                            OnPropertyChanged(nameof(StatusBrush));
+                            OnPropertyChanged(nameof(StatusText));
+                        };
+                        Log($"已挂上服务器进程 PID={pr.Id}");
+                        OnPropertyChanged(nameof(IsRunning));
+                        OnPropertyChanged(nameof(StatusBrush));
+                        OnPropertyChanged(nameof(StatusText));
+                        return;
+                    }
+                }
+                catch { }
+            }
+            Log("20 秒内没找到 TShock.Server 进程（启动可能失败）");
         }
 
         private string BuildArguments(string runtimeDirectory, ServerManifest manifest)
