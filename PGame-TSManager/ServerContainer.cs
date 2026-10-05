@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
 using Newtonsoft.Json;
@@ -66,13 +67,18 @@ namespace PGameTSManager
             private set { _title = value; OnPropertyChanged(nameof(Title)); }
         }
 
-        private static readonly SolidColorBrush ClrNormal = new(Color.FromRgb(0xE6, 0xE6, 0xEE));
-        private static readonly SolidColorBrush ClrDim    = new(Color.FromRgb(0x9A, 0xA0, 0xB4));
-        private static readonly SolidColorBrush ClrGood   = new(Color.FromRgb(0x22, 0xC5, 0x5E));
-        private static readonly SolidColorBrush ClrWarn   = new(Color.FromRgb(0xF5, 0x9E, 0x0B));
-        private static readonly SolidColorBrush ClrError  = new(Color.FromRgb(0xEF, 0x44, 0x44));
-        private static readonly SolidColorBrush ClrAccent = new(Color.FromRgb(0x4C, 0x8D, 0xF6));
-        private static readonly SolidColorBrush ClrPlugin = new(Color.FromRgb(0x8B, 0x5C, 0xF6));
+        // 配色由 App.ApplyTheme() 注入（跟随 TShock 控制台色 + 系统深浅色）
+        private static Brush Res(string key, Color fallback)
+            => (Application.Current?.TryFindResource(key) as Brush) ?? new SolidColorBrush(fallback);
+        private static Brush ClrNormal => Res("LogNormal", Color.FromRgb(0xD6, 0xD6, 0xD6));
+        private static Brush ClrDim    => Res("TextDim",   Color.FromRgb(0x8A, 0x8A, 0x8A));
+        private static Brush ClrGood   => Res("LogOk",     Color.FromRgb(0x66, 0xBB, 0x6A));
+        private static Brush ClrWarn   => Res("LogWarn",   Color.FromRgb(0xFF, 0xB7, 0x4D));
+        private static Brush ClrError  => Res("LogError",  Color.FromRgb(0xFF, 0x52, 0x52));
+        private static Brush ClrAccent => Res("LogCmd",    Color.FromRgb(0x4F, 0xC3, 0xF7));
+        private static Brush ClrPlugin => Res("LogPlugin", Color.FromRgb(0x8B, 0x5C, 0xF6));
+        private static Brush ClrInfo   => Res("LogInfo",   Color.FromRgb(0x4F, 0xC3, 0xF7));
+        private static Brush ClrCmd    => Res("LogCmd",    Color.FromRgb(0x4C, 0x8D, 0xF6));
 
         public Brush StatusBrush => IsRunning ? ClrGood : ClrDim;
         public string StatusText => IsRunning ? "运行中" : "已停止";
@@ -344,19 +350,52 @@ namespace PGameTSManager
         }
 
         // ---------- 彩色文本 ----------
+        /// <summary>
+        /// 控制台着色规则（尽量让每一类行都有颜色）：
+        ///   错误=红  警告=琥珀  成功/状态=绿  键值/INFO=青  插件标签=紫  指令=蓝  列表/次要=灰
+        /// </summary>
         private static Brush ColorFor(string line)
         {
             var s = line.TrimStart();
-            if (s.StartsWith(">")) return ClrAccent;
-            // 注意：必须用 "Exception:" 这种真异常特征，
-            // 否则 "ExceptionProbe.dll"、"HotReload" 之类会被误判成红色
-            if (s.Contains("Exception:") || s.Contains("Unhandled exception") || s.Contains("致命") ||
-                s.Contains("错误") || s.Contains("失败") || s.Contains("错误码") ||
+            if (s.Length == 0) return ClrNormal;
+
+            // 管理器发出的指令回显
+            if (s.StartsWith(">")) return ClrCmd;
+
+            // 真错误（用具体特征，避免 ExceptionProbe / HotReload 这类名字被误判）
+            if (s.Contains("Exception:") || s.Contains("Unhandled exception") ||
+                s.Contains("致命") || s.Contains("错误") || s.Contains("失败") ||
                 s.Contains("Error:") || s.Contains("ERROR:")) return ClrError;
-            if (s.Contains("Warning") || s.Contains("WARN") || s.Contains("警告")) return ClrWarn;
+
+            // 警告 / 缺失
+            if (s.Contains("警告") || s.Contains("Warning") || s.Contains("WARN") ||
+                s.Contains("已跳过") || s.Contains("找不到") || s.Contains("未找到") ||
+                s.Contains("不存在")) return ClrWarn;
+
+            // 关键成功状态
             if (s.Contains("服务器已启动") || s.Contains("正在侦听") || s.Contains("插件同步") ||
-                s.Contains("[启动]") || s.Contains("总库齐备")) return ClrGood;
+                s.Contains("[启动]") || s.Contains("总库齐备") || s.Contains("已加载") ||
+                s.Contains("已启用") || s.Contains("已初始化") || s.Contains("已注册") ||
+                s.Contains("已创建") || s.Contains("已开启") || s.Contains("已刷新")) return ClrGood;
+
+            // 提示 / 说明
+            if (s.StartsWith(":") || s.Contains("输入“help”") || s.Contains("输入\"help\"") ||
+                s.Contains("DisableUUIDLogin") || s.Contains("UUID")) return ClrInfo;
+
+            // 插件相关
+            if (s.StartsWith("[Server API]")) return ClrInfo;
             if (s.StartsWith("[")) return ClrPlugin;
+
+            // 键值行：xxx: yyy
+            var ci = s.IndexOf(':');
+            if (ci > 0 && ci <= 20) return ClrInfo;
+
+            // 逗号结尾 = 列表项（权限表等）
+            if (s.EndsWith(",")) return ClrDim;
+
+            // 纯数字/坐标/百分比之类的进度行
+            if (s.Contains("%")) return ClrDim;
+
             return ClrNormal;
         }
 
