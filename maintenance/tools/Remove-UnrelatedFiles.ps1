@@ -35,12 +35,13 @@ foreach ($pat in @('*.bak','*.bak-*','*.orig')) {
     Get-ChildItem -LiteralPath $ManagerDir -File -Filter $pat -ErrorAction SilentlyContinue | ForEach-Object { Remove-Safe $_.FullName }
 }
 
-Write-Host "=== 2. 各服目录：只应剩 config.json + tshock\，多余的都清 ===" -ForegroundColor Cyan
+Write-Host "=== 2. 各服目录：只提示多余项，不自动删除 ===" -ForegroundColor Cyan
 $serversRoot = Join-Path $ManagerDir '1.PigeonServers'
 foreach ($s in (Get-ChildItem -LiteralPath $serversRoot -Directory -ErrorAction SilentlyContinue)) {
-    Write-Host ("  · " + $s.Name) -ForegroundColor White
-    foreach ($item in (Get-ChildItem -LiteralPath $s.FullName -Force | Where-Object { $_.Name -notin @('config.json','tshock') })) {
-        Remove-Safe $item.FullName
+    $extra = @(Get-ChildItem -LiteralPath $s.FullName -Force | Where-Object { $_.Name -notin @('config.json','tshock') })
+    if ($extra.Count -gt 0) {
+        Write-Host ("  · " + $s.Name + " 有多余项（请人工确认）:") -ForegroundColor Yellow
+        $extra | ForEach-Object { Write-Host ("      " + $_.Name) }
     }
 }
 
