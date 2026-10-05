@@ -153,8 +153,7 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" VerticalAlignment="Center" Foreground="{DynamicResource TextDim}" FontSize="12"
-                       Text="三服后台隐藏运行 · 日志实时回显 · 指令走 REST 下发"/>
+
             <Button Grid.Column="1" Content="全部启动" Style="{StaticResource StartBtn}" Click="StartAllButton_Click"/>
             <Button Grid.Column="2" Content="全部停止" Style="{StaticResource StopBtn}" Click="StopAllButton_Click"/>
         </Grid>

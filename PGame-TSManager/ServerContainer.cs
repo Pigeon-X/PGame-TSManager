@@ -317,19 +317,61 @@ namespace PGameTSManager
             return new string(value.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
         }
 
-        // ---------- 发指令：往服务器控制台注入按键（不依赖 REST / PGameAPI / stdin） ----------
+        // ---------- 发指令 ----------
+        // 优先：往服务器控制台注入按键（完全等价于人工敲键盘，不依赖 REST / PGameAPI）
+        // 兜底：走该服 REST 的 rawcmd 端点（若该服 REST 实现了这个端点）
         public void SendText(string msg)
         {
             var process = _process;
             if (process == null) throw new InvalidOperationException("服务器未运行。");
-            if (ConsoleInjector.Send((uint)process.Id, msg, out var err))
+
+            if (ConsoleInjector.Send((uint)process.Id, msg, out var injectErr))
             {
                 AddText($"> {msg}\n");
+                return;
             }
-            else
+
+            var restErr = TrySendViaRest(msg);
+            if (restErr == null) return;
+
+            AddText($"[指令发送失败] 注入失败({injectErr})；REST 也失败({restErr})\n");
+        }
+
+        /// <summary>兜底：REST /v2/server/rawcmd。成功返回 null，失败返回错误描述。</summary>
+        private string? TrySendViaRest(string msg)
+        {
+            try
             {
-                AddText($"[指令发送失败] {err}\n");
+                var manifest = _profile.LoadManifest();
+                var port = manifest?.RestPort ?? 0;
+                if (port <= 0) return "该服未配置 REST 端口";
+                var token = ReadRestToken();
+                if (string.IsNullOrEmpty(token)) return "该服 REST 没有令牌";
+
+                var url = $"http://127.0.0.1:{port}/v2/server/rawcmd?token={Uri.EscapeDataString(token)}";
+                var content = new StringContent(JsonConvert.SerializeObject(new { cmd = msg }), Encoding.UTF8, "application/json");
+                var resp = Http.PostAsync(url, content).GetAwaiter().GetResult();
+                var text = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                if (!resp.IsSuccessStatusCode) return $"HTTP {(int)resp.StatusCode}（端点可能不存在）";
+                AddText($"> {msg}\n{text}\n");
+                return null;
             }
+            catch (Exception ex) { return ex.Message; }
+        }
+
+        private string? ReadRestToken()
+        {
+            try
+            {
+                var cfg = Path.Combine(ServerDirectory, "tshock", "config.json");
+                if (!File.Exists(cfg)) return null;
+                var root = JsonConvert.DeserializeObject<dynamic>(File.ReadAllText(cfg));
+                var dict = root?.Settings?["Rest外部应用令牌字典"];
+                if (dict == null) return null;
+                foreach (var pr in ((Newtonsoft.Json.Linq.JObject)dict).Properties()) return pr.Name;
+            }
+            catch { }
+            return null;
         }
 
         // ---------- 彩色文本 ----------
