@@ -102,6 +102,59 @@ namespace PGameTSManager
 
         private string RootDirectory => ManagerConfig.BaseDir;
 
+        /// <summary>
+        /// 该服的运行目录（沙箱）。TShock 6.2 的插件目录认「exe 所在目录」，
+        /// 所以要做到「每服只加载自己那套插件」，每服必须有自己的 exe 目录。
+        /// 这里用 硬链接(exe) + 目录联接(bin/i18n/runtimes/x64) 指回管理器根目录，
+        /// 不会多占磁盘；ServerPlugins 是该服自己的实体目录。
+        /// </summary>
+        private string RuntimeDirectory => Path.Combine(RootDirectory, "_runtime", Name);
+
+        /// <summary>建立/修补该服的运行沙箱（幂等）。</summary>
+        private void EnsureRuntimeSandbox()
+        {
+            var rt = RuntimeDirectory;
+            var root = RootDirectory;
+            Directory.CreateDirectory(rt);
+
+            var exeName = string.IsNullOrWhiteSpace(_profile.executable) ? _managerConfig.serverExecutable : _profile.executable;
+            LinkFile(Path.Combine(root, exeName), Path.Combine(rt, exeName));
+            LinkFile(Path.Combine(root, "GeoIP.dat"), Path.Combine(rt, "GeoIP.dat"));
+            foreach (var d in new[] { "bin", "i18n", "runtimes", "x64" })
+                LinkDirectory(Path.Combine(root, d), Path.Combine(rt, d));
+
+            Directory.CreateDirectory(Path.Combine(rt, "ServerPlugins"));
+            Directory.CreateDirectory(Path.Combine(rt, "Logs"));
+        }
+
+        private static void LinkFile(string target, string link)
+        {
+            if (File.Exists(link) || !File.Exists(target)) return;
+            if (RunCmd($"mklink /H \"{link}\" \"{target}\"") && File.Exists(link)) return;
+            try { File.Copy(target, link, true); } catch { }
+        }
+
+        private static void LinkDirectory(string target, string link)
+        {
+            if (Directory.Exists(link) || !Directory.Exists(target)) return;
+            if (RunCmd($"mklink /J \"{link}\" \"{target}\"") && Directory.Exists(link)) return;
+            try { File.Copy(target, link, true); } catch { }
+        }
+
+        private static bool RunCmd(string args)
+        {
+            try
+            {
+                var psi = new ProcessStartInfo("cmd.exe", "/c " + args)
+                { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+                using var pr = Process.Start(psi);
+                if (pr == null) return false;
+                pr.WaitForExit(15000);
+                return pr.ExitCode == 0;
+            }
+            catch { return false; }
+        }
+
         private void Start()
         {
             try { StartCore(); }
@@ -130,26 +183,34 @@ namespace PGameTSManager
 
             if (_managerConfig.backupBeforeStart) BackupServerFiles(serverDirectory);
 
-            // 三服共用一个插件目录（= 根目录 ServerPlugins），从插件总库 Plugins 同步
+            // 建立该服自己的运行沙箱（exe/bin 用链接指回根目录，不额外占空间）
+            EnsureRuntimeSandbox();
+            var runtimeDirectory = RuntimeDirectory;
+
+            // 按该服 config.json 的「插件」清单，从总库 Plugins 同步到该服自己的 ServerPlugins
             if (_managerConfig.syncPluginsOnStart)
             {
                 try
                 {
-                    PluginSync.MirrorShared(root, ManagerConfig.Resolve(_managerConfig.pluginDir), AddText);
+                    PluginSync.Apply(runtimeDirectory, ManagerConfig.Resolve(_managerConfig.pluginDir),
+                        _profile.ResolvePlugins(manifest),
+                        manifest.PrunePlugins ?? _managerConfig.prunePlugins,
+                        _managerConfig.disabledPluginDir, AddText);
                 }
                 catch (Exception ex) { AddText($"[插件同步] 失败：{ex.Message}\n"); }
             }
 
-            var executable = Path.Combine(root, string.IsNullOrWhiteSpace(_profile.executable) ? _managerConfig.serverExecutable : _profile.executable);
+            var exeName = string.IsNullOrWhiteSpace(_profile.executable) ? _managerConfig.serverExecutable : _profile.executable;
+            var executable = Path.Combine(runtimeDirectory, exeName);
             if (!File.Exists(executable)) throw new FileNotFoundException($"找不到服务端可执行文件：{executable}");
 
             var info = new ProcessStartInfo
             {
                 FileName = executable,
                 Arguments = BuildArguments(tshockDir, manifest, root),
-                // ★ 工作目录 = 本服目录：ServerLog.txt / Logs / buildings 各服各的，不会互相抢文件
-                //   （插件目录认的是 exe 所在目录 = 管理器根，所以插件仍然是三服共享的一份）
-                WorkingDirectory = serverDirectory,
+                // ★ 工作目录 = 本服沙箱：ServerLog.txt / Logs 各服各的
+                //   插件目录 = exe 所在目录 = 本服沙箱 → 每服只加载自己清单里的插件
+                WorkingDirectory = runtimeDirectory,
                 CreateNoWindow = true,              // ★ 绝不弹 TShock 窗口
                 UseShellExecute = false,
                 RedirectStandardInput = true,
