@@ -348,8 +348,11 @@ namespace PGameTSManager
         {
             var s = line.TrimStart();
             if (s.StartsWith(">")) return ClrAccent;
-            if (s.Contains("Exception") || s.Contains("Unhandled") || s.Contains("致命") ||
-                s.Contains("错误") || s.Contains("失败") || s.Contains("Error") || s.Contains("ERROR")) return ClrError;
+            // 注意：必须用 "Exception:" 这种真异常特征，
+            // 否则 "ExceptionProbe.dll"、"HotReload" 之类会被误判成红色
+            if (s.Contains("Exception:") || s.Contains("Unhandled exception") || s.Contains("致命") ||
+                s.Contains("错误") || s.Contains("失败") || s.Contains("错误码") ||
+                s.Contains("Error:") || s.Contains("ERROR:")) return ClrError;
             if (s.Contains("Warning") || s.Contains("WARN") || s.Contains("警告")) return ClrWarn;
             if (s.Contains("服务器已启动") || s.Contains("正在侦听") || s.Contains("插件同步") ||
                 s.Contains("[启动]") || s.Contains("总库齐备")) return ClrGood;
