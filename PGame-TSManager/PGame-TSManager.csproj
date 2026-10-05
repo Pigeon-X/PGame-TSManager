@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>PGame-TSManager</AssemblyName>
+    <RootNamespace>PGameTSManager</RootNamespace>
+    <AssemblyTitle>PGame-TSManager</AssemblyTitle>
+    <Product>PGame-TSManager</Product>
+    <Version>1.0.0</Version>
+    <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Plugins\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <Compile Include="..\TerrariaServerAPI\TerrariaServerAPI\ServerConfig.cs" />
+  </ItemGroup>
+
+</Project>

@@ -8,5 +8,5 @@ obj/
 *.exe
 *.zip
 *.log
-TSManager/Plugins/*
-!TSManager/Plugins/.gitkeep
+PGame-TSManager/Plugins/*
+!PGame-TSManager/Plugins/.gitkeep
