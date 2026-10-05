@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <AssemblyName>ExceptionProbe</AssemblyName>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="TShockAPI"><HintPath>C:\Users\59934\Saved Games\流光核心源码\_参考资料\官方源码\TShock更新\处理中\6.2.1-官方原始\ServerPlugins\TShockAPI.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="OTAPI"><HintPath>C:\Users\59934\Saved Games\流光核心源码\_参考资料\官方源码\TShock更新\处理中\6.2.1-官方原始\bin\OTAPI.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="TerrariaServer"><HintPath>C:\Users\59934\Saved Games\流光核心源码\_参考资料\官方源码\TShock更新\处理中\6.2.1-官方原始\bin\TerrariaServer.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>
