@@ -38,6 +38,11 @@ namespace PGameTSManager
         }
         public App()
         {
+            // ★ 关键：默认 OnLastWindowClose 会让管理器在窗口被关/引用丢失时整个退出，
+            //   一并把拉起的三个服务器带走（表现为“服务器 40 秒自退、exit 0”）。
+            //   改成显式关停：只有用户关窗口或主动退出才结束进程。
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
             DispatcherUnhandledException += (_, e) =>
             {
                 LogCrash("DispatcherUnhandledException", e.Exception);
@@ -89,6 +94,11 @@ namespace PGameTSManager
                 e.Args.Any(a => string.Equals(a, "--startall", StringComparison.OrdinalIgnoreCase));
 
             var window = new MainWindow();
+            window.Closing += (_, _) =>
+            {
+                LogCrash("MainWindowClosing", new Exception("stack:\n" + Environment.StackTrace));
+                Current.Shutdown();
+            };
             window.Show();
 
             // 强制可视化：正常状态 + 显示在任务栏 + 提到前台

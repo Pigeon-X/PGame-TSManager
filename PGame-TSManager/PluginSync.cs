@@ -17,6 +17,32 @@ namespace PGameTSManager
     /// </summary>
     internal static class PluginSync
     {
+        /// <summary>
+        /// 共享模式：把插件总库整体镜像到 &lt;根目录&gt;\ServerPlugins（三服共用一套插件）。
+        /// 只复制/更新总库里的文件；总库里没有的（例如 TShockAPI.*）保持不动。
+        /// </summary>
+        public static string MirrorShared(string rootDirectory, string libraryDirectory, Action<string>? log)
+        {
+            var spDir = Path.Combine(rootDirectory, "ServerPlugins");
+            if (!Directory.Exists(libraryDirectory))
+            {
+                log?.Invoke($"[插件同步] 总库不存在：{libraryDirectory}\n");
+                return "missing-library";
+            }
+            Directory.CreateDirectory(spDir);
+            int added = 0, updated = 0;
+            foreach (var src in Directory.GetFiles(libraryDirectory, "*", SearchOption.TopDirectoryOnly))
+            {
+                var name = Path.GetFileName(src);
+                var dst = Path.Combine(spDir, name);
+                if (!File.Exists(dst)) { File.Copy(src, dst, true); added++; }
+                else if (!SameFile(src, dst)) { File.Copy(src, dst, true); updated++; }
+            }
+            var summary = $"新增 {added} / 更新 {updated}（共享 ServerPlugins）";
+            log?.Invoke($"[插件同步] {summary}\n");
+            return summary;
+        }
+
         public static string Apply(
             string serverDirectory,
             string libraryDirectory,

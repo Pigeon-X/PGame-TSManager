@@ -42,7 +42,8 @@ namespace PGameTSManager
 
             var worlds = ManagerConfig.Resolve(cfg.worldDir);
             sb.AppendLine("世界目录 : " + worlds + (Directory.Exists(worlds) ? " [正常]" : " [警告：不存在]"));
-            sb.AppendLine("运行沙箱 : " + ManagerConfig.Resolve(cfg.runtimeDir));
+            var sharedPlugins = Path.Combine(ManagerConfig.Resolve(""), "ServerPlugins");
+            sb.AppendLine("共享插件目录: " + sharedPlugins + (Directory.Exists(sharedPlugins) ? " [正常]" : " [未创建]"));
 
             var profiles = new List<ServerProfile>(cfg.LoadProfiles());
             sb.AppendLine("服务器数量: " + profiles.Count);
@@ -110,24 +111,11 @@ namespace PGameTSManager
             sb.AppendLine("插件总库: " + pool);
             if (!Directory.Exists(pool)) { ok = false; sb.AppendLine("  [失败] 插件总库不存在"); }
 
-            foreach (var p in cfg.LoadProfiles())
+            try
             {
-                sb.AppendLine();
-                sb.AppendLine("· " + p.name);
-                try
-                {
-                    var manifest = p.LoadManifest();
-                    var plugins = p.ResolvePlugins(manifest);
-                    sb.AppendLine("    插件清单 : " + plugins.Count + " 个");
-                    if (plugins.Count == 0) { sb.AppendLine("    [跳过] 未配置插件清单"); continue; }
-
-                    var runtime = cfg.ResolveRuntimeDir(p);
-                    Directory.CreateDirectory(runtime);
-                    PluginSync.Apply(runtime, pool, plugins, manifest?.PrunePlugins ?? cfg.prunePlugins,
-                        cfg.disabledPluginDir, msg => sb.AppendLine("    " + msg.TrimEnd()));
-                }
-                catch (Exception ex) { ok = false; sb.AppendLine("    [失败] " + ex.Message); }
+                PluginSync.MirrorShared(ManagerConfig.Resolve(""), pool, msg => sb.AppendLine("  " + msg.TrimEnd()));
             }
+            catch (Exception ex) { ok = false; sb.AppendLine("  [失败] " + ex.Message); }
 
             sb.AppendLine();
             sb.AppendLine(ok ? "结果: 同步完成" : "结果: 有项目未通过");
