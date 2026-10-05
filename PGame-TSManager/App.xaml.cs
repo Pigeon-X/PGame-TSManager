@@ -93,6 +93,9 @@ namespace PGameTSManager
 
         private static System.Windows.Forms.NotifyIcon? _tray;
 
+        /// <summary>已确认退出后置位：避免 Shutdown 再次触发 Closing 造成二次弹窗。</summary>
+        private static bool _exiting;
+
         /// <summary>托盘图标：最小化到托盘后可从托盘恢复。</summary>
         private static void SetupTrayIcon(Window window)
         {
@@ -106,7 +109,7 @@ namespace PGameTSManager
                 };
                 var menu = new System.Windows.Forms.ContextMenuStrip();
                 menu.Items.Add("显示管理器", null, (_, _) => RestoreFromTray(window));
-                menu.Items.Add("退出", null, (_, _) => { LogCrash("TrayExit", null); Current.Shutdown(); });
+                menu.Items.Add("退出", null, (_, _) => { _exiting = true; LogCrash("TrayExit", null); Current.Shutdown(); });
                 _tray.ContextMenuStrip = menu;
                 _tray.DoubleClick += (_, _) => RestoreFromTray(window);
             }
@@ -132,14 +135,15 @@ namespace PGameTSManager
         /// </summary>
         private static void OnMainWindowClosing(Window window, System.ComponentModel.CancelEventArgs e)
         {
+            if (_exiting) { e.Cancel = false; return; }   // 已确认退出，直接放行
             e.Cancel = true;   // 一律先拦下，由我们决定
             try
             {
                 var choice = System.Windows.MessageBox.Show(
                     window,
-                    "要最小化到托盘，还是退出 PGame-TSManager？\n\n" +
-                    "【是】= 最小化到托盘（它在后台继续管理你的服务器）\n" +
-                    "【否】= 退出程序\n" +
+                    "点 × 了：要缩小到托盘，还是关闭 PGame-TSManager？\n\n" +
+                    "【是】= 缩小到托盘（后台继续管理服务器）\n" +
+                    "【否】= 关闭程序\n" +
                     "【取消】= 什么都不做",
                     "PGame-TSManager",
                     MessageBoxButton.YesNoCancel,
@@ -151,7 +155,7 @@ namespace PGameTSManager
                     if (_tray != null)
                     {
                         _tray.Visible = true;
-                        try { _tray.ShowBalloonTip(2000, "PGame-TSManager", "已最小化到托盘，双击图标可恢复。", System.Windows.Forms.ToolTipIcon.Info); } catch { }
+                        try { _tray.ShowBalloonTip(2000, "PGame-TSManager", "已缩小到托盘，双击图标可恢复。", System.Windows.Forms.ToolTipIcon.Info); } catch { }
                     }
                     window.Hide();
                     return;
@@ -161,13 +165,14 @@ namespace PGameTSManager
                 {
                     var confirm = System.Windows.MessageBox.Show(
                         window,
-                        "确定要退出吗？\n\n正在运行的服务器会一起被关闭。",
-                        "确认退出",
+                        "确定要关闭 PGame-TSManager 吗？\n\n正在运行的服务器会一起被关闭。",
+                        "确认关闭",
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Warning,
                         MessageBoxResult.No);
                     if (confirm == MessageBoxResult.Yes)
                     {
+                        _exiting = true;
                         if (_tray != null) { _tray.Visible = false; _tray.Dispose(); _tray = null; }
                         LogCrash("MainWindowClosing", null);
                         e.Cancel = false;
