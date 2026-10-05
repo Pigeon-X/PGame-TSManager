@@ -219,8 +219,8 @@ namespace PGameTSManager
                     FileName = "cmd.exe",
                     Arguments = cmdArgs,
                     WorkingDirectory = runtimeDirectory,
-                    UseShellExecute = false,
-                    CreateNoWindow = false      // 关键：让 Windows 给 cmd 分配一个新控制台
+                    UseShellExecute = true,      // ShellExecute 会为 cmd 新建控制台
+                    WindowStyle = ProcessWindowStyle.Minimized   // 先最小化，随后按标题隐藏
                 };
             }
 
