@@ -27,6 +27,9 @@ namespace PGameTSManager
                 return;
             }
 
+            // --startall：打开管理器窗口并自动启动全部服务器。
+            PGameTSManager.MainWindow.StartAllOnLoad = e.Args.Any(a => string.Equals(a, "--startall", StringComparison.OrdinalIgnoreCase));
+
             var window = new MainWindow();
             window.Show();
         }

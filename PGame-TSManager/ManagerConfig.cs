@@ -141,10 +141,10 @@ namespace PGameTSManager
         /// </summary>
         public bool useSharedRuntime = true;
         /// <summary>
-        /// true = 每台服务器启动时开一个独立的可见控制台窗口（可直接看日志、敲指令）；
-        /// false = 输出捕获到管理器内置控制台（可在管理器输入框发指令）。
+        /// false（默认）= 服务器在 PGame-TSManager 里启动，输出显示在管理器控制台面板；
+        /// true = 每台服务器另开一个独立可见控制台窗口。
         /// </summary>
-        public bool showServerWindow = true;
+        public bool showServerWindow = false;
         /// <summary>共享运行时目录；留空 = 程序目录。</summary>
         public string sharedRuntimeDir = "";
         /// <summary>总插件库目录，相对程序目录。</summary>

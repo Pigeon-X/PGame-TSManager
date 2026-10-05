@@ -6,3 +6,4 @@
 - 2026-10-05：PGame-TSManager 改为「一个 TShock」：运行时（exe/bin/i18n/runtimes/x64/GeoIP.dat）与 ServerPlugins 只存根目录一份，各服只留 config.json+server.properties+tshock+世界+Logs；新增 To-SingleTShockLayout.ps1；管理器新增 useSharedRuntime。实测 TShock 插件目录固定=exe 目录，故一 exe 必然一套插件。
 - 2026-10-05：按旧版 TS 管理器模型改造：根 ServerPlugins = 插件总库（统一维护）；每服 config.json 的「插件」清单决定该服加载哪些插件（含 TShockAPI）；每服 ServerPlugins 由管理器按 config.json 从总库同步，未列出的移入 ServerPlugins.disabled；运行时用硬链接/目录联接共享，不重复占空间。新增 To-PerServerPluginsLayout.ps1。远程三服已验证：流光城 16 个插件（无 CGive/PigeonRPG），泰拉大陆/流光神域各 29 个（含 CGive/PigeonRPG）。
 - 2026-10-05：新增程序图标（PGame-TSManager.ico，16-256 多尺寸，嵌入 exe 并作为窗口图标）；新增 showServerWindow（默认 true，每服启动开独立可见控制台窗口）；新增 Remove-UnrelatedFiles.ps1 清理脚本；本地清出 340MB、远程清出 390MB；启动改为双击 exe / 桌面快捷方式，移除所有 .bat/.cmd 启动方式；远程三服已在 RDP 会话（Session 2）以可见窗口重启。
+- 2026-10-05：管理器改为「三服都在 PGame-TSManager 里开启」：新增「全部启动 / 全部停止」按钮与 --startall 命令行（打开窗口并自动启动三服）；showServerWindow 默认改回 false（服务器在管理器内运行，输出在管理器控制台面板）。本地+远程均已部署，远程管理器与三服均在 RDP 会话（Session 2）可见运行。

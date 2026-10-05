@@ -12,6 +12,9 @@ namespace PGameTSManager
     /// </summary>
     public partial class MainWindow : Window
     {
+        /// <summary>命令行 --startall 时，窗口加载后自动启动全部服务器。</summary>
+        public static bool StartAllOnLoad { get; set; }
+
         private readonly ManagerConfig _cfg;
         public ObservableCollection<ServerContainer> Containers { get; } = new();
         public ServerContainer? Current => ComboBox.SelectedItem as ServerContainer;
@@ -44,6 +47,22 @@ namespace PGameTSManager
                 CliTextBox.Document.Blocks.Clear();
                 CliTextBox.Document.Blocks.Add(new Paragraph(new Run(
                     "未配置任何服务器。\n请在 PGame-TSManager.config.json 的 serverProfiles 中添加服务器目录。")));
+                return;
+            }
+
+            if (StartAllOnLoad)
+            {
+                StartAll();
+            }
+        }
+
+        private void StartAll()
+        {
+            foreach (var container in Containers)
+            {
+                if (container.IsRunning) continue;
+                try { container.IsRunning = true; }
+                catch (Exception ex) { AppendLine($"[启动失败] {container.Name}：{ex.Message}"); }
             }
         }
 
@@ -59,6 +78,24 @@ namespace PGameTSManager
             var current = Current;
             if (current == null) return;
             current.IsRunning = false;
+        }
+
+        private void StartAllButton_Click(object _, RoutedEventArgs e) => StartAll();
+
+        private void StopAllButton_Click(object _, RoutedEventArgs e)
+        {
+            foreach (var container in Containers)
+            {
+                if (!container.IsRunning) continue;
+                try { container.IsRunning = false; }
+                catch (Exception ex) { AppendLine($"[停止失败] {container.Name}：{ex.Message}"); }
+            }
+        }
+
+        private void AppendLine(string text)
+        {
+            CliTextBox.Document.Blocks.Add(new Paragraph(new Run(text)));
+            CliTextBox.ScrollToEnd();
         }
 
         private void ComboBox_SelectionChanged(object _, SelectionChangedEventArgs e)

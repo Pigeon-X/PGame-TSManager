@@ -7,7 +7,7 @@
         xmlns:Linq="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json" x:Class="PGameTSManager.MainWindow"
         mc:Ignorable="d"
         DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
-        Title="{Binding Path=Title, Mode=OneWay}" Height="480" Width="820" Name="Window" Loaded="Window_Loaded" Icon="PGame-TSManager.ico">
+        Title="{Binding Path=Title, Mode=OneWay}" Height="520" Width="860" Name="Window" Loaded="Window_Loaded" Icon="PGame-TSManager.ico">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
@@ -15,10 +15,12 @@
             <ColumnDefinition Width="110"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height ="40"/>
-            <RowDefinition Height ="*"/>
-            <RowDefinition Height ="35"/>
+            <RowDefinition Height="40"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="35"/>
+            <RowDefinition Height="40"/>
         </Grid.RowDefinitions>
+
         <ComboBox Grid.Row="0" Grid.Column="0" x:Name="ComboBox" Margin="5" VerticalAlignment="Stretch"
                   HorizontalAlignment="Stretch" ItemsSource="{Binding Containers, ElementName=Window, Mode=OneWay}"
                   SelectionChanged="ComboBox_SelectionChanged" ToolTip="选择服务器">
@@ -37,13 +39,22 @@
                 Grid.Row="0" Grid.Column="2" Click="KillButton_Click"
                 DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
                 IsEnabled="{Binding IsRunning, Mode=OneWay}" />
+
         <RichTextBox x:Name="CliTextBox" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Background="Black"
                      Foreground="LightGray" FontFamily="Consolas" IsReadOnly="True" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Visible"
                      ToolTip="服务器控制台输出" />
+
         <TextBox x:Name="TextBox" Margin="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Grid.Row="2"
                  Grid.Column="0" Grid.ColumnSpan="2" TextWrapping="NoWrap" FontSize="15"
                  PreviewKeyDown="TextBox_PreviewKeyDown" ToolTip="输入服务器指令后按回车发送" />
         <Button x:Name="SendAllButton" Margin="5" Content="全部发送" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                 Grid.Row="2" Grid.Column="2" Click="SendAllButton_Click" ToolTip="把输入框内容发送给所有正在运行的服务器" />
+
+        <TextBlock Grid.Row="3" Grid.Column="0" Margin="8,0,5,0" VerticalAlignment="Center"
+                   Foreground="Gray" Text="三个服务器都在这里开启：点“全部启动”一键开三服" />
+        <Button x:Name="StartAllButton" Margin="5" Content="全部启动" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                Grid.Row="3" Grid.Column="1" Click="StartAllButton_Click" ToolTip="依次启动全部服务器（按 config.json 的 arguments 启动）" />
+        <Button x:Name="StopAllButton" Margin="5" Content="全部停止" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                Grid.Row="3" Grid.Column="2" Click="StopAllButton_Click" ToolTip="停止所有正在运行的服务器" />
     </Grid>
 </Window>

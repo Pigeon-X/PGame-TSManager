@@ -144,9 +144,19 @@ PGame-TSManager\                          ← 运行时只此一份
 - 双击桌面快捷方式「PGame-TSManager 管理器」
 - 或双击 `PGame-TSManager.exe`
 
-下拉框选服务器 → 点「启动」。每台服务器会开一个**独立的可见控制台窗口**
-（日志可见、可直接敲指令）。想改回管理器内置控制台，把 `config.json` 的
-`showServerWindow` 改成 `false`。
+**三个服务器都在 PGame-TSManager 里开启**：
+
+- 下拉框选服务器 → 点「启动 / 停止」（单个）
+- 或直接点「**全部启动**」/「全部停止」（三服一键开关）
+
+服务器在管理器内部运行，日志显示在管理器的控制台面板，输入框可在管理器里发指令。
+`config.json` 的 `showServerWindow`（默认 `false`）改成 `true` 时，才会另开独立控制台窗口。
+
+命令行也可一键开三服（打开管理器并自动启动全部）：
+
+```powershell
+PGame-TSManager.exe --startall
+```
 
 图标：`PGame-TSManager.ico`（16/24/32/48/64/128/256）已嵌入 exe，同时作为程序与窗口图标。
 
