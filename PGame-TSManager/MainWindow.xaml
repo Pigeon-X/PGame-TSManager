@@ -50,8 +50,7 @@
         <Button x:Name="SendAllButton" Margin="5" Content="全部发送" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                 Grid.Row="2" Grid.Column="2" Click="SendAllButton_Click" ToolTip="把输入框内容发送给所有正在运行的服务器" />
 
-        <TextBlock Grid.Row="3" Grid.Column="0" Margin="8,0,5,0" VerticalAlignment="Center"
-                   Foreground="Gray" Text="三个服务器都在这里开启：点“全部启动”一键开三服" />
+
         <Button x:Name="StartAllButton" Margin="5" Content="全部启动" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                 Grid.Row="3" Grid.Column="1" Click="StartAllButton_Click" ToolTip="依次启动全部服务器（按 config.json 的 arguments 启动）" />
         <Button x:Name="StopAllButton" Margin="5" Content="全部停止" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"

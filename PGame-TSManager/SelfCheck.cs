@@ -7,9 +7,10 @@ using System.Text;
 namespace PGameTSManager
 {
     /// <summary>
-    /// 无界面自检：检查配置文件、每服 TSM 配置、总插件库与三个服务器目录是否就绪，
-    /// 结果写入程序目录下的 selfcheck.txt，便于一键部署后远程验证。
-    /// 用法：PGame-TSManager.exe --selfcheck
+    /// 无界面自检 / 插件同步。用法：
+    ///   PGame-TSManager.exe --selfcheck     检查配置、世界、插件是否齐备
+    ///   PGame-TSManager.exe --syncplugins   只把总库插件同步到各服运行沙箱
+    /// 结果分别写入 selfcheck.txt / syncplugins.txt。
     /// </summary>
     internal static class SelfCheck
     {
@@ -22,75 +23,70 @@ namespace PGameTSManager
             sb.AppendLine("时间 : " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
             sb.AppendLine("目录 : " + AppContext.BaseDirectory);
 
-            var cfgPath = Path.Combine(AppContext.BaseDirectory, "config.json");
-            sb.AppendLine("管理器配置: " + cfgPath + (File.Exists(cfgPath) ? " [正常]" : " [失败：不存在]"));
-
             ManagerConfig cfg;
-            try
-            {
-                cfg = ManagerConfig.Instance;
-            }
-            catch (Exception ex)
-            {
-                sb.AppendLine("结果: 失败（配置读取错误：" + ex.Message + "）");
-                return Write(sb, 1);
-            }
+            try { cfg = ManagerConfig.Instance; }
+            catch (Exception ex) { sb.AppendLine("结果: 失败（配置读取错误：" + ex.Message + "）"); return Write(sb, 1); }
+
+            var cfgPath = Path.Combine(AppContext.BaseDirectory, "config.json");
+            sb.AppendLine("管理器配置: " + (File.Exists(cfgPath) ? "[正常]" : "[失败：不存在]"));
+
+            var runtime = ManagerConfig.Resolve(cfg.sharedRuntimeDir);
+            var exeName = string.IsNullOrWhiteSpace(cfg.serverExecutable) ? "TShock.Server.exe" : cfg.serverExecutable;
+            var exe = Path.Combine(runtime, exeName);
+            sb.AppendLine("运行时母本: " + runtime + (File.Exists(exe) ? " [正常 " + exeName + "]" : " [失败：缺少 " + exeName + "]"));
+            if (!File.Exists(exe)) ok = false;
+
+            var pool = ManagerConfig.Resolve(cfg.pluginDir);
+            sb.AppendLine("插件总库 : " + pool + (Directory.Exists(pool) ? " [正常 " + Directory.GetFiles(pool, "*.dll").Length + " 个 dll]" : " [失败：不存在]"));
+            if (!Directory.Exists(pool)) ok = false;
+
+            var worlds = ManagerConfig.Resolve(cfg.worldDir);
+            sb.AppendLine("世界目录 : " + worlds + (Directory.Exists(worlds) ? " [正常]" : " [警告：不存在]"));
+            sb.AppendLine("运行沙箱 : " + ManagerConfig.Resolve(cfg.runtimeDir));
 
             var profiles = new List<ServerProfile>(cfg.LoadProfiles());
             sb.AppendLine("服务器数量: " + profiles.Count);
-            if (profiles.Count == 0)
-            {
-                ok = false;
-                sb.AppendLine("  [失败] 未配置任何服务器（serverProfiles 为空）");
-            }
-
-            var library = ManagerConfig.Resolve(cfg.pluginLibrary);
-            sb.AppendLine("总插件库: " + library + (Directory.Exists(library) ? " [正常]" : " [失败：不存在]"));
-            if (!Directory.Exists(library)) ok = false;
+            if (profiles.Count == 0) { ok = false; sb.AppendLine("  [失败] 未配置任何服务器"); }
 
             foreach (var p in profiles)
             {
                 sb.AppendLine();
                 sb.AppendLine("· " + p.name);
-
-                var dir = p.IsProfileMode
-                    ? p.ResolvedRootPath
-                    : Path.Combine(ManagerConfig.Resolve(cfg.serverDir), p.name);
-                sb.AppendLine("    服务器目录 : " + dir);
-                if (Directory.Exists(dir)) sb.AppendLine("    目录状态   : [正常]");
-                else { ok = false; sb.AppendLine("    目录状态   : [失败：不存在]"); }
-
-                var exeName = string.IsNullOrWhiteSpace(p.executable) ? cfg.serverExecutable : p.executable;
-                var exe = cfg.useSharedRuntime
-                    ? Path.Combine(ManagerConfig.Resolve(cfg.sharedRuntimeDir), exeName)
-                    : Path.Combine(dir, exeName);
-                if (File.Exists(exe)) sb.AppendLine("    服务端程序 : [正常] " + exeName + (cfg.useSharedRuntime ? "（共享运行时）" : ""));
-                else { ok = false; sb.AppendLine("    服务端程序 : [失败：缺失] " + exe); }
-
-                var tshockConfig = Path.Combine(dir, "tshock", "config.json");
-                sb.AppendLine("    TShock配置 : " + (File.Exists(tshockConfig) ? "[正常] tshock\\config.json" : "[警告] tshock\\config.json 不存在"));
+                var dir = p.IsProfileMode ? p.ResolvedRootPath : Path.Combine(ManagerConfig.Resolve(cfg.serverDir), p.name);
+                sb.AppendLine("    配置目录 : " + dir);
+                if (!Directory.Exists(dir)) { ok = false; sb.AppendLine("    目录状态 : [失败：不存在]"); continue; }
 
                 var manifest = p.LoadManifest();
-                sb.AppendLine("    TSM配置    : " + (manifest != null ? "[正常] 服务器目录 config.json" : "[警告] 未找到 config.json"));
+                if (manifest == null) { ok = false; sb.AppendLine("    TSM配置  : [失败] 缺 config.json"); }
+                else sb.AppendLine("    TSM配置  : [正常] config.json");
 
-                var args = p.ResolveArguments(out _);
-                sb.AppendLine("    启动参数   : " + (string.IsNullOrWhiteSpace(args) ? "[警告] 未配置" : args));
+                var tshockCfg = Path.Combine(dir, "tshock", "config.json");
+                sb.AppendLine("    TShock   : " + (File.Exists(tshockCfg) ? "[正常] tshock\\config.json" : "[失败] 缺 tshock\\config.json"));
+                if (!File.Exists(tshockCfg)) ok = false;
 
-                var pluginList = p.ResolvePlugins(manifest);
-                sb.AppendLine("    启用插件   : " + pluginList.Count + " 个");
-                if (pluginList.Count > 0)
+                if (manifest != null)
                 {
-                    var miss = pluginList.Where(x => !File.Exists(Path.Combine(library, x))).ToList();
+                    var world = manifest.World ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(world) && !world.EndsWith(".wld", StringComparison.OrdinalIgnoreCase)) world += ".wld";
+                    var worldPath = string.IsNullOrWhiteSpace(world) ? null : Path.Combine(worlds, world);
+                    if (worldPath == null) sb.AppendLine("    世界     : [警告] 未配置「世界」");
+                    else if (File.Exists(worldPath)) sb.AppendLine("    世界     : [正常] " + world);
+                    else { ok = false; sb.AppendLine("    世界     : [失败] 缺 " + Path.Combine(worlds, world)); }
+
+                    sb.AppendLine("    端口     : " + manifest.Port + " / REST " + manifest.RestPort + " / 语言 " + manifest.Language);
+                }
+
+                var plugins = p.ResolvePlugins(manifest);
+                sb.AppendLine("    插件清单 : " + plugins.Count + " 个");
+                if (plugins.Count > 0)
+                {
+                    var miss = plugins.Where(x => !File.Exists(Path.Combine(pool, x))).ToList();
                     if (miss.Count > 0)
                     {
                         ok = false;
-                        sb.AppendLine("    [失败] 总插件库缺少: " + string.Join(", ", miss));
+                        sb.AppendLine("    [失败] 总库缺少: " + string.Join(", ", miss));
                     }
-                    var spDir = cfg.useSharedRuntime ? library : Path.Combine(dir, "ServerPlugins");
-                    var have = Directory.Exists(spDir)
-                        ? Directory.GetFiles(spDir).Count(f => pluginList.Contains(Path.GetFileName(f), StringComparer.OrdinalIgnoreCase))
-                        : 0;
-                    sb.AppendLine("    插件就绪   : " + have + " / " + pluginList.Count + (cfg.useSharedRuntime ? "（核对插件总库）" : "（本服 ServerPlugins）"));
+                    else sb.AppendLine("    [正常] 总库齐备");
                 }
             }
 
@@ -99,25 +95,6 @@ namespace PGameTSManager
             return Write(sb, ok ? 0 : 1);
         }
 
-        private static int Write(StringBuilder sb, int exitCode)
-        {
-            sb.AppendLine("退出码: " + exitCode);
-            var text = sb.ToString();
-            try
-            {
-                File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "selfcheck.txt"), text, new UTF8Encoding(false));
-            }
-            catch
-            {
-                // 写入失败时仍返回退出码。
-            }
-            return exitCode;
-        }
-
-        /// <summary>
-        /// 按每服 config.json 的插件清单，从总插件库同步 ServerPlugins（不启动服务器）。
-        /// 用法：PGame-TSManager.exe --syncplugins
-        /// </summary>
         public static int SyncPlugins()
         {
             var sb = new StringBuilder();
@@ -127,15 +104,11 @@ namespace PGameTSManager
 
             ManagerConfig cfg;
             try { cfg = ManagerConfig.Instance; }
-            catch (Exception ex)
-            {
-                sb.AppendLine("结果: 失败（配置读取错误：" + ex.Message + "）");
-                return WriteNamed(sb, "syncplugins.txt", 1);
-            }
+            catch (Exception ex) { sb.AppendLine("结果: 失败（配置读取错误：" + ex.Message + "）"); return WriteNamed(sb, "syncplugins.txt", 1); }
 
-            var library = ManagerConfig.Resolve(cfg.pluginLibrary);
-            sb.AppendLine("总插件库: " + library);
-            if (!Directory.Exists(library)) { ok = false; sb.AppendLine("  [失败] 总插件库不存在"); }
+            var pool = ManagerConfig.Resolve(cfg.pluginDir);
+            sb.AppendLine("插件总库: " + pool);
+            if (!Directory.Exists(pool)) { ok = false; sb.AppendLine("  [失败] 插件总库不存在"); }
 
             foreach (var p in cfg.LoadProfiles())
             {
@@ -143,24 +116,17 @@ namespace PGameTSManager
                 sb.AppendLine("· " + p.name);
                 try
                 {
-                    var dir = p.IsProfileMode ? p.ResolvedRootPath : Path.Combine(ManagerConfig.Resolve(cfg.serverDir), p.name);
                     var manifest = p.LoadManifest();
-                    var pluginList = p.ResolvePlugins(manifest);
-                    var prune = manifest?.PrunePlugins ?? cfg.prunePlugins;
-                    sb.AppendLine("    插件清单 : " + pluginList.Count + " 个");
-                    if (pluginList.Count == 0) { sb.AppendLine("    [跳过] 未配置插件清单"); continue; }
+                    var plugins = p.ResolvePlugins(manifest);
+                    sb.AppendLine("    插件清单 : " + plugins.Count + " 个");
+                    if (plugins.Count == 0) { sb.AppendLine("    [跳过] 未配置插件清单"); continue; }
 
-                    var lib = cfg.ResolvePluginLibrary(p, manifest);
-                    if (!Directory.Exists(lib)) { ok = false; sb.AppendLine("    [失败] 总插件库不存在: " + lib); continue; }
-
-                    PluginSync.Apply(dir, lib, pluginList, prune, cfg.disabledPluginDir,
-                        msg => sb.AppendLine("    " + msg.TrimEnd()));
+                    var runtime = cfg.ResolveRuntimeDir(p);
+                    Directory.CreateDirectory(runtime);
+                    PluginSync.Apply(runtime, pool, plugins, manifest?.PrunePlugins ?? cfg.prunePlugins,
+                        cfg.disabledPluginDir, msg => sb.AppendLine("    " + msg.TrimEnd()));
                 }
-                catch (Exception ex)
-                {
-                    ok = false;
-                    sb.AppendLine("    [失败] " + ex.Message);
-                }
+                catch (Exception ex) { ok = false; sb.AppendLine("    [失败] " + ex.Message); }
             }
 
             sb.AppendLine();
@@ -168,13 +134,12 @@ namespace PGameTSManager
             return WriteNamed(sb, "syncplugins.txt", ok ? 0 : 1);
         }
 
+        private static int Write(StringBuilder sb, int exitCode) => WriteNamed(sb, "selfcheck.txt", exitCode);
+
         private static int WriteNamed(StringBuilder sb, string fileName, int exitCode)
         {
             sb.AppendLine("退出码: " + exitCode);
-            try
-            {
-                File.WriteAllText(Path.Combine(AppContext.BaseDirectory, fileName), sb.ToString(), new UTF8Encoding(false));
-            }
+            try { File.WriteAllText(Path.Combine(AppContext.BaseDirectory, fileName), sb.ToString(), new UTF8Encoding(false)); }
             catch { }
             return exitCode;
         }
