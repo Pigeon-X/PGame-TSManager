@@ -90,7 +90,7 @@ namespace PGameTSManager
                     var have = Directory.Exists(spDir)
                         ? Directory.GetFiles(spDir).Count(f => pluginList.Contains(Path.GetFileName(f), StringComparer.OrdinalIgnoreCase))
                         : 0;
-                    sb.AppendLine("    插件就绪   : " + have + " / " + pluginList.Count + (cfg.useSharedRuntime ? "（共享 ServerPlugins）" : "（本服 ServerPlugins）"));
+                    sb.AppendLine("    插件就绪   : " + have + " / " + pluginList.Count + (cfg.useSharedRuntime ? "（核对插件总库）" : "（本服 ServerPlugins）"));
                 }
             }
 
