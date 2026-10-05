@@ -93,27 +93,61 @@ namespace TSManager
         private void Start()
         {
             _para.Inlines.Clear();
+            var serverConfig = LoadServerConfig();
+            var serverDirectory = Path.GetFullPath(Path.Combine(_managerConfig.serverDir, _serverName));
+            Directory.CreateDirectory(serverDirectory);
+            var executable = ResolveServerExecutable(serverDirectory);
+            var info = new ProcessStartInfo
+            {
+                FileName = executable,
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                WorkingDirectory = serverDirectory,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardInputEncoding = Encoding.UTF8
+            };
+
+            if (_managerConfig.useTShockLaunchArguments)
+            {
+                var propertiesPath = Path.Combine(serverDirectory, _managerConfig.serverPropertiesFile);
+                if (!File.Exists(propertiesPath))
+                {
+                    File.WriteAllText(propertiesPath, BuildTShockServerProperties(serverConfig, _managerConfig.worldDir), Encoding.UTF8);
+                }
+
+                info.ArgumentList.Add("-config");
+                info.ArgumentList.Add(propertiesPath);
+                AddWorldArgument(info, serverConfig, _managerConfig.worldDir);
+                info.ArgumentList.Add("-port");
+                info.ArgumentList.Add(serverConfig.port.ToString(CultureInfo.InvariantCulture));
+                info.ArgumentList.Add("-maxplayers");
+                info.ArgumentList.Add(serverConfig.maxPlayer.ToString(CultureInfo.InvariantCulture));
+                info.ArgumentList.Add("-lang");
+                info.ArgumentList.Add(((int)serverConfig.lang).ToString(CultureInfo.InvariantCulture));
+                if (!string.IsNullOrEmpty(serverConfig.password))
+                {
+                    info.ArgumentList.Add("-pass");
+                    info.ArgumentList.Add(serverConfig.password);
+                }
+                foreach (var parameter in serverConfig.parameters)
+                {
+                    info.ArgumentList.Add(parameter);
+                }
+            }
+            else
+            {
+                info.ArgumentList.Add(Path.GetFullPath(_configFile));
+                info.ArgumentList.Add(Path.GetFullPath(_managerConfig.pluginDir));
+                info.ArgumentList.Add(Path.GetFullPath(_managerConfig.worldDir));
+                info.ArgumentList.Add(_serverName);
+                info.ArgumentList.Add(Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
+            }
+
             _process = new Process
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "TerrariaServer.exe",
-                    ArgumentList =
-                    {
-                        Path.GetFullPath(_configFile),
-                        Path.GetFullPath(_managerConfig.pluginDir),
-                        Path.GetFullPath(_managerConfig.worldDir),
-                        _serverName,
-                        Environment.ProcessId.ToString()
-                    },
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardInput = true,
-                    RedirectStandardOutput = true,
-                    WorkingDirectory = Path.GetDirectoryName(_configFile),
-                    StandardOutputEncoding = Encoding.UTF8,
-                    StandardInputEncoding = Encoding.UTF8,
-                },
+                StartInfo = info,
                 EnableRaisingEvents = true
             };
 
@@ -136,7 +170,62 @@ namespace TSManager
 
             OnPropertyChanged(nameof(IsRunning));
         }
-        
+
+        private ServerConfig LoadServerConfig()
+        {
+            try
+            {
+                return JsonConvert.DeserializeObject<ServerConfig>(File.ReadAllText(_configFile)) ?? new ServerConfig();
+            }
+            catch
+            {
+                return new ServerConfig();
+            }
+        }
+
+        private string ResolveServerExecutable(string serverDirectory)
+        {
+            var configured = _managerConfig.serverExecutable;
+            var candidates = new[]
+            {
+                configured,
+                Path.Combine(serverDirectory, configured),
+                Path.Combine(AppContext.BaseDirectory, configured),
+                Path.Combine(AppContext.BaseDirectory, "TShock.Server.exe")
+            };
+            foreach (var candidate in candidates)
+            {
+                if (File.Exists(candidate))
+                {
+                    return Path.GetFullPath(candidate);
+                }
+            }
+            return configured;
+        }
+
+        private static void AddWorldArgument(ProcessStartInfo info, ServerConfig config, string worldDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(config.world))
+            {
+                return;
+            }
+            info.ArgumentList.Add("-world");
+            info.ArgumentList.Add(Path.Combine(Path.GetFullPath(worldDirectory), config.world + ".wld"));
+        }
+
+        private static string BuildTShockServerProperties(ServerConfig config, string worldDirectory)
+        {
+            return string.Join(Environment.NewLine, new[]
+            {
+                "world=" + config.world,
+                "worldpath=" + Path.GetFullPath(worldDirectory),
+                "maxplayers=" + config.maxPlayer.ToString(CultureInfo.InvariantCulture),
+                "port=" + config.port.ToString(CultureInfo.InvariantCulture),
+                "password=" + config.password,
+                "lang=" + ((int)config.lang).ToString(CultureInfo.InvariantCulture)
+            });
+        }
+
         private void AddText(string text)
         {
             _para.Dispatcher.Invoke(() =>

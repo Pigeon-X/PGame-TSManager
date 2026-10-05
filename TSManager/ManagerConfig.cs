@@ -14,6 +14,9 @@ namespace TSManager
         public string pluginDir = "Plugins";
         public string serverDir = "Servers";
         public string configFile = "config.json";
+        public string serverExecutable = "TShock.Server.exe";
+        public string serverPropertiesFile = "server.properties";
+        public bool useTShockLaunchArguments = true;
 
         private static ManagerConfig? _instance;
         public static ManagerConfig Instance => _instance ??= LoadConfig() ?? new ManagerConfig();

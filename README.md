@@ -24,3 +24,13 @@ Pigeon-X 维护版，汇总 TShock 更新、配置中文映射、REST 修复和�
 - 本仓库只保存源码，不提交 OTAPI、XNA、TerrariaServerAPI 编译产物或其它 DLL。
 - 构建 TSManager 前需在外部准备对应版本的 OTAPI/XNA/TShield 参考程序集。
 - 缺少这些参考程序集时，dotnet build 会出现 OTAPI/XNA 类型缺失错误，不代表源码结构损坏。
+
+## TShock 6.2 兼容启动
+
+ManagerConfig 新增：
+
+- serverExecutable：默认 TShock.Server.exe。
+- serverPropertiesFile：默认 server.properties。
+- useTShockLaunchArguments：默认 true，使用 TShock 6.2 启动参数。
+
+旧 LaunchMode 仍可通过 useTShockLaunchArguments=false 保留。TerrariaServerAPI 源码保留在仓库中作为参考，但已从解决方案构建链移除，避免旧 OTAPI/XNA 引用阻断 TSManager。
