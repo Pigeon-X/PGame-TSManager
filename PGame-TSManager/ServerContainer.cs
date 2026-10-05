@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Management;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -42,9 +43,11 @@ namespace PGameTSManager
                     var process = _process;
                     if (process != null)
                     {
-                        try { process.Kill(); } catch { }
+                        try { process.Kill(true); } catch { try { process.Kill(); } catch { } }
                         StopTail();
                         OnPropertyChanged(nameof(IsRunning));
+                        OnPropertyChanged(nameof(StatusBrush));
+                        OnPropertyChanged(nameof(StatusText));
                     }
                 }
             }
@@ -62,6 +65,19 @@ namespace PGameTSManager
 
         public Brush Foreground { get; private set; }
         public Brush Background { get; private set; }
+
+        // ---- 界面配色 ----
+        private static readonly SolidColorBrush ClrNormal = new(Color.FromRgb(0xE6, 0xE6, 0xEE));
+        private static readonly SolidColorBrush ClrDim    = new(Color.FromRgb(0x9A, 0xA0, 0xB4));
+        private static readonly SolidColorBrush ClrGood   = new(Color.FromRgb(0x22, 0xC5, 0x5E));
+        private static readonly SolidColorBrush ClrWarn   = new(Color.FromRgb(0xF5, 0x9E, 0x0B));
+        private static readonly SolidColorBrush ClrError  = new(Color.FromRgb(0xEF, 0x44, 0x44));
+        private static readonly SolidColorBrush ClrAccent = new(Color.FromRgb(0x4C, 0x8D, 0xF6));
+        private static readonly SolidColorBrush ClrPlugin = new(Color.FromRgb(0x8B, 0x5C, 0xF6));
+
+        /// <summary>状态灯颜色：运行中=绿，已停止=灰。</summary>
+        public Brush StatusBrush => IsRunning ? ClrGood : ClrDim;
+        public string StatusText => IsRunning ? "运行中" : "已停止";
 
         public string Name => string.IsNullOrWhiteSpace(_profile.name)
             ? Path.GetFileName(ServerDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
@@ -154,17 +170,44 @@ namespace PGameTSManager
                 // 直接用「隐藏窗口」启动：进程仍然拥有一个真实控制台（stdin 不会 EOF，
                 // TShock 6.2 不会自己退出），但窗口是隐藏的，看不到。
                 // 面板回显改为读 TShock 自己写的日志：_runtime\<服>\Logs\<日期>.log
-                info = new ProcessStartInfo
+                // 实测唯一稳定的做法（与手动命令一致）：
+                //   cmd /c start "" /b /d <沙箱> <exe> <参数>
+                // cmd 自己会拿到一个（隐藏的）控制台，服务器用 start /b 继承它 →
+                // stdin 是真正的控制台输入，TShock 6.2 不会因 EOF 自行退出；同时看不到任何窗口。
+                Directory.CreateDirectory(Path.Combine(runtimeDirectory, "Logs"));
+                // 用 WMI 创建进程：只有这种创建方式会给 cmd 分配一个真实（可隐藏）的控制台，
+                // 服务器继承后 stdin 不会 EOF，TShock 6.2 才会一直运行；同时不弹任何窗口。
+                var cmdLine = "cmd.exe /c cd /d " + Quote(runtimeDirectory) + " && " + Quote(executable) + " " + arguments;
+                LaunchViaWmi(cmdLine, out var launchedPid);
+
+                AddText($"[启动] {Name}\n");
+                StartTail(runtimeDirectory);
+
+                if (launchedPid > 0)
                 {
-                    FileName = executable,
-                    Arguments = arguments,
-                    WorkingDirectory = runtimeDirectory,
-                    UseShellExecute = true,
-                    WindowStyle = ProcessWindowStyle.Hidden
-                };
+                    _process = Process.GetProcessById(launchedPid);
+                    _process.EnableRaisingEvents = true;
+                    _process.Exited += (_, _) =>
+                    {
+                        var code = _process != null && _process.HasExited ? _process.ExitCode : -999;
+                        AddText($"---服务器已退出（退出码 {code}）---\n");
+                        _process?.Dispose();
+                        _process = null;
+                        StopTail();
+                        OnPropertyChanged(nameof(IsRunning));
+                        OnPropertyChanged(nameof(StatusBrush));
+                        OnPropertyChanged(nameof(StatusText));
+                    };
+                }
+                OnPropertyChanged(nameof(IsRunning));
+                OnPropertyChanged(nameof(StatusBrush));
+                OnPropertyChanged(nameof(StatusText));
+                return;
             }
 
             _process = new Process { StartInfo = info, EnableRaisingEvents = true };
+            _process.OutputDataReceived += (_, args) => { if (args.Data != null) AddText(args.Data + "\n"); };
+            _process.ErrorDataReceived += (_, args) => { if (args.Data != null) AddText(args.Data + "\n"); };
             _process.Exited += (_, _) =>
             {
                 var code = _process != null && _process.HasExited ? _process.ExitCode : -999;
@@ -173,13 +216,39 @@ namespace PGameTSManager
                 _process = null;
                 StopTail();
                 OnPropertyChanged(nameof(IsRunning));
+                OnPropertyChanged(nameof(StatusBrush));
+                OnPropertyChanged(nameof(StatusText));
             };
 
             AddText($"[启动] {Name}\n");
             _process.Start();
+            if (info.RedirectStandardOutput) _process.BeginOutputReadLine();
+            if (info.RedirectStandardError) _process.BeginErrorReadLine();
 
-            if (!showWindow) StartTail(runtimeDirectory);
+            StartTail(runtimeDirectory);
             OnPropertyChanged(nameof(IsRunning));
+            OnPropertyChanged(nameof(StatusBrush));
+            OnPropertyChanged(nameof(StatusText));
+        }
+
+        /// <summary>用 WMI 创建进程（唯一能保证 TShock 有真实控制台、又不弹窗的方式）。</summary>
+        private void LaunchViaWmi(string commandLine, out int pid)
+        {
+            pid = 0;
+            try
+            {
+                using var cls = new ManagementClass("Win32_Process");
+                var inParams = cls.GetMethodParameters("Create");
+                inParams["CommandLine"] = commandLine;
+                var outParams = cls.InvokeMethod("Create", inParams, null);
+                var rc = outParams?["ReturnValue"];
+                if (outParams != null) pid = Convert.ToInt32(outParams["ProcessId"] ?? 0);
+                if (pid <= 0) AddText($"[启动] WMI 创建进程失败：ReturnValue={rc}\n");
+            }
+            catch (Exception ex)
+            {
+                AddText($"[启动] WMI 调用异常：{ex.GetType().Name}: {ex.Message}\n");
+            }
         }
 
         private string BuildArguments(string runtimeDirectory, ServerManifest manifest)
@@ -418,11 +487,29 @@ namespace PGameTSManager
             try { dispatcher.BeginInvoke(new Action(() => AppendText(text))); } catch { }
         }
 
+        private static Brush ColorFor(string line)
+        {
+            var s = line.TrimStart();
+            if (s.StartsWith(">")) return ClrAccent;
+            if (s.Contains("Exception") || s.Contains("Unhandled") || s.Contains("致命") ||
+                s.Contains("错误") || s.Contains("失败") || s.Contains("Error") || s.Contains("ERROR")) return ClrError;
+            if (s.Contains("Warning") || s.Contains("WARN") || s.Contains("警告")) return ClrWarn;
+            if (s.Contains("服务器已启动") || s.Contains("正在侦听") || s.Contains("插件同步") ||
+                s.Contains("[启动]") || s.Contains("总库齐备")) return ClrGood;
+            if (s.StartsWith("[Server API]")) return ClrPlugin;
+            if (s.StartsWith("[")) return ClrPlugin;
+            return ClrNormal;
+        }
+
         private void AppendText(string text)
         {
             try
             {
-                _para.Inlines.Add(new Run(text) { Background = Background, Foreground = Foreground });
+                foreach (var raw in text.Replace("\r\n", "\n").Split('\n'))
+                {
+                    if (raw.Length == 0) continue;
+                    _para.Inlines.Add(new Run(raw + "\n") { Foreground = ColorFor(raw) });
+                }
                 while (_para.Inlines.Count > 4096)
                 {
                     if (_para.Inlines.FirstInline == null) break;

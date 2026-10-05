@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 
@@ -11,6 +12,30 @@ namespace PGameTSManager
     /// </summary>
     public partial class App : Application
     {
+        [DllImport("kernel32.dll")] private static extern bool AllocConsole();
+        [DllImport("kernel32.dll")] private static extern IntPtr GetConsoleWindow();
+        [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        private const int SW_HIDE = 0;
+
+        /// <summary>
+        /// 给管理器分配一个「隐藏控制台」。
+        /// 目的：服务器子进程继承这个控制台后，stdin 是真正的控制台输入（不会 EOF），
+        /// TShock 6.2 就不会因为 stdin EOF 而自己退出；而这个控制台窗口是隐藏的，看不到。
+        /// </summary>
+        private static void EnsureHiddenConsole()
+        {
+            try
+            {
+                if (GetConsoleWindow() == IntPtr.Zero)
+                {
+                    AllocConsole();
+                }
+                var h = GetConsoleWindow();
+                if (h != IntPtr.Zero) ShowWindow(h, SW_HIDE);
+            }
+            catch { }
+        }
         public App()
         {
             DispatcherUnhandledException += (_, e) =>
@@ -57,6 +82,8 @@ namespace PGameTSManager
                 // 只影响“服务器”窗口，不影响管理器自身窗口：管理器永远可视化显示
                 ManagerConfig.ShowWindowOverride = false;
             }
+
+            EnsureHiddenConsole();
 
             PGameTSManager.MainWindow.StartAllOnLoad =
                 e.Args.Any(a => string.Equals(a, "--startall", StringComparison.OrdinalIgnoreCase));

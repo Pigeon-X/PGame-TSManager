@@ -115,6 +115,16 @@ namespace PGameTSManager
             TextBox.Text = string.Empty;
         }
 
+        private void SendCurrentButton_Click(object _, RoutedEventArgs e)
+        {
+            var current = Current;
+            if (current == null || !current.IsRunning) return;
+            var text = TextBox.Text;
+            if (string.IsNullOrWhiteSpace(text)) return;
+            current.SendText(text);
+            TextBox.Text = string.Empty;
+        }
+
         private void SendAllButton_Click(object _, RoutedEventArgs e)
         {
             foreach (var container in Containers)
