@@ -195,6 +195,8 @@ namespace PGameTSManager
         {
             try
             {
+                // ★ 先等旧进程真正退出，否则 IsRunning 还是 true，Start 会被跳过 → 变成"只停不起"
+                await c.WaitForStoppedAsync(TimeSpan.FromSeconds(30));
                 c.IsRunning = true;
                 var ok = await c.WaitUntilReadyAsync(TimeSpan.FromSeconds(Math.Max(30, _cfg.startReadyTimeoutSeconds)));
                 AppendLine(ok ? $"[插件开关] {c.Name} 已重启并就绪 ✓" : $"[插件开关] {c.Name} 重启后等待就绪超时");

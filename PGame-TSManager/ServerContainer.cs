@@ -44,6 +44,13 @@ namespace PGameTSManager
             {
                 if (value)
                 {
+                    // 进程已经被杀但 Exited 回调还没跑完时，_process 仍非空 → 直接 Start 会被跳过。
+                    // 这里先把「已经退出」的对象清掉，避免"点了启动却什么都没发生"。
+                    var dead = _process;
+                    if (dead != null)
+                    {
+                        try { if (dead.HasExited) { dead.Dispose(); _process = null; } } catch { }
+                    }
                     if (!IsRunning) { Start(); OnPropertyChanged(nameof(IsRunning)); }
                 }
                 else
@@ -242,6 +249,15 @@ namespace PGameTSManager
             return false;
         }
 
+        /// <summary>
+        /// 等本服进程真正退出（停止后立刻启动会抢不到端口 / 被当成"已经在运行"跳过）。
+        /// </summary>
+        public async Task WaitForStoppedAsync(TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline && IsRunning)
+                await Task.Delay(250);
+        }
         /// <summary>只读探测：本机有没有人在监听这个端口（不建连接，不会污染服务器日志）。</summary>
         private static bool IsPortListening(int port)
         {
