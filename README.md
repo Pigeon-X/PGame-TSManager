@@ -208,7 +208,7 @@ powershell -ExecutionPolicy Bypass -File maintenance\tools\Trim-Runtimes.ps1 -Ma
 
 - 顶部下拉框选服务器，右上角点「启动本服 / 停止本服」
 - 右上角点「**全部启动**」/「全部停止」（三服一键开关）
-- 插件开关、新建服务器、刷新列表、保存世界和广播在顶部菜单栏中
+- 插件开关、新建服务器、刷新列表和保存世界在顶部菜单栏中
 
 服务器在管理器内部运行，日志显示在管理器的控制台面板，输入框可在管理器里发指令。
 `config.json` 的 `showServerWindow`（默认 `false`）改成 `true` 时，才会另开独立控制台窗口。

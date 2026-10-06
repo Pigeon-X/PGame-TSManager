@@ -76,8 +76,8 @@
         <Style TargetType="MenuItem">
             <Setter Property="Foreground" Value="{DynamicResource Text}"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="FontSize" Value="12.5"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="MenuItem">
@@ -234,7 +234,7 @@
                 <!-- 顶部高光条 -->
                 <Border Height="1" VerticalAlignment="Top" Margin="16,1,16,0" Background="{DynamicResource GlassHi}"/>
 
-                <Grid Margin="14,14,14,12">
+                <Grid Margin="14,10,14,10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -244,7 +244,7 @@
 
                     <!-- 第 1 行：菜单栏 -->
                     <Menu Grid.Row="0" Background="Transparent" Foreground="{DynamicResource Text}"
-                          FontSize="13" Padding="0" VerticalAlignment="Center">
+                          FontSize="12.5" Padding="0" VerticalAlignment="Center" HorizontalAlignment="Left">
                         <MenuItem Header="服务器">
                             <MenuItem Header="启动本服" Click="StartButton_Click"/>
                             <MenuItem Header="停止本服" Click="KillButton_Click"/>
@@ -259,12 +259,11 @@
                         </MenuItem>
                         <MenuItem Header="工具">
                             <MenuItem Header="保存世界" Click="QuickSave_Click"/>
-                            <MenuItem Header="广播输入框内容" Click="QuickBroadcast_Click"/>
                         </MenuItem>
                     </Menu>
 
                     <!-- 第 2 行：选服 + 右侧启停按钮 -->
-                    <Grid Grid.Row="1" Margin="0,8,0,0">
+                    <Grid Grid.Row="1" Margin="0,4,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
@@ -298,7 +297,7 @@
                     </Grid>
 
                     <!-- 控制台 -->
-                    <Border Grid.Row="2" Margin="0,8,0,0" CornerRadius="12" Background="{DynamicResource ConsoleBg}"
+                    <Border Grid.Row="2" Margin="0,4,0,0" CornerRadius="12" Background="{DynamicResource ConsoleBg}"
                             BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1">
                         <RichTextBox x:Name="CliTextBox" Background="Transparent" Foreground="{DynamicResource LogNormal}"
                                      BorderThickness="0" FontFamily="Consolas, Microsoft YaHei UI" FontSize="13.5" IsReadOnly="True"
@@ -307,7 +306,7 @@
                     </Border>
 
                     <!-- 最底部：只保留一行指令输入 -->
-                    <Grid Grid.Row="3" Margin="0,8,0,0">
+                    <Grid Grid.Row="3" Margin="0,4,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>

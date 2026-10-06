@@ -414,18 +414,5 @@ namespace PGameTSManager
 
         private void QuickSave_Click(object _, RoutedEventArgs e) => SendQuickCommand("/save");
 
-        private void QuickBroadcast_Click(object _, RoutedEventArgs e)
-        {
-            var text = TextBox.Text.Trim();
-            if (text.Length == 0)
-            {
-                AppendLine("[快捷指令] 先在输入框填写广播内容");
-                TextBox.Focus();
-                return;
-            }
-            SendQuickCommand("/bc " + text);
-            TextBox.Text = string.Empty;
-        }
-
     }
 }
