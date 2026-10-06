@@ -399,5 +399,42 @@ namespace PGameTSManager
                 if (container.IsRunning) container.SendText(TextBox.Text);
             TextBox.Text = string.Empty;
         }
+
+        private void SendQuickCommand(string command)
+        {
+            var current = Current;
+            if (current == null || !current.IsRunning)
+            {
+                AppendLine("[快捷指令] 当前服务器未运行");
+                return;
+            }
+            try { current.SendText(command); }
+            catch (Exception ex) { AppendLine("[快捷指令] 发送失败：" + ex.Message); }
+        }
+
+        private void QuickSave_Click(object _, RoutedEventArgs e) => SendQuickCommand("/save");
+
+        private void QuickReload_Click(object _, RoutedEventArgs e) => SendQuickCommand("/ac reload");
+
+        private void QuickBroadcast_Click(object _, RoutedEventArgs e)
+        {
+            var text = TextBox.Text.Trim();
+            if (text.Length == 0)
+            {
+                AppendLine("[快捷指令] 先在输入框填写广播内容");
+                TextBox.Focus();
+                return;
+            }
+            SendQuickCommand("/bc " + text);
+            TextBox.Text = string.Empty;
+        }
+
+        private void QuickOff_Click(object _, RoutedEventArgs e)
+        {
+            var current = Current;
+            if (current == null || !current.IsRunning) { AppendLine("[快捷指令] 当前服务器未运行"); return; }
+            var result = MessageBox.Show(this, "确定向「" + current.Name + "」发送 /off 并关闭服务器吗？", "关闭当前服", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (result == MessageBoxResult.Yes) SendQuickCommand("/off");
+        }
     }
 }
