@@ -8,5 +8,13 @@ obj/
 *.exe
 *.zip
 *.log
+artifacts/
+maintenance/staging/
+Backups/
+Logs/
+Worlds/
+_runtime/
+1.PigeonServers/
+ServerPlugins/
 PGame-TSManager/Plugins/*
 !PGame-TSManager/Plugins/.gitkeep

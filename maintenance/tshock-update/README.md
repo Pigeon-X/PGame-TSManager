@@ -24,6 +24,21 @@ powershell -ExecutionPolicy Bypass -File ..\tools\Test-TShockConfig.ps1 -ServerP
 5. 确认 /help 正常（见 ../help-lock），SSC 仍为英文（见 ../ssc-lock）。
 6. 记录版本号、提交号与上报回执到 change-log。
 
+## TSM 内更新入口
+
+管理器左下角的「TShock 更新」会调用 `maintenance/tools/Invoke-TShockUpdate.ps1`。
+它先确认三服已停止，再把压缩包解到 `maintenance/staging`，校验 `TShock.Server.exe` 和
+`TShockAPI.dll` 来自同一个包，并在预览模式列出待替换文件。实际替换时使用：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\maintenance\tools\Invoke-TShockUpdate.ps1 `
+  -ManagerDir . -PackagePath .\官方TShock.zip -Apply
+```
+
+旧文件会备份到 `Backups\tshock-update-时间戳`。替换后必须执行 `--selfcheck`、逐服灰度启动，
+再执行 `Test-TShockConfig.ps1` 检查中文 `config.json`、REST 的「用户名/用户组」字段和英文 SSC。
+更新流程不会把运行服务器、世界、数据库、日志或 `_runtime` 写入 Git 仓库。
+
 ## 规则
 
 - 只修改 TShock 更新相关文件。

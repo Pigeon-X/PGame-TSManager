@@ -286,6 +286,8 @@
                                     ToolTip="向导：自动取下一个序号建目录，tshock 配置从模板服复制"/>
                             <Button Content="刷新列表" Style="{StaticResource NeutralBtn}" Click="RefreshButton_Click"
                                     ToolTip="重新扫描 1.PigeonServers，自动发现新目录"/>
+                            <Button Content="TShock 更新" Style="{StaticResource NeutralBtn}" Click="TShockUpdateButton_Click"
+                                    ToolTip="检查并执行 TShock 更新维护流程"/>
                         </StackPanel>
 
                         <Button Grid.Column="2" x:Name="StartAllButton" Content="全部启动（顺序）" Style="{StaticResource StartBtn}" Click="StartAllButton_Click" ToolTip="按顺序逐台启动：上一台就绪后再起下一台"/>

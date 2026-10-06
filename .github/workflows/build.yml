@@ -1,0 +1,85 @@
+name: Build PGame-TSManager
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore PGame-TSManager.sln
+
+      - name: Build
+        run: dotnet build PGame-TSManager.sln -c Release --no-restore
+
+      - name: Publish self-contained manager
+        run: >-
+          dotnet publish PGame-TSManager/PGame-TSManager.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=None -o artifacts/manager
+
+      - name: Package source-only maintenance bundle
+        shell: pwsh
+        run: |
+          ./maintenance/tools/New-SourceBundle.ps1 `
+            -RepositoryRoot $env:GITHUB_WORKSPACE `
+            -OutputPath (Join-Path $env:GITHUB_WORKSPACE 'artifacts/PGame-TSManager-source.zip')
+
+      - name: Package manager template
+        shell: pwsh
+        run: |
+          ./maintenance/tools/New-ReleaseBundle.ps1 `
+            -RepositoryRoot $env:GITHUB_WORKSPACE `
+            -PublishDirectory (Join-Path $env:GITHUB_WORKSPACE 'artifacts/manager') `
+            -OutputPath (Join-Path $env:GITHUB_WORKSPACE 'artifacts/PGame-TSManager-template.zip')
+
+      - name: Self-check repository packaging rules
+        shell: pwsh
+        run: ./maintenance/tools/Test-RepositoryLayout.ps1 -RepositoryRoot $env:GITHUB_WORKSPACE
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PGame-TSManager-${{ github.sha }}
+          path: artifacts/*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: PGame-TSManager-*
+          merge-multiple: true
+          path: artifacts
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: artifacts/*.zip

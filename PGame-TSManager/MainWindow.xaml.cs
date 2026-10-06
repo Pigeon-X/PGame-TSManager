@@ -10,6 +10,7 @@ using System.Windows.Documents;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Threading;
+using Microsoft.Win32;
 
 namespace PGameTSManager
 {
@@ -228,6 +229,73 @@ namespace PGameTSManager
             if (dlg.ShowDialog() != true) return;
             ReloadContainers();
             AppendLine($"[新建服务器] 已创建 {dlg.CreatedDirName}，列表已刷新");
+        }
+
+        private void TShockUpdateButton_Click(object _, RoutedEventArgs e)
+        {
+            var script = Path.Combine(ManagerConfig.BaseDir, "maintenance", "tools", "Invoke-TShockUpdate.ps1");
+            if (!File.Exists(script))
+            {
+                AppendLine("[TShock 更新] 缺少 maintenance\\tools\\Invoke-TShockUpdate.ps1");
+                return;
+            }
+
+            var pick = new OpenFileDialog
+            {
+                Title = "选择官方 TShock Releases / Actions 压缩包",
+                Filter = "TShock 压缩包 (*.zip)|*.zip|所有文件 (*.*)|*.*",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+            if (pick.ShowDialog(this) != true) return;
+
+            var running = Containers.Where(c => c.IsRunning).Select(c => c.Name).ToList();
+            if (running.Count > 0)
+            {
+                MessageBox.Show(this,
+                    "检测到正在运行的服务器：\n\n" + string.Join("、", running) +
+                    "\n\n请先停止三服，再重新执行更新。当前只做了安全拦截，未修改任何文件。",
+                    "TShock 更新", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var preview = MessageBox.Show(this,
+                "将先校验压缩包并预览替换文件。\n\n" + pick.FileName +
+                "\n\n是否继续？实际替换仍需要下一次明确确认。",
+                "TShock 更新预览", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (preview != MessageBoxResult.Yes) return;
+
+            RunMaintenanceScript(script, pick.FileName, apply: false);
+        }
+
+        private void RunMaintenanceScript(string script, string package, bool apply)
+        {
+            try
+            {
+                var escapedScript = script.Replace("'", "''");
+                var escapedPackage = package.Replace("'", "''");
+                var args = $"-NoLogo -NoProfile -ExecutionPolicy Bypass -File '{escapedScript}' -PackagePath '{escapedPackage}'" +
+                           (apply ? " -Apply" : "");
+                var psi = new System.Diagnostics.ProcessStartInfo("powershell.exe", args)
+                {
+                    WorkingDirectory = ManagerConfig.BaseDir,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                };
+                var process = new System.Diagnostics.Process { StartInfo = psi, EnableRaisingEvents = true };
+                process.OutputDataReceived += (_, a) => { if (a.Data != null) Dispatcher.BeginInvoke(() => AppendLine("[TShock 更新] " + a.Data)); };
+                process.ErrorDataReceived += (_, a) => { if (a.Data != null) Dispatcher.BeginInvoke(() => AppendLine("[TShock 更新] " + a.Data)); };
+                process.Exited += (_, _) => Dispatcher.BeginInvoke(() => AppendLine("[TShock 更新] 维护脚本结束，退出码 " + process.ExitCode));
+                AppendLine("[TShock 更新] 已开始安全预览，未覆盖运行文件");
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+            }
+            catch (Exception ex) { AppendLine("[TShock 更新] 启动维护脚本失败：" + ex.Message); }
         }
 
         private bool _startingAll;

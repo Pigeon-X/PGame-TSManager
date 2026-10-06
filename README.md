@@ -30,6 +30,16 @@ dotnet build PGame-TSManager.sln -c Release
 - 目标框架 net9.0-windows，需要 .NET 9 Desktop Runtime（或发布 self-contained）。
 - 本仓库只保存源码，不提交 OTAPI/XNA、TerrariaServerAPI 编译产物或其它 DLL/EXE。
 
+### GitHub Actions 自动构建
+
+`.github/workflows/build.yml` 会在 `main`、Pull Request 和 `v*` 标签上构建，并生成：
+
+- `PGame-TSManager-source.zip`：源码与维护工具；
+- `PGame-TSManager-template.zip`：自包含管理器和空配置模板。
+
+流水线运行 `Test-RepositoryLayout.ps1`。`1.PigeonServers`、`_runtime`、`Worlds`、`Plugins`、
+`ServerPlugins`、数据库、日志、世界文件、DLL/EXE 都不会进入源码包或 Git 跟踪。
+
 ## 多服务器映射（serverProfiles）
 
 config.json 中的 serverProfiles 直接指向已经存在的服务端目录，
