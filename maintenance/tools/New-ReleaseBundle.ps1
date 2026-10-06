@@ -49,7 +49,10 @@ Running servers, worlds, databases, logs, _runtime, Plugins and ServerPlugins ar
     $parent = Split-Path -Parent $OutputPath
     New-Item -ItemType Directory -Force -Path $parent | Out-Null
     if (Test-Path -LiteralPath $OutputPath) { Remove-Item -LiteralPath $OutputPath -Force }
-    Compress-Archive -LiteralPath (Join-Path $stage '*') -DestinationPath $OutputPath -CompressionLevel Optimal
+    $archiveFiles = @(Get-ChildItem -LiteralPath $stage -Recurse -File)
+    if ($archiveFiles.Count -eq 0) { throw 'No release files selected for the bundle.' }
+    Compress-Archive -LiteralPath $archiveFiles.FullName -DestinationPath $OutputPath -CompressionLevel Optimal
+    if (-not (Test-Path -LiteralPath $OutputPath -PathType Leaf)) { throw "Archive was not created: $OutputPath" }
     Write-Host "Release template created: $OutputPath"
 }
 finally { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue }

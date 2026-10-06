@@ -40,7 +40,10 @@ try {
         New-Item -ItemType Directory -Force -Path (Split-Path $destination -Parent) | Out-Null
         Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
     }
-    Compress-Archive -LiteralPath (Join-Path $stage '*') -DestinationPath $OutputPath -CompressionLevel Optimal
+    $archiveFiles = @(Get-ChildItem -LiteralPath $stage -Recurse -File)
+    if ($archiveFiles.Count -eq 0) { throw 'No source files selected for the bundle.' }
+    Compress-Archive -LiteralPath $archiveFiles.FullName -DestinationPath $OutputPath -CompressionLevel Optimal
+    if (-not (Test-Path -LiteralPath $OutputPath -PathType Leaf)) { throw "Archive was not created: $OutputPath" }
 }
 finally { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue }
 Write-Host "Source bundle created: $OutputPath"
