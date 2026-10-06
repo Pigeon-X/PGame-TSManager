@@ -1,17 +1,17 @@
 <Window x:Class="PGameTSManager.PluginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="插件开关" Height="600" Width="560" MinHeight="440" MinWidth="480"
+        Title="插件开关" Height="560" Width="540" MinHeight="420" MinWidth="460"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{DynamicResource AppBackdrop}" FontFamily="Microsoft YaHei UI" UseLayoutRounding="True">
 
     <Grid>
-        <Border Margin="8" CornerRadius="14" Background="{DynamicResource GlassBg}"
+        <Border Margin="6" CornerRadius="12" Background="{DynamicResource GlassBg}"
                 BorderBrush="{DynamicResource GlassBorder}" BorderThickness="1">
             <Grid>
                 <Border Height="1" VerticalAlignment="Top" Margin="16,1,16,0" Background="{DynamicResource GlassHi}"/>
 
-                <Grid Margin="16,18,16,16">
+                <Grid Margin="14,12,14,12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
@@ -19,32 +19,41 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0">
-                        <TextBlock x:Name="Header" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
-                        <TextBlock x:Name="SubHeader" Margin="0,6,0,0" FontSize="12" TextWrapping="Wrap"
+                        <TextBlock x:Name="Header" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
+                        <TextBlock x:Name="SubHeader" Margin="0,4,0,0" FontSize="11.5" TextWrapping="Wrap"
                                    Foreground="{DynamicResource TextDim}"/>
                     </StackPanel>
 
-                    <Border Grid.Row="1" Margin="0,12,0,0" CornerRadius="12" Background="{DynamicResource ConsoleBg}"
+                    <Border Grid.Row="1" Margin="0,8,0,0" CornerRadius="10" Background="{DynamicResource ConsoleBg}"
                             BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12,8">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,4">
                             <ItemsControl x:Name="List">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay}" Margin="0,5"
-                                                  Foreground="{DynamicResource Text}">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Text}" FontSize="13"/>
-                                                <TextBlock Text="{Binding Note}" Foreground="{DynamicResource TextDim}"
-                                                           FontSize="12" Margin="10,0,0,0"/>
-                                            </StackPanel>
-                                        </CheckBox>
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="220"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay}" Foreground="{DynamicResource Text}"
+                                                      ToolTip="{Binding Description}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Text}" FontSize="12.5"/>
+                                                    <TextBlock Text="{Binding Status}" Foreground="{DynamicResource Err}"
+                                                               FontSize="11" Margin="6,0,0,0"/>
+                                                </StackPanel>
+                                            </CheckBox>
+                                            <TextBlock Grid.Column="1" Text="{Binding Description}" Foreground="{DynamicResource TextDim}"
+                                                       FontSize="11.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding Description}" Margin="8,0,0,0"/>
+                                        </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </ScrollViewer>
                     </Border>
 
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
                         <Button Content="取消" Style="{StaticResource DlgBtn}" Click="Cancel_Click"/>
                         <Button Content="保存" Style="{StaticResource DlgBtn}"
                                 Background="{DynamicResource Accent}" Foreground="{DynamicResource AccentText}" Click="Save_Click"/>

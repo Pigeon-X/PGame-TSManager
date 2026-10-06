@@ -12,7 +12,8 @@ namespace PGameTSManager
     public class PluginToggle
     {
         public string Name { get; set; } = "";
-        public string Note { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string Status { get; set; } = "";
         public bool Enabled { get; set; }
     }
 
@@ -25,6 +26,48 @@ namespace PGameTSManager
         private readonly string _manifestPath;
         private readonly string _poolDir;
         private readonly string _serverName;
+
+        private static readonly Dictionary<string, string> PluginDescriptions =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["TShockAPI.dll"] = "TShock 核心接口，所有插件依赖",
+                ["AntiCheatingTool.dll"] = "反作弊检测与异常行为防护",
+                ["CGive.dll"] = "管理员发放物品和权限工具",
+                ["Chameleon.dll"] = "玩家外观/身份伪装",
+                ["CommandTool.dll"] = "管理员指令扩展工具",
+                ["CustomPlayer.dll"] = "自定义玩家属性与数据",
+                ["Dimensions.dll"] = "跨世界维度与进度联动",
+                ["FixTools.dll"] = "服务器修复与配置工具",
+                ["HelpPlus.dll"] = "增强 /help 指令显示",
+                ["HotReload.dll"] = "运行时热重载插件",
+                ["LazyAPI.dll"] = "插件开发通用 API",
+                ["MapTp.dll"] = "地图传送与坐标功能",
+                ["PChrome.PVP.dll"] = "PVP 对战系统",
+                ["PeaceMode.dll"] = "和平模式/防误伤",
+                ["Permabuffs.dll"] = "永久 Buff 管理",
+                ["PGameAPI.dll"] = "PGame 服务接口",
+                ["PigeonMiniGamesAPI.dll"] = "小游戏系统 API",
+                ["PigeonRPG.Economy.dll"] = "RPG 经济系统",
+                ["PigeonRPG.Equipment.dll"] = "RPG 装备系统",
+                ["PigeonRPG.MonsterTier.dll"] = "RPG 怪物分级",
+                ["PigeonRPG.ProgressGuard.dll"] = "超进度检测与防护",
+                ["PigeonRPG.ProgressLoot.dll"] = "进度掉落与奖励",
+                ["PigeonRPG.ProgressSync.dll"] = "多服进度同步",
+                ["PigeonRPG.Runtime.dll"] = "RPG 核心运行时",
+                ["PigeonRPG.Shop.dll"] = "RPG 商店系统",
+                ["PigeonRPG.Skill.dll"] = "RPG 技能系统",
+                ["PlayerReward.dll"] = "玩家奖励发放",
+                ["ProgressBag.dll"] = "进度礼包/奖励包",
+                ["StatusTextManager.dll"] = "玩家状态文本管理",
+                ["TeleportRequest.dll"] = "玩家传送请求",
+                ["TileHelper.dll"] = "物块/建筑辅助工具",
+                ["VeinMiner.dll"] = "连锁挖矿"
+            };
+
+        private static string Describe(string name) =>
+            PluginDescriptions.TryGetValue(name, out var text)
+                ? text
+                : "自定义或专用插件";
 
         /// <summary>用户点了「保存并重启本服」。</summary>
         public bool RestartRequested { get; private set; }
@@ -87,13 +130,19 @@ namespace PGameTSManager
                 Items.Add(new PluginToggle
                 {
                     Name = name,
-                    Note = inPool ? "" : "（总库缺失）",
+                    Description = Describe(name),
+                    Status = inPool ? "" : "（总库缺失）",
                     Enabled = enabled.Any(e => string.Equals(e, name, StringComparison.OrdinalIgnoreCase))
                 });
             }
 
             if (Items.Count == 0)
-                Items.Add(new PluginToggle { Name = "（插件总库是空的）", Enabled = false });
+                Items.Add(new PluginToggle
+                {
+                    Name = "（插件总库是空的）",
+                    Description = "请先把插件 DLL 放进总库",
+                    Enabled = false
+                });
         }
 
         private bool SaveManifest()
