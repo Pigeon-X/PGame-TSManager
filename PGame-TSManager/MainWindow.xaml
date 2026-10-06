@@ -24,12 +24,12 @@
         <!-- 玻璃按钮 -->
         <Style TargetType="Button" x:Key="BaseBtn">
             <Setter Property="Foreground" Value="{DynamicResource Text}"/>
-            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Height" Value="34"/>
-            <Setter Property="MinWidth" Value="84"/>
-            <Setter Property="Padding" Value="12,0"/>
-            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="MinWidth" Value="70"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="Margin" Value="4,0,0,0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -76,8 +76,8 @@
         <Style TargetType="MenuItem">
             <Setter Property="Foreground" Value="{DynamicResource Text}"/>
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Padding" Value="8,3"/>
-            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Padding" Value="7,2"/>
+            <Setter Property="FontSize" Value="11.5"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="MenuItem">
@@ -122,7 +122,8 @@
         <!-- 玻璃下拉框 -->
         <Style x:Key="TShockCombo" TargetType="ComboBox">
             <Setter Property="Foreground" Value="{DynamicResource Text}"/>
-            <Setter Property="Height" Value="42"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Height" Value="30"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ComboBox">
@@ -147,7 +148,7 @@
                             <ContentPresenter IsHitTestVisible="False"
                                               Content="{TemplateBinding SelectionBoxItem}"
                                               ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                              Margin="12,0,34,0" VerticalAlignment="Center"/>
+                                              Margin="8,0,26,0" VerticalAlignment="Center"/>
                             <Popup x:Name="PART_Popup" AllowsTransparency="True" Placement="Bottom" Focusable="False"
                                    IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Slide">
                                 <Border Background="{DynamicResource ConsoleBg}" CornerRadius="12" Margin="0,4,0,0"
@@ -228,62 +229,63 @@
         </Ellipse>
 
         <!-- 玻璃主卡片 -->
-        <Border Margin="10" CornerRadius="16" Background="{DynamicResource GlassBg}"
+        <Border Margin="8" CornerRadius="16" Background="{DynamicResource GlassBg}"
                 BorderBrush="{DynamicResource GlassBorder}" BorderThickness="1">
             <Grid>
                 <!-- 顶部高光条 -->
                 <Border Height="1" VerticalAlignment="Top" Margin="16,1,16,0" Background="{DynamicResource GlassHi}"/>
 
-                <Grid Margin="14,10,14,10">
+                <Grid Margin="12,8,12,8">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <!-- 第 1 行：菜单栏 -->
-                    <Menu Grid.Row="0" Background="Transparent" Foreground="{DynamicResource Text}"
-                          FontSize="12.5" Padding="0" VerticalAlignment="Center" HorizontalAlignment="Left">
-                        <MenuItem Header="服务器">
-                            <MenuItem Header="启动本服" Click="StartButton_Click"/>
-                            <MenuItem Header="停止本服" Click="KillButton_Click"/>
-                            <Separator/>
-                            <MenuItem Header="全部启动" Click="StartAllButton_Click"/>
-                            <MenuItem Header="全部停止" Click="StopAllButton_Click"/>
-                        </MenuItem>
-                        <MenuItem Header="管理">
-                            <MenuItem Header="插件开关…" Click="PluginButton_Click"/>
-                            <MenuItem Header="新建服务器" Click="NewServerButton_Click"/>
-                            <MenuItem Header="刷新服务器列表" Click="RefreshButton_Click"/>
-                        </MenuItem>
-                        <MenuItem Header="工具">
-                            <MenuItem Header="保存世界" Click="QuickSave_Click"/>
-                        </MenuItem>
-                    </Menu>
-
-                    <!-- 第 2 行：选服 + 右侧启停按钮 -->
-                    <Grid Grid.Row="1" Margin="0,4,0,0">
+                    <!-- 顶部一行：菜单 + 选服 + 右侧启停按钮 -->
+                    <Grid Grid.Row="0">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <ComboBox Grid.Column="0" x:Name="ComboBox" Style="{StaticResource TShockCombo}"
-                                  Width="380" HorizontalAlignment="Left"
+                        <Menu Grid.Column="0" Background="Transparent" Foreground="{DynamicResource Text}"
+                              FontSize="11.5" Padding="0" VerticalAlignment="Center" HorizontalAlignment="Left">
+                            <MenuItem Header="服务器">
+                                <MenuItem Header="启动本服" Click="StartButton_Click"/>
+                                <MenuItem Header="停止本服" Click="KillButton_Click"/>
+                                <Separator/>
+                                <MenuItem Header="全部启动" Click="StartAllButton_Click"/>
+                                <MenuItem Header="全部停止" Click="StopAllButton_Click"/>
+                            </MenuItem>
+                            <MenuItem Header="管理">
+                                <MenuItem Header="插件开关…" Click="PluginButton_Click"/>
+                                <MenuItem Header="新建服务器" Click="NewServerButton_Click"/>
+                                <MenuItem Header="刷新服务器列表" Click="RefreshButton_Click"/>
+                            </MenuItem>
+                            <MenuItem Header="工具">
+                                <MenuItem Header="保存世界" Click="QuickSave_Click"/>
+                            </MenuItem>
+                        </Menu>
+
+                        <ComboBox Grid.Column="1" x:Name="ComboBox" Style="{StaticResource TShockCombo}"
+                                  Width="290" Height="28" Margin="10,0,0,0" HorizontalAlignment="Left"
                                   ItemsSource="{Binding Containers, ElementName=Window, Mode=OneWay}"
                                   SelectionChanged="ComboBox_SelectionChanged" ToolTip="选择服务器（按目录序号 1. 2. 3. 自动排序）">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal">
-                                        <Ellipse Width="10" Height="10" Margin="2,0,10,0" VerticalAlignment="Center" Fill="{Binding StatusBrush}"/>
-                                        <TextBlock Text="{Binding ListLabel}" Foreground="{DynamicResource Text}" FontSize="14" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding StatusText}" Margin="12,0,0,0" Foreground="{Binding StatusBrush}" FontSize="12" VerticalAlignment="Center"/>
+                                        <Ellipse Width="8" Height="8" Margin="2,0,7,0" VerticalAlignment="Center" Fill="{Binding StatusBrush}"/>
+                                        <TextBlock Text="{Binding ListLabel}" Foreground="{DynamicResource Text}" FontSize="12.5" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding StatusText}" Margin="8,0,0,0" Foreground="{Binding StatusBrush}" FontSize="11" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button x:Name="StartButton" Content="启动本服" Style="{StaticResource StartBtn}" Click="StartButton_Click"
                                 DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
                                 IsEnabled="{Binding Path=IsRunning, Mode=OneWay, Converter={StaticResource InverseBooleanConverter}}"/>
@@ -297,16 +299,16 @@
                     </Grid>
 
                     <!-- 控制台 -->
-                    <Border Grid.Row="2" Margin="0,4,0,0" CornerRadius="12" Background="{DynamicResource ConsoleBg}"
+                    <Border Grid.Row="1" Margin="0,4,0,0" CornerRadius="12" Background="{DynamicResource ConsoleBg}"
                             BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1">
                         <RichTextBox x:Name="CliTextBox" Background="Transparent" Foreground="{DynamicResource LogNormal}"
-                                     BorderThickness="0" FontFamily="Consolas, Microsoft YaHei UI" FontSize="13.5" IsReadOnly="True"
-                                     Padding="12" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                                     BorderThickness="0" FontFamily="Consolas, Microsoft YaHei UI" FontSize="12.5" IsReadOnly="True"
+                                     Padding="9" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
                                      ToolTip="服务器控制台输出（可上下滚动）"/>
                     </Border>
 
                     <!-- 最底部：只保留一行指令输入 -->
-                    <Grid Grid.Row="3" Margin="0,4,0,0">
+                    <Grid Grid.Row="2" Margin="0,4,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
@@ -327,12 +329,12 @@
                             </Border.Style>
                             <Grid>
                                 <TextBlock x:Name="Placeholder" Text="输入指令，例如  /help    /save    /hr help"
-                                           Foreground="{DynamicResource TextDim}" FontSize="14"
-                                           VerticalAlignment="Center" Margin="14,0" IsHitTestVisible="False"/>
+                                           Foreground="{DynamicResource TextDim}" FontSize="12.5"
+                                           VerticalAlignment="Center" Margin="10,0" IsHitTestVisible="False"/>
                                 <TextBox x:Name="TextBox" Background="Transparent" Foreground="{DynamicResource Text}"
                                          CaretBrush="{DynamicResource Accent2}"
-                                         BorderThickness="0" FontSize="14" Height="36" VerticalContentAlignment="Center"
-                                         Padding="12,0" PreviewKeyDown="TextBox_PreviewKeyDown" TextChanged="TextBox_TextChanged"
+                                         BorderThickness="0" FontSize="12.5" Height="28" VerticalContentAlignment="Center"
+                                         Padding="9,0" PreviewKeyDown="TextBox_PreviewKeyDown" TextChanged="TextBox_TextChanged"
                                          ToolTip="输入指令后回车（走该服 REST 的 v3/server/rawcmd 发送）"/>
                             </Grid>
                         </Border>
