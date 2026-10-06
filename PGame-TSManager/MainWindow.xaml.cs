@@ -1,11 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using System.Windows.Threading;
 
 namespace PGameTSManager
 {
@@ -30,32 +34,180 @@ namespace PGameTSManager
 
         private void Window_Loaded(object _, RoutedEventArgs e)
         {
-            foreach (var profile in _cfg.LoadProfiles())
-            {
-                var container = new ServerContainer(_cfg, profile);
-                container.OnTextChanged += sender =>
-                {
-                    if (sender == Current) CliTextBox.ScrollToEnd();
-                };
-                Containers.Add(container);
-            }
+            ReloadContainers();
 
-            if (Containers.Count > 0)
-            {
-                ComboBox.SelectedIndex = 0;
-            }
-            else
+            if (Containers.Count == 0)
             {
                 CliTextBox.Document.Blocks.Clear();
                 CliTextBox.Document.Blocks.Add(new Paragraph(new Run(
-                    "未配置任何服务器。\n请在 PGame-TSManager.config.json 的 serverProfiles 中添加服务器目录。")));
+                    "未配置任何服务器。\n请在 1.PigeonServers 下建 <序号.名字> 目录，或点左下角「新建服务器」。")));
                 return;
             }
+
+            StartStatusTimer();
+            BuildTrayMenu();
 
             if (StartAllOnLoad)
             {
                 _ = StartAllSequentialAsync();      // ★ 顺序启动（不再三台一起抢资源）
             }
+        }
+
+        // ---------- 服务器列表：加载 / 刷新 ----------
+        /// <summary>重新扫描 1.PigeonServers（自动发现新目录），尽量保留已有容器与选中项。</summary>
+        private void ReloadContainers()
+        {
+            var selected = Current?.Name;
+            var existing = new Dictionary<string, ServerContainer>(StringComparer.OrdinalIgnoreCase);
+            foreach (var c in Containers) existing[c.Name] = c;
+
+            Containers.Clear();
+            foreach (var profile in _cfg.LoadProfiles())
+            {
+                if (existing.TryGetValue(profile.name, out var kept))
+                {
+                    Containers.Add(kept);
+                    continue;
+                }
+
+                var container = new ServerContainer(_cfg, profile);
+                container.OnTextChanged += sender => { if (sender == Current) CliTextBox.ScrollToEnd(); };
+                Containers.Add(container);
+            }
+
+            if (Containers.Count == 0) return;
+
+            var idx = 0;
+            if (selected != null)
+            {
+                for (var i = 0; i < Containers.Count; i++)
+                    if (string.Equals(Containers[i].Name, selected, StringComparison.OrdinalIgnoreCase)) { idx = i; break; }
+            }
+            ComboBox.SelectedIndex = idx;
+            BuildTrayMenu();
+        }
+
+        private void RefreshButton_Click(object _, RoutedEventArgs e)
+        {
+            ReloadContainers();
+            AppendLine($"[刷新] 当前共 {Containers.Count} 台服务器");
+        }
+
+        // ---------- 在线人数：定时轮询 REST ----------
+        private DispatcherTimer? _statusTimer;
+
+        private void StartStatusTimer()
+        {
+            _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+            _statusTimer.Tick += async (_, _) =>
+            {
+                foreach (var c in Containers)
+                {
+                    try { await c.RefreshStatusAsync(); } catch { }
+                }
+                UpdateTrayTip();
+            };
+            _statusTimer.Start();
+        }
+
+        private void UpdateTrayTip()
+        {
+            var sb = new StringBuilder("PGame-TSManager");
+            foreach (var c in Containers)
+            {
+                sb.Append('\n').Append(c.ListLabel).Append(' ');
+                sb.Append(c.IsRunning ? c.StatusText : "已停止");
+            }
+            App.UpdateTrayTip(sb.ToString());
+        }
+
+        // ---------- 托盘右键菜单 ----------
+        private void BuildTrayMenu()
+        {
+            var menu = new System.Windows.Forms.ContextMenuStrip();
+
+            menu.Items.Add("显示管理器", null, (_, _) => App.ShowFromTray());
+            menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+
+            foreach (var c in Containers)
+            {
+                var target = c;
+                var sub = new System.Windows.Forms.ToolStripMenuItem(target.ListLabel + (target.IsRunning ? "（运行中）" : "（已停止）"));
+                sub.DropDownItems.Add("启动", null, (_, _) =>
+                {
+                    try { target.IsRunning = true; } catch (Exception ex) { AppendLine($"[启动失败] {target.Name}：{ex.Message}"); }
+                });
+                sub.DropDownItems.Add("停止", null, (_, _) =>
+                {
+                    try { target.IsRunning = false; } catch { }
+                });
+                sub.DropDownItems.Add(new System.Windows.Forms.ToolStripSeparator());
+                sub.DropDownItems.Add("单独启动（等就绪）", null, async (_, _) =>
+                {
+                    try
+                    {
+                        if (!target.IsRunning) target.IsRunning = true;
+                        await target.WaitUntilReadyAsync(TimeSpan.FromSeconds(Math.Max(30, _cfg.startReadyTimeoutSeconds)));
+                        UpdateTrayTip();
+                    }
+                    catch { }
+                });
+                menu.Items.Add(sub);
+            }
+
+            menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+            menu.Items.Add("全部启动（顺序）", null, (_, _) => { _ = StartAllSequentialAsync(); });
+            menu.Items.Add("全部停止", null, (_, _) =>
+            {
+                foreach (var c in Containers)
+                {
+                    try { if (c.IsRunning) c.IsRunning = false; } catch { }
+                }
+            });
+            menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+            menu.Items.Add("退出", null, (_, _) => App.ExitFromTray());
+
+            App.SetTrayMenu(menu);
+            UpdateTrayTip();
+        }
+
+        // ---------- 插件开关 / 新建服务器 ----------
+        private void PluginButton_Click(object _, RoutedEventArgs e)
+        {
+            var current = Current;
+            if (current == null) return;
+
+            var pool = ManagerConfig.Resolve(_cfg.pluginDir);
+            var dlg = new PluginWindow(current.Name, current.ProfileDirectory, pool) { Owner = this };
+            var ok = dlg.ShowDialog();
+            if (ok != true) return;
+
+            AppendLine($"[插件开关] {current.Name} 的插件清单已保存");
+            if (dlg.RestartRequested && current.IsRunning)
+            {
+                try { current.IsRunning = false; } catch { }
+                AppendLine($"[插件开关] 正在重启 {current.Name} …");
+                _ = RestartOneAsync(current);
+            }
+        }
+
+        private async Task RestartOneAsync(ServerContainer c)
+        {
+            try
+            {
+                c.IsRunning = true;
+                var ok = await c.WaitUntilReadyAsync(TimeSpan.FromSeconds(Math.Max(30, _cfg.startReadyTimeoutSeconds)));
+                AppendLine(ok ? $"[插件开关] {c.Name} 已重启并就绪 ✓" : $"[插件开关] {c.Name} 重启后等待就绪超时");
+            }
+            catch (Exception ex) { AppendLine($"[插件开关] {c.Name} 重启失败：{ex.Message}"); }
+        }
+
+        private void NewServerButton_Click(object _, RoutedEventArgs e)
+        {
+            var dlg = new NewServerWindow(_cfg) { Owner = this };
+            if (dlg.ShowDialog() != true) return;
+            ReloadContainers();
+            AppendLine($"[新建服务器] 已创建 {dlg.CreatedDirName}，列表已刷新");
         }
 
         private bool _startingAll;

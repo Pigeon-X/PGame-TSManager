@@ -199,6 +199,7 @@
                     <Grid Grid.Row="0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
@@ -218,10 +219,11 @@
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <Button Grid.Column="2" x:Name="StartButton" Content="启动本服" Style="{StaticResource StartBtn}" Click="StartButton_Click"
+                        <Button Grid.Column="1" Content="插件开关…" Style="{StaticResource NeutralBtn}" Margin="10,0,0,0"
+                                Click="PluginButton_Click" ToolTip="勾选当前服务器加载哪些插件（写回该服 config.json，重启生效）"/>                        <Button Grid.Column="3" x:Name="StartButton" Content="启动本服" Style="{StaticResource StartBtn}" Click="StartButton_Click"
                                 DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
                                 IsEnabled="{Binding Path=IsRunning, Mode=OneWay, Converter={StaticResource InverseBooleanConverter}}"/>
-                        <Button Grid.Column="3" x:Name="KillButton" Content="停止本服" Style="{StaticResource StopBtn}" Click="KillButton_Click"
+                        <Button Grid.Column="4" x:Name="KillButton" Content="停止本服" Style="{StaticResource StopBtn}" Click="KillButton_Click"
                                 DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
                                 IsEnabled="{Binding IsRunning, Mode=OneWay}"/>
                     </Grid>
@@ -273,13 +275,21 @@
                     <!-- 全局启停 -->
                     <Grid Grid.Row="3" Margin="0,16,0,0">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <Button Grid.Column="1" x:Name="StartAllButton" Content="全部启动（顺序）" Style="{StaticResource StartBtn}" Click="StartAllButton_Click" ToolTip="按顺序逐台启动：上一台就绪后再起下一台"/>
-                        <Button Grid.Column="2" Content="全部停止" Style="{StaticResource StopBtn}" Click="StopAllButton_Click"/>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <Button Content="新建服务器" Style="{StaticResource NeutralBtn}" Margin="0,0,0,0" Click="NewServerButton_Click"
+                                    ToolTip="向导：自动取下一个序号建目录，tshock 配置从模板服复制"/>
+                            <Button Content="刷新列表" Style="{StaticResource NeutralBtn}" Click="RefreshButton_Click"
+                                    ToolTip="重新扫描 1.PigeonServers，自动发现新目录"/>
+                        </StackPanel>
+
+                        <Button Grid.Column="2" x:Name="StartAllButton" Content="全部启动（顺序）" Style="{StaticResource StartBtn}" Click="StartAllButton_Click" ToolTip="按顺序逐台启动：上一台就绪后再起下一台"/>
+                        <Button Grid.Column="3" Content="全部停止" Style="{StaticResource StopBtn}" Click="StopAllButton_Click"/>
                     </Grid>
                 </Grid>
             </Grid>

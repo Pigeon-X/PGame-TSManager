@@ -160,7 +160,7 @@ namespace PGameTSManager
                 };
                 var menu = new System.Windows.Forms.ContextMenuStrip();
                 menu.Items.Add("显示管理器", null, (_, _) => RestoreFromTray(window));
-                menu.Items.Add("退出", null, (_, _) => { _exiting = true; LogCrash("TrayExit", null); Current.Shutdown(); });
+                menu.Items.Add("退出", null, (_, _) => ExitFromTray());
                 _tray.ContextMenuStrip = menu;
                 _tray.DoubleClick += (_, _) => RestoreFromTray(window);
             }
@@ -176,6 +176,59 @@ namespace PGameTSManager
                 window.WindowState = WindowState.Normal;
                 window.Activate();
                 window.Topmost = true; window.Topmost = false;
+            }
+            catch { }
+        }
+
+        private static Window? _window;
+
+        /// <summary>从托盘恢复主窗口（托盘菜单/双击图标调用）。</summary>
+        public static void ShowFromTray()
+        {
+            var w = _window;
+            if (w == null) return;
+            RestoreFromTray(w);
+        }
+
+        /// <summary>
+        /// 更新托盘图标的悬浮提示（显示各服状态与在线人数）。
+        /// WinForms 的 NotifyIcon.Text 最多 63 个字符，超了会抛异常，这里先截断。
+        /// </summary>
+        public static void UpdateTrayTip(string text)
+        {
+            try
+            {
+                if (_tray == null) return;
+                var t = (text ?? "").Replace("\r", "").Replace("\n", "  |  ").Trim();
+                if (t.Length == 0) t = "PGame-TSManager";
+                if (t.Length > 62) t = t.Substring(0, 59) + "...";
+                _tray.Text = t;
+            }
+            catch { }
+        }
+
+        /// <summary>替换托盘右键菜单（主窗口按当前服务器列表生成）。</summary>
+        public static void SetTrayMenu(System.Windows.Forms.ContextMenuStrip menu)
+        {
+            try
+            {
+                if (_tray == null || menu == null) return;
+                var old = _tray.ContextMenuStrip;
+                _tray.ContextMenuStrip = menu;
+                old?.Dispose();
+            }
+            catch { }
+        }
+
+        /// <summary>托盘菜单里「退出」用。</summary>
+        public static void ExitFromTray()
+        {
+            try
+            {
+                _exiting = true;
+                if (_tray != null) { _tray.Visible = false; _tray.Dispose(); _tray = null; }
+                LogCrash("TrayExit", null);
+                Current.Shutdown();
             }
             catch { }
         }
@@ -272,6 +325,7 @@ namespace PGameTSManager
                 Shutdown(1);
                 return;
             }
+            _window = window;
             SetupTrayIcon(window);
             // 原生外框跟随主题：深色标题栏 + 紫色描边（Win11 上还会变圆角）
             window.SourceInitialized += (_, _) =>

@@ -84,11 +84,94 @@ namespace PGameTSManager
         private static Brush ClrCmd    => Res("LogCmd",    Color.FromRgb(0x4C, 0x8D, 0xF6));
 
         public Brush StatusBrush => IsRunning ? ClrGood : ClrDim;
-        public string StatusText => IsRunning ? "运行中" : "已停止";
+
+        private int _playerCount = -1;
+        private int _maxPlayers;
+        private string _uptime = "";
+
+        /// <summary>在线人数（-1 = 还没有数据 / 没起来）。</summary>
+        public int PlayerCount
+        {
+            get => _playerCount;
+            private set
+            {
+                if (_playerCount == value) return;
+                _playerCount = value;
+                OnPropertyChanged(nameof(PlayerCount));
+                OnPropertyChanged(nameof(PlayerText));
+                OnPropertyChanged(nameof(StatusText));
+            }
+        }
+
+        public int MaxPlayers
+        {
+            get => _maxPlayers;
+            private set
+            {
+                if (_maxPlayers == value) return;
+                _maxPlayers = value;
+                OnPropertyChanged(nameof(MaxPlayers));
+                OnPropertyChanged(nameof(PlayerText));
+                OnPropertyChanged(nameof(StatusText));
+            }
+        }
+
+        public string Uptime
+        {
+            get => _uptime;
+            private set { if (_uptime == value) return; _uptime = value; OnPropertyChanged(nameof(Uptime)); }
+        }
+
+        /// <summary>下拉框里显示的在线人数，例如 "12/252"。</summary>
+        public string PlayerText => _playerCount < 0 ? "" : $"{_playerCount}/{_maxPlayers}";
+
+        public string StatusText => IsRunning
+            ? (_playerCount >= 0 ? $"运行中 · {_playerCount}/{_maxPlayers}" : "运行中")
+            : "已停止";
+
+        /// <summary>
+        /// 轮询该服 REST 的 /v2/server/status，取在线人数 / 上限 / 运行时长。
+        /// 由管理器界面定时调用（只在运行中才请求）。
+        /// </summary>
+        public async Task RefreshStatusAsync()
+        {
+            if (!IsRunning)
+            {
+                if (_playerCount != -1) { PlayerCount = -1; Uptime = ""; }
+                return;
+            }
+
+            var port = RestPort;
+            if (port <= 0) return;
+            var token = ReadRestToken();
+            if (string.IsNullOrEmpty(token)) return;
+
+            try
+            {
+                var url = $"http://127.0.0.1:{port}/v2/server/status?token={Uri.EscapeDataString(token)}";
+                var json = await Http.GetStringAsync(url);
+                var o = JsonConvert.DeserializeObject<dynamic>(json);
+                if (o == null) return;
+
+                var pc = o.playercount;
+                var mp = o.maxplayers;
+                var up = o.uptime;
+                if (pc != null) PlayerCount = Convert.ToInt32(pc.ToString());
+                if (mp != null) MaxPlayers = Convert.ToInt32(mp.ToString());
+                if (up != null) Uptime = up.ToString();
+            }
+            catch
+            {
+                // 服务器可能正在加载世界 / 已停止：忽略即可
+                if (PlayerCount != -1) PlayerCount = -1;
+            }
+        }
 
         public Brush Foreground { get; private set; }
         public Brush Background { get; private set; }
 
+        /// <summary>该服的配置目录（1.PigeonServers\&lt;序号.名字&gt;）。</summary>
+        public string ProfileDirectory => ServerDirectory;
         /// <summary>下拉框显示用：带序号，例如 "1. 流光城"（序号来自服务器目录名）。</summary>
         public string ListLabel
         {
