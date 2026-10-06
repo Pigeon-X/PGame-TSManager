@@ -193,6 +193,7 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <!-- 第 1 行：选服 + 单服启停 -->
@@ -273,18 +274,17 @@
                     </Grid>
 
                     <!-- 常用管理员指令：只发送指令，不改服务器配置 -->
-                    <ScrollViewer Grid.Row="3" Margin="0,10,0,0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <ScrollViewer Grid.Row="3" Height="42" Margin="0,10,0,0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="快捷指令" Foreground="{DynamicResource TextDim}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                             <Button Content="保存世界" Style="{StaticResource NeutralBtn}" Click="QuickSave_Click" ToolTip="发送 /save 到当前服务器"/>
                             <Button Content="重载插件" Style="{StaticResource NeutralBtn}" Click="QuickReload_Click" ToolTip="发送 /ac reload 到当前服务器"/>
                             <Button Content="广播" Style="{StaticResource NeutralBtn}" Click="QuickBroadcast_Click" ToolTip="把输入框内容作为 /bc 广播"/>
-                            <Button Content="关闭当前服" Style="{StaticResource StopBtn}" Click="QuickOff_Click" ToolTip="发送 /off 到当前服务器"/>
                         </StackPanel>
                     </ScrollViewer>
 
                     <!-- 全局启停 -->
-                    <Grid Grid.Row="4" Margin="0,16,0,0">
+                    <Grid Grid.Row="4" Height="42" Margin="0,16,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>

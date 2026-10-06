@@ -429,12 +429,5 @@ namespace PGameTSManager
             TextBox.Text = string.Empty;
         }
 
-        private void QuickOff_Click(object _, RoutedEventArgs e)
-        {
-            var current = Current;
-            if (current == null || !current.IsRunning) { AppendLine("[快捷指令] 当前服务器未运行"); return; }
-            var result = MessageBox.Show(this, "确定向「" + current.Name + "」发送 /off 并关闭服务器吗？", "关闭当前服", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (result == MessageBoxResult.Yes) SendQuickCommand("/off");
-        }
     }
 }
