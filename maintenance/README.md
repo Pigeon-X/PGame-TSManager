@@ -36,3 +36,31 @@ powershell -ExecutionPolicy Bypass -File tools\Test-TShockConfig.ps1 -ServerPath
 | `plugin-maintenance\` | 插件总库审计与依赖归类 |
 | `tshock-update\` | TShock 上游跟进流程与行为分析 |
 | `tools\` | 迁移 / 清理 / 校验脚本 |
+
+## 新增服务器
+
+目录名带序号，管理器按序号自动排序 + 自动发现：
+
+```
+1.PigeonServers\
+  1.流光城\
+  2.泰拉大陆\
+  3.流光神域\
+  4.新服名\        ← 新增就是这个规则，下一台就是 5.
+```
+
+新增步骤（也可以直接用脚本）：
+
+```powershell
+.\maintenance\tools\New-PigeonServer.ps1 -Root "D:\59934\Desktop\PGame-TSManager" `
+  -Name "生存服" -Port 2025 -RestPort 7881 -Template "3.流光神域"
+```
+
+脚本会：算下一个序号 → 建目录 → 复制模板的 `tshock\` → 写好 TSM 清单 `config.json` → 打印还要手改的项（REST 端口、数据库、世界文件）。
+
+要点：
+- 管理器启动时会**自动发现** `1.PigeonServers\` 下「有 config.json 且写了端口」的目录，
+  **不用再改管理器 config.json**。
+- 排序按目录名开头的数字：`1.` → `2.` → `10.`（数字大小，不是字符串）。
+- 服务器目录改名后，`_runtime\<服>\tshock` 这个目录联接会被自动检测并重建
+  （悬空联接会让插件以为配置丢了，CustomPlayer 那种会 `Console.ReadKey()` 直接把服务器启动搞崩）。

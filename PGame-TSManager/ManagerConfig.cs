@@ -159,14 +159,108 @@ namespace PGameTSManager
 
         public IEnumerable<ServerProfile> LoadProfiles()
         {
+            List<ServerProfile> list;
             if (serverProfiles != null && serverProfiles.Count > 0)
-                return serverProfiles.Where(p => p != null && p.enabled).ToList();
+            {
+                list = serverProfiles.Where(p => p != null && p.enabled).ToList();
+            }
+            else
+            {
+                var legacyDir = Resolve(serverDir);
+                list = Directory.Exists(legacyDir)
+                    ? Directory.GetDirectories(legacyDir).Select(d => new ServerProfile { name = Path.GetFileName(d) }).ToList()
+                    : new List<ServerProfile>();
+            }
 
-            var legacyDir = Resolve(serverDir);
-            if (Directory.Exists(legacyDir))
-                return Directory.GetDirectories(legacyDir).Select(d => new ServerProfile { name = Path.GetFileName(d) }).ToList();
+            // ★ 自动发现：1.PigeonServers 下存在、但没写进 serverProfiles 的服务器目录（例如手动新增的 4.xxx）。
+            //   只要目录里有 TSM 清单 config.json 且写了端口，就当一台服务器接管 —— 新增只要建目录，不用改管理器配置。
+            try
+            {
+                var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (serverProfiles != null)
+                {
+                    foreach (var p in serverProfiles.Where(x => x != null))
+                    {
+                        var f = SafeFullPath(p!.ResolvedRootPath);
+                        if (f != null) known.Add(f);
+                    }
+                }
 
-            return Enumerable.Empty<ServerProfile>();
+                var dir = Resolve(serverDir);
+                if (Directory.Exists(dir))
+                {
+                    foreach (var d in Directory.GetDirectories(dir))
+                    {
+                        var manifestPath = Path.Combine(d, ServerProfile.ManifestFileName);
+                        if (!File.Exists(manifestPath)) continue;
+
+                        ServerManifest? mf = null;
+                        try { mf = JsonConvert.DeserializeObject<ServerManifest>(File.ReadAllText(manifestPath)); } catch { }
+                        if (mf == null || mf.Port == 0) continue;      // 没有端口 = 不是一台服务器
+
+                        var full = SafeFullPath(d);
+                        if (full == null || known.Contains(full)) continue;
+
+                        list.Add(new ServerProfile
+                        {
+                            name = string.IsNullOrWhiteSpace(mf.Name) ? StripOrdinal(Path.GetFileName(d)) : mf.Name!,
+                            rootPath = d,
+                            enabled = true,
+                            remark = "自动发现"
+                        });
+                    }
+                }
+            }
+            catch { }
+
+            // ★ 按「服务器目录名前面的序号」排序：1.流光城 → 2.泰拉大陆 → 3.流光神域
+            //   新增服务器只要把目录叫 4.xxx / 5.xxx，就会自动排在后面，不用改配置里的顺序。
+            return list
+                .OrderBy(OrdinalKey)
+                .ThenBy(p => p.name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        /// <summary>排序用：优先取目录名开头的数字；没有就取显示名开头的数字；都没有排到最后。</summary>
+        private static int OrdinalKey(ServerProfile p)
+        {
+            try
+            {
+                var folder = OrdinalOf(Path.GetFileName(p.ResolvedRootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)));
+                if (folder > 0) return folder;
+            }
+            catch { }
+
+            var byName = OrdinalOf(p.name);
+            return byName > 0 ? byName : int.MaxValue;
+        }
+
+        private static string? SafeFullPath(string? path)
+        {
+            try { return string.IsNullOrWhiteSpace(path) ? null : Path.GetFullPath(path); }
+            catch { return null; }
+        }
+
+        /// <summary>"4.生存服" → "生存服"（去掉开头序号与分隔符）。</summary>
+        public static string StripOrdinal(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+            var s = text.Trim();
+            var i = 0;
+            while (i < s.Length && char.IsDigit(s[i])) i++;
+            if (i == 0) return s;
+            var rest = s.Substring(i).TrimStart('.', '、', '-', '_', ' ');
+            return rest.Length > 0 ? rest : s;
+        }
+        /// <summary>取名字开头的序号（"1.流光城" → 1，"10.xxx" → 10）。没有序号返回 0。</summary>
+        public static int OrdinalOf(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return 0;
+            var s = text.Trim();
+            var i = 0;
+            while (i < s.Length && char.IsDigit(s[i])) i++;
+            if (i == 0) return 0;
+            return int.TryParse(s.Substring(0, i), out var n) ? n : 0;
         }
 
         public string ResolvePluginLibrary(ServerProfile profile, ServerManifest? manifest)

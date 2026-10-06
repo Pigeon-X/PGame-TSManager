@@ -89,6 +89,21 @@ namespace PGameTSManager
         public Brush Foreground { get; private set; }
         public Brush Background { get; private set; }
 
+        /// <summary>下拉框显示用：带序号，例如 "1. 流光城"（序号来自服务器目录名）。</summary>
+        public string ListLabel
+        {
+            get
+            {
+                var n = 0;
+                try
+                {
+                    var dir = ServerDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    n = ManagerConfig.OrdinalOf(Path.GetFileName(dir));
+                }
+                catch { }
+                return n > 0 ? n + ". " + Name : Name;
+            }
+        }
         public string Name => string.IsNullOrWhiteSpace(_profile.name)
             ? Path.GetFileName(ServerDirectory.TrimEnd(Path.DirectorySeparatorChar))
             : _profile.name;
@@ -171,7 +186,7 @@ namespace PGameTSManager
         private string RuntimeDirectory => Path.Combine(RootDirectory, "_runtime", Name);
 
         /// <summary>建立/修补该服的运行沙箱（幂等）。</summary>
-        private void EnsureRuntimeSandbox()
+        private void EnsureRuntimeSandbox(string serverDirectory)
         {
             var rt = RuntimeDirectory;
             var root = RootDirectory;
@@ -181,10 +196,47 @@ namespace PGameTSManager
             LinkFile(Path.Combine(root, exeName), Path.Combine(rt, exeName));
             LinkFile(Path.Combine(root, "GeoIP.dat"), Path.Combine(rt, "GeoIP.dat"));
             foreach (var d in new[] { "bin", "i18n", "runtimes", "x64" })
-                LinkDirectory(Path.Combine(root, d), Path.Combine(rt, d));
+                EnsureJunction(Path.Combine(root, d), Path.Combine(rt, d));
+
+            // ★ tshock 目录联接回本服真实配置目录。
+            //   插件常常用相对路径 "tshock\xxx.json" 找配置；服务器目录改名后，
+            //   旧联接会变成悬空链接（指向不存在的旧目录）→ 插件以为配置丢了 →
+            //   有的插件（CustomPlayer）会尝试新建配置并 Console.ReadKey()，
+            //   而我们是重定向控制台，直接抛异常把 TShock 启动中止。
+            //   EnsureJunction 会检测指向并在需要时重建，改名后自动恢复。
+            EnsureJunction(Path.Combine(serverDirectory, "tshock"), Path.Combine(rt, "tshock"));
 
             Directory.CreateDirectory(Path.Combine(rt, "ServerPlugins"));
             Directory.CreateDirectory(Path.Combine(rt, "Logs"));
+        }
+
+        /// <summary>
+        /// 确保 link 是指向 target 的目录联接；指向别处（或已悬空）就删掉联接重建。
+        /// 只删「联接本身」，绝不递归删目标内容。
+        /// </summary>
+        private static void EnsureJunction(string target, string link)
+        {
+            try
+            {
+                if (!Directory.Exists(target)) return;
+                var want = Path.GetFullPath(target);
+
+                var info = new DirectoryInfo(link);
+                if (info.LinkTarget != null)
+                {
+                    var cur = info.LinkTarget;
+                    if (cur != null && string.Equals(Path.GetFullPath(cur), want, StringComparison.OrdinalIgnoreCase)) return;
+                    try { info.Delete(); } catch { return; }   // 悬空/指向别处 → 只删联接
+                }
+                else if (Directory.Exists(link))
+                {
+                    return;                                   // 已经是真目录，不动它
+                }
+
+                if (RunCmd($"mklink /J \"{link}\" \"{target}\"") && Directory.Exists(link)) return;
+                try { Directory.CreateDirectory(link); } catch { }
+            }
+            catch { }
         }
 
         private static void LinkFile(string target, string link)
@@ -244,7 +296,7 @@ namespace PGameTSManager
             if (_managerConfig.backupBeforeStart) BackupServerFiles(serverDirectory);
 
             // 建立该服自己的运行沙箱（exe/bin 用链接指回根目录，不额外占空间）
-            EnsureRuntimeSandbox();
+            EnsureRuntimeSandbox(serverDirectory);
             var runtimeDirectory = RuntimeDirectory;
 
             // 按该服 config.json 的「插件」清单，从总库 Plugins 同步到该服自己的 ServerPlugins

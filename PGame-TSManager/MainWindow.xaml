@@ -198,27 +198,30 @@
                     <!-- 第 1 行：选服 + 单服启停 -->
                     <Grid Grid.Row="0">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
+                        <!-- ★ 选服框不再拉满整行，固定在左上角（300 宽） -->
                         <ComboBox Grid.Column="0" x:Name="ComboBox" Style="{StaticResource TShockCombo}"
+                                  Width="300" HorizontalAlignment="Left"
                                   ItemsSource="{Binding Containers, ElementName=Window, Mode=OneWay}"
-                                  SelectionChanged="ComboBox_SelectionChanged" ToolTip="选择服务器">
+                                  SelectionChanged="ComboBox_SelectionChanged" ToolTip="选择服务器（按目录序号 1. 2. 3. 自动排序）">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal">
                                         <Ellipse Width="10" Height="10" Margin="2,0,10,0" VerticalAlignment="Center" Fill="{Binding StatusBrush}"/>
-                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Text}" FontSize="14" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding ListLabel}" Foreground="{DynamicResource Text}" FontSize="14" VerticalAlignment="Center"/>
                                         <TextBlock Text="{Binding StatusText}" Margin="12,0,0,0" Foreground="{Binding StatusBrush}" FontSize="12" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <Button Grid.Column="1" x:Name="StartButton" Content="启动本服" Style="{StaticResource StartBtn}" Click="StartButton_Click"
+                        <Button Grid.Column="2" x:Name="StartButton" Content="启动本服" Style="{StaticResource StartBtn}" Click="StartButton_Click"
                                 DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
                                 IsEnabled="{Binding Path=IsRunning, Mode=OneWay, Converter={StaticResource InverseBooleanConverter}}"/>
-                        <Button Grid.Column="2" x:Name="KillButton" Content="停止本服" Style="{StaticResource StopBtn}" Click="KillButton_Click"
+                        <Button Grid.Column="3" x:Name="KillButton" Content="停止本服" Style="{StaticResource StopBtn}" Click="KillButton_Click"
                                 DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
                                 IsEnabled="{Binding IsRunning, Mode=OneWay}"/>
                     </Grid>
