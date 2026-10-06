@@ -24,10 +24,12 @@ powershell -ExecutionPolicy Bypass -File ..\tools\Test-TShockConfig.ps1 -ServerP
 5. 确认 /help 正常（见 ../help-lock），SSC 仍为英文（见 ../ssc-lock）。
 6. 记录版本号、提交号与上报回执到 change-log。
 
-## TSM 内更新入口
+## 独立更新工具
 
-管理器左下角的「TShock 更新」会调用 `maintenance/tools/Invoke-TShockUpdate.ps1`。
-它先确认三服已停止，再把压缩包解到 `maintenance/staging`，校验 `TShock.Server.exe` 和
+TShock 更新由本目录维护，不属于 PGame-TSManager 的内置功能。管理器只负责停止、启动、顺序恢复和看门狗；
+更新流程单独执行，避免管理器运行时误覆盖共享 TShock 文件。
+
+工具会先确认三服已停止，再把压缩包解到 `maintenance/staging`，校验 `TShock.Server.exe` 和
 `TShockAPI.dll` 来自同一个包，并在预览模式列出待替换文件。实际替换时使用：
 
 ```powershell
@@ -35,8 +37,27 @@ powershell -ExecutionPolicy Bypass -File .\maintenance\tools\Invoke-TShockUpdate
   -ManagerDir . -PackagePath .\官方TShock.zip -Apply
 ```
 
-旧文件会备份到 `Backups\tshock-update-时间戳`。替换后必须执行 `--selfcheck`、逐服灰度启动，
-再执行 `Test-TShockConfig.ps1` 检查中文 `config.json`、REST 的「用户名/用户组」字段和英文 SSC。
+旧文件会备份到 `Backups\tshock-update-时间戳`。`-Apply` 只替换核心运行时文件，
+不会修改各服 `1.PigeonServers` 下的配置、世界、数据库和插件清单。
+
+## 标准远程更新流程
+
+1. 在 Git 上提交本次 TShock 兼容修改，等待 Actions 构建通过。
+2. 从官方 Releases 下载正式版；没有正式版时，从官方 Actions 选择明确的构建号。
+3. 先执行不带 `-Apply` 的预览，确认包内版本和待替换文件。
+4. 在远程源测试端停止 TSM 和三服，复制配置、插件目录、世界和数据库备份。
+5. 执行 `Invoke-TShockUpdate.ps1 -Apply`，记录版本号、Actions 构建号和备份目录。
+6. 重新应用 `config-translation/TransferPatch.json`，只翻译 `config.json`；REST 令牌必须为「用户名 / 用户组」。
+7. 保持 `sscconfig.json` 英文，确认 `/help` 注册、描述、别名和行为未变化。
+8. 运行 `--selfcheck` 和 `Test-TShockConfig.ps1`，再通过 TSM 按流光城、泰拉大陆、流光神域顺序启动。
+9. 检查游戏端口 `2021/2023/2024`、REST 端口 `7878/7879/7880`、插件初始化日志和玩家指令。
+10. 测试通过后才同步桌面镜像，并用 `【流光统一上报】` 格式上报。
+
+## 回滚
+
+停止 TSM 和三服，将 `Backups\tshock-update-时间戳` 中对应文件恢复到管理器运行目录，
+再按顺序启动并重新执行全部自检。若是汉化映射造成问题，只恢复 `tshock\config.json`，不要修改 SSC。
+
 更新流程不会把运行服务器、世界、数据库、日志或 `_runtime` 写入 Git 仓库。
 
 ## 规则

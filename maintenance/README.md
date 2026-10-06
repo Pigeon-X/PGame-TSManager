@@ -2,13 +2,20 @@
 
 | 子目录 | 职责 |
 | --- | --- |
-| tshock-update | TShock 新版本适配、补丁、回归记录 |
+| tshock-update | 独立 TShock 新版本适配、补丁、回归记录；不内置到 TSM |
 | config-translation | TShock config 中文映射（含 TransferPatch.json 权威映射表） |
 | rest-fixes | REST 配置和令牌字段修复（用户名 / 用户组） |
 | plugin-maintenance | 独立插件维护入口，指向 PigeonPlugins |
 | ssc-lock | SSC 英文配置冻结 |
 | help-lock | /help 指令冻结 |
 | tools | 维护工具（Test-TShockConfig.ps1 只读校验） |
+
+## 更新边界
+
+TShock 更新属于独立维护流程：GitHub Actions 负责构建维护包，`tshock-update` 负责官方包接入、
+汉化映射、REST 修复和回归验证，PGame-TSManager 负责服务器生命周期管理。更新工具不由 TSM 窗口调用。
+
+每次修改的固定顺序是：Git 提交 → Actions 构建 → 远程源测试端部署 → 可见重启和三服验证 → 桌面镜像同步 → 测试群上报。
 
 ## 固定规则（不可违反）
 

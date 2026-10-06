@@ -12,7 +12,7 @@ Pigeon-X 维护版，汇总 TShock 更新、配置中文映射、REST 修复和�
 
 ## 固定规则
 
-- TShock 更新：maintenance/tshock-update。
+- TShock 更新：maintenance/tshock-update，独立于 PGame-TSManager 程序运行。
 - 配置中文映射：maintenance/config-translation。
 - REST 修复：maintenance/rest-fixes。
 - 插件维护：maintenance/plugin-maintenance。
@@ -39,6 +39,9 @@ dotnet build PGame-TSManager.sln -c Release
 
 流水线运行 `Test-RepositoryLayout.ps1`。`1.PigeonServers`、`_runtime`、`Worlds`、`Plugins`、
 `ServerPlugins`、数据库、日志、世界文件、DLL/EXE 都不会进入源码包或 Git 跟踪。
+
+TShock 更新不从 TSM 界面触发。请按 `maintenance/tshock-update/README.md` 的独立流程执行，
+完成远程测试和回滚备份后，再使用 TSM 启动三服。
 
 ## 多服务器映射（serverProfiles）
 
