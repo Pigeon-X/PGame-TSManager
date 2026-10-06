@@ -9,7 +9,8 @@
         DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
         Title="PGame-TSManager" Height="700" Width="1120" MinHeight="560" MinWidth="960"
         Name="Window" Loaded="Window_Loaded" Icon="PGame-TSManager.ico"
-        WindowState="Normal" ShowInTaskbar="True"
+        WindowState="Normal" ShowInTaskbar="True" UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
         Background="{DynamicResource Bg}" FontFamily="Microsoft YaHei UI">
 
     <Window.Resources>
@@ -27,13 +28,14 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="5"
+                        <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="8"
                                 BorderBrush="{DynamicResource Border}" BorderThickness="1">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="Opacity" Value="0.85"/></Trigger>
-                            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="b" Property="Opacity" Value="0.35"/></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="Opacity" Value="0.86"/></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="b" Property="Opacity" Value="0.72"/></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="b" Property="Opacity" Value="0.32"/></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -41,7 +43,10 @@
         </Style>
         <Style TargetType="Button" BasedOn="{StaticResource BaseBtn}" x:Key="StartBtn"><Setter Property="Background" Value="{DynamicResource Ok}"/></Style>
         <Style TargetType="Button" BasedOn="{StaticResource BaseBtn}" x:Key="StopBtn"><Setter Property="Background" Value="{DynamicResource Err}"/></Style>
-        <Style TargetType="Button" BasedOn="{StaticResource BaseBtn}" x:Key="AccentBtn"><Setter Property="Background" Value="{DynamicResource Accent}"/></Style>
+        <Style TargetType="Button" BasedOn="{StaticResource BaseBtn}" x:Key="AccentBtn">
+            <Setter Property="Background" Value="{DynamicResource Accent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentText}"/>
+        </Style>
         <Style TargetType="Button" BasedOn="{StaticResource BaseBtn}" x:Key="NeutralBtn">
             <Setter Property="Background" Value="{DynamicResource PanelHi}"/>
             <Setter Property="Foreground" Value="{DynamicResource Text}"/>
@@ -58,23 +63,30 @@
                                           IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
                                 <ToggleButton.Template>
                                     <ControlTemplate TargetType="ToggleButton">
-                                        <Border Background="{DynamicResource Panel}" CornerRadius="5"
+                                        <Border x:Name="cb" Background="{DynamicResource Panel}" CornerRadius="8"
                                                 BorderBrush="{DynamicResource Border}" BorderThickness="1">
-                                            <Path Data="M 0 0 L 4 4 L 8 0" Stroke="{DynamicResource TextDim}" StrokeThickness="1.6"
+                                            <Path Data="M 0 0 L 4 4 L 8 0" Stroke="{DynamicResource Accent2}" StrokeThickness="1.8"
                                                   HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0"/>
                                         </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="cb" Property="BorderBrush" Value="{DynamicResource Accent2}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
                                     </ControlTemplate>
                                 </ToggleButton.Template>
                             </ToggleButton>
                             <ContentPresenter IsHitTestVisible="False"
                                               Content="{TemplateBinding SelectionBoxItem}"
                                               ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                              Margin="14,0,38,0" VerticalAlignment="Center"/>
-                            <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
-                                   AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
-                                <Border Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Border}" BorderThickness="1"
-                                        CornerRadius="5" MinWidth="{TemplateBinding ActualWidth}" MaxHeight="300">
-                                    <ScrollViewer><StackPanel IsItemsHost="True" Margin="6"/></ScrollViewer>
+                                              Margin="12,0,34,0" VerticalAlignment="Center"/>
+                            <Popup x:Name="PART_Popup" AllowsTransparency="True" Placement="Bottom" Focusable="False"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Slide">
+                                <Border Background="{DynamicResource Panel}" CornerRadius="8" Margin="0,4,0,0"
+                                        BorderBrush="{DynamicResource Accent2}" BorderThickness="1" MinWidth="{TemplateBinding ActualWidth}">
+                                    <ScrollViewer MaxHeight="320">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
                                 </Border>
                             </Popup>
                         </Grid>
@@ -82,80 +94,150 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- 暗色细滚动条：圆角 + 亮紫滑块 -->
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="Transparent" Margin="2,2,1,2">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False">
+                                        <RepeatButton.Template><ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent"/>
+                                        </ControlTemplate></RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border x:Name="tb" Background="{DynamicResource ScrollThumb}" CornerRadius="4"/>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="tb" Property="Background" Value="{DynamicResource ScrollThumbHot}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False">
+                                        <RepeatButton.Template><ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent"/>
+                                        </ControlTemplate></RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <!-- 外框：圆角卡片 + 顶部亮紫描边 -->
+    <Border Margin="8" CornerRadius="12" Background="{DynamicResource Bg}"
+            BorderBrush="{DynamicResource Border}" BorderThickness="1">
+        <Grid>
+            <Border Height="3" VerticalAlignment="Top" CornerRadius="12,12,0,0" Background="{DynamicResource Accent}"/>
 
-        <!-- 第 1 行：选服 + 单服启停 -->
-        <Grid Grid.Row="0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <ComboBox Grid.Column="0" x:Name="ComboBox" Style="{StaticResource TShockCombo}"
-                      ItemsSource="{Binding Containers, ElementName=Window, Mode=OneWay}"
-                      SelectionChanged="ComboBox_SelectionChanged" ToolTip="选择服务器">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="10" Height="10" Margin="2,0,10,0" VerticalAlignment="Center" Fill="{Binding StatusBrush}"/>
-                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Text}" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding StatusText}" Margin="12,0,0,0" Foreground="{Binding StatusBrush}" FontSize="12" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-            <Button Grid.Column="1" x:Name="StartButton" Content="启动本服" Style="{StaticResource StartBtn}" Click="StartButton_Click"
-                    DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
-                    IsEnabled="{Binding Path=IsRunning, Mode=OneWay, Converter={StaticResource InverseBooleanConverter}}"/>
-            <Button Grid.Column="2" x:Name="KillButton" Content="停止本服" Style="{StaticResource StopBtn}" Click="KillButton_Click"
-                    DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
-                    IsEnabled="{Binding IsRunning, Mode=OneWay}"/>
+            <Grid Margin="16,20,16,16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 第 1 行：选服 + 单服启停 -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <ComboBox Grid.Column="0" x:Name="ComboBox" Style="{StaticResource TShockCombo}"
+                              ItemsSource="{Binding Containers, ElementName=Window, Mode=OneWay}"
+                              SelectionChanged="ComboBox_SelectionChanged" ToolTip="选择服务器">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="10" Height="10" Margin="2,0,10,0" VerticalAlignment="Center" Fill="{Binding StatusBrush}"/>
+                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Text}" FontSize="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding StatusText}" Margin="12,0,0,0" Foreground="{Binding StatusBrush}" FontSize="12" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Grid.Column="1" x:Name="StartButton" Content="启动本服" Style="{StaticResource StartBtn}" Click="StartButton_Click"
+                            DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
+                            IsEnabled="{Binding Path=IsRunning, Mode=OneWay, Converter={StaticResource InverseBooleanConverter}}"/>
+                    <Button Grid.Column="2" x:Name="KillButton" Content="停止本服" Style="{StaticResource StopBtn}" Click="KillButton_Click"
+                            DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
+                            IsEnabled="{Binding IsRunning, Mode=OneWay}"/>
+                </Grid>
+
+                <!-- 控制台 -->
+                <Border Grid.Row="1" Margin="0,16,0,0" CornerRadius="10" Background="{DynamicResource ConsoleBg}"
+                        BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1">
+                    <RichTextBox x:Name="CliTextBox" Background="Transparent" Foreground="{DynamicResource LogNormal}"
+                                 BorderThickness="0" FontFamily="Consolas, Microsoft YaHei UI" FontSize="13.5" IsReadOnly="True"
+                                 Padding="12" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                                 ToolTip="服务器控制台输出（可上下滚动）"/>
+                </Border>
+
+                <!-- 输入 + 发送 -->
+                <Grid Grid.Row="2" Margin="0,16,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="InputBorder" Grid.Column="0" Background="{DynamicResource InputBg}" CornerRadius="8">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                        <Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                                        <Setter Property="BorderThickness" Value="2"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Grid>
+                            <TextBlock x:Name="Placeholder" Text="输入指令，例如  /help    /save    /ac status"
+                                       Foreground="{DynamicResource TextDim}" FontSize="14"
+                                       VerticalAlignment="Center" Margin="14,0" IsHitTestVisible="False"/>
+                            <TextBox x:Name="TextBox" Background="Transparent" Foreground="{DynamicResource Text}"
+                                     CaretBrush="{DynamicResource Accent2}"
+                                     BorderThickness="0" FontSize="14" Height="42" VerticalContentAlignment="Center"
+                                     Padding="12,0" PreviewKeyDown="TextBox_PreviewKeyDown" TextChanged="TextBox_TextChanged"
+                                     ToolTip="输入指令后回车（走该服 REST 的 v3/server/rawcmd 发送）"/>
+                        </Grid>
+                    </Border>
+                    <Button Grid.Column="1" Content="发送" Style="{StaticResource AccentBtn}" Click="SendCurrentButton_Click" ToolTip="发送给当前选中的服务器"/>
+                    <Button Grid.Column="2" Content="全部发送" Style="{StaticResource NeutralBtn}" Click="SendAllButton_Click" ToolTip="发送给所有正在运行的服务器"/>
+                </Grid>
+
+                <!-- 全局启停 -->
+                <Grid Grid.Row="3" Margin="0,16,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="1" Content="全部启动" Style="{StaticResource StartBtn}" Click="StartAllButton_Click"/>
+                    <Button Grid.Column="2" Content="全部停止" Style="{StaticResource StopBtn}" Click="StopAllButton_Click"/>
+                </Grid>
+            </Grid>
         </Grid>
-
-        <!-- 控制台 -->
-        <Border Grid.Row="1" Margin="0,16,0,0" CornerRadius="5" Background="{DynamicResource ConsoleBg}"
-                BorderBrush="{DynamicResource Border}" BorderThickness="1">
-            <RichTextBox x:Name="CliTextBox" Background="Transparent" Foreground="{DynamicResource LogNormal}"
-                         BorderThickness="0" FontFamily="Consolas" FontSize="13.5" IsReadOnly="True"
-                         Padding="12" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
-                         ToolTip="服务器控制台输出"/>
-        </Border>
-
-        <!-- 输入 + 发送 -->
-        <Grid Grid.Row="2" Margin="0,16,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <Border Grid.Column="0" Background="{DynamicResource Panel}" CornerRadius="5"
-                    BorderBrush="{DynamicResource Border}" BorderThickness="1">
-                <TextBox x:Name="TextBox" Background="Transparent" Foreground="{DynamicResource Text}"
-                         BorderThickness="0" FontSize="14" Height="40" VerticalContentAlignment="Center"
-                         Padding="12,0" PreviewKeyDown="TextBox_PreviewKeyDown" ToolTip="输入指令后回车（走该服 REST 发送）"/>
-            </Border>
-            <Button Grid.Column="1" Content="发送" Style="{StaticResource AccentBtn}" Click="SendCurrentButton_Click" ToolTip="发送给当前选中的服务器"/>
-            <Button Grid.Column="2" Content="全部发送" Style="{StaticResource NeutralBtn}" Click="SendAllButton_Click" ToolTip="发送给所有正在运行的服务器"/>
-        </Grid>
-
-        <!-- 全局启停 -->
-        <Grid Grid.Row="3" Margin="0,16,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-
-            <Button Grid.Column="1" Content="全部启动" Style="{StaticResource StartBtn}" Click="StartAllButton_Click"/>
-            <Button Grid.Column="2" Content="全部停止" Style="{StaticResource StopBtn}" Click="StopAllButton_Click"/>
-        </Grid>
-    </Grid>
+    </Border>
 </Window>

@@ -34,15 +34,20 @@ namespace PGameTSManager
         /// 配色：跟随 TShock 控制台（黑底 + 灰字 + 黄 INFO + 红 ERROR），
         /// 并根据 Windows 的「应用主题」自动切深色/浅色。
         /// </summary>
-        private static void ApplyTheme()
+        /// <summary>Windows 的「应用主题」是不是浅色。</summary>
+        private static bool IsLightTheme()
         {
-            var light = false;
             try
             {
                 using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-                light = Convert.ToInt32(key?.GetValue("AppsUseLightTheme") ?? 0) == 1;
+                return Convert.ToInt32(key?.GetValue("AppsUseLightTheme") ?? 0) == 1;
             }
-            catch { }
+            catch { return false; }
+        }
+
+        private static void ApplyTheme()
+        {
+            var light = IsLightTheme();
 
             var r = Current.Resources;
             void Set(string k, string hex) => r[k] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
@@ -57,27 +62,39 @@ namespace PGameTSManager
 
             if (light)
             {
-                Set("Bg", "#F3F3F3");
+                Set("Bg", "#F6F5FB");
                 Set("Panel", "#FFFFFF");
-                Set("PanelHi", "#E8E8E8");
-                Set("Border", "#CFCFCF");
-                Set("Text", "#1B1B1B");
-                Set("TextDim", "#6A6A6A");
-                Set("Accent", "#C8A02A");   // 深一点的黄，浅底上看得清
-                Set("Accent2", "#E0B93A");
+                Set("PanelHi", "#ECEAF6");
+                Set("Border", "#D5D1E8");
+                Set("Text", "#1C1A2B");
+                Set("TextDim", "#6E6A88");
+                Set("InputBg", "#FFFFFF");          // 输入框比面板更亮
+                Set("Accent", "#7C3AED");           // 亮紫（主色）
+                Set("Accent2", "#A855F7");
+                Set("AccentBlue", "#2563EB");
+                Set("AccentBorder", "#C4B5FD");
+                Set("AccentText", "#FFFFFF");
+                Set("ScrollThumb", "#B9A5F0");
+                Set("ScrollThumbHot", "#7C3AED");
                 Set("BtnText", "#FFFFFF");
             }
             else
             {
-                Set("Bg", "#0B0B0B");
-                Set("Panel", "#151515");
-                Set("PanelHi", "#1F1F1F");
-                Set("Border", "#303030");
-                Set("Text", "#D6D6D6");
-                Set("TextDim", "#8A8A8A");
-                Set("Accent", "#FFD23F");
-                Set("Accent2", "#FFE07A");
-                Set("BtnText", "#101010");
+                Set("Bg", "#0E0D16");
+                Set("Panel", "#171625");
+                Set("PanelHi", "#221F35");
+                Set("Border", "#342F4D");
+                Set("Text", "#E8E6F5");
+                Set("TextDim", "#9B97B8");
+                Set("InputBg", "#26223A");          // ★ 输入框不再是暗底（比面板明显亮）
+                Set("Accent", "#A855F7");           // ★ 亮紫
+                Set("Accent2", "#C084FC");
+                Set("AccentBlue", "#5B9DFF");
+                Set("AccentBorder", "#4C3E77");
+                Set("AccentText", "#FFFFFF");
+                Set("ScrollThumb", "#6D5AA8");
+                Set("ScrollThumbHot", "#A855F7");
+                Set("BtnText", "#101014");
             }
 
             // ★ 控制台配色：保持原来那套（彩色、区分度高），不跟随窗口主题
@@ -209,6 +226,14 @@ namespace PGameTSManager
 
             var window = new MainWindow();
             SetupTrayIcon(window);
+            // 原生外框跟随主题：深色标题栏 + 紫色描边（Win11 上还会变圆角）
+            window.SourceInitialized += (_, _) =>
+            {
+                var isLight = IsLightTheme();
+                WindowChromeHelper.Apply(window, !isLight,
+                    WindowChromeHelper.Bgr(isLight ? "#EDE9FE" : "#1B1533"),
+                    WindowChromeHelper.Bgr(isLight ? "#A855F7" : "#6D28D9"));
+            };
             window.Closing += (_, e) => OnMainWindowClosing(window, e);
             window.Show();
             window.WindowState = WindowState.Normal;

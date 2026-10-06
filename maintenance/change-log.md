@@ -16,3 +16,5 @@
 - 2026-10-06：**发指令链路打通**。查官方 TShock 6.2.1 源码（TShockAPI\Rest\RestManager.cs）发现 rawcmd 端点是 /v3/server/rawcmd，旧的 /v2/server/rawcmd 必然 404 —— 这就是长期发不出指令的真正原因。TSM 改为 REST 主通道（自动补前导 /，解析 response 数组，去掉 [c/xxx:] 颜色标记），删除失效的 ConsoleInjector；新增 --send 无界面发指令模式。远程三服实测 exit=0 并回显命令列表；新增 maintenance\command-channel\README.md。
 
 - 2026-10-06：控制台彩色渲染升级。REST 指令回显不再剥掉 Terraria 的 [c/RRGGBB:文字] 颜色标记，改为按标记拆成彩色片段渲染（/help 现在显示 TShock 原生配色：粉色标题、青色斜杠、黄色指令、红色 @、蓝色说明）；无标记的行仍走原有关键字着色。
+
+- 2026-10-06：界面改版。① 原生标题栏改深色（DwmSetWindowAttribute 20/19），Win11 上还会加圆角与紫色标题栏/描边（Server 2022 自动跳过）；② 内容区改成圆角卡片 + 顶部亮紫描边；③ 控制台滚动条换成 10px 圆角亮紫滑块（悬停更亮）；④ 输入框底色改亮（#26223A，不再是暗底）+ 聚焦时紫色描边 + 灰字占位提示；⑤ 主色由黄色改成亮紫 #A855F7（发送按钮、下拉箭头、聚焦描边、滚动条），保留绿/红启停按钮；⑥ 控制台字体加 Microsoft YaHei UI 回退。

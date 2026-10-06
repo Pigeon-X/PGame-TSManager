@@ -106,6 +106,17 @@ namespace PGameTSManager
             CliTextBox.ScrollToEnd();
         }
 
+        /// <summary>输入框里没字时显示灰字提示。</summary>
+        private void TextBox_TextChanged(object _, TextChangedEventArgs e)
+        {
+            try
+            {
+                Placeholder.Visibility = string.IsNullOrEmpty(TextBox.Text)
+                    ? Visibility.Visible : Visibility.Collapsed;
+            }
+            catch { }
+        }
+
         private void TextBox_PreviewKeyDown(object _, KeyEventArgs e)
         {
             if (e.Key != Key.Enter) return;
