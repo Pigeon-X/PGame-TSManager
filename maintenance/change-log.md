@@ -14,3 +14,5 @@
 - 2026-10-06：最小化/关闭交互定稿（选项 B 落地）——点 × 弹「缩小到托盘 / 关闭程序 / 取消」，选「关闭」再弹一次是与否确认；新增 _exiting 放行标志，修掉确认退出时 Current.Shutdown() 再次触发 Closing 可能二次弹窗的问题；托盘菜单「退出」同样直接放行。远程三服复测：TSM 窗口 Visible、TShock 窗口 0、2021/2023/2024 + REST 7878/7879/7880 全部 200、插件 15/29/29 无异常。
 
 - 2026-10-06：**发指令链路打通**。查官方 TShock 6.2.1 源码（TShockAPI\Rest\RestManager.cs）发现 rawcmd 端点是 /v3/server/rawcmd，旧的 /v2/server/rawcmd 必然 404 —— 这就是长期发不出指令的真正原因。TSM 改为 REST 主通道（自动补前导 /，解析 response 数组，去掉 [c/xxx:] 颜色标记），删除失效的 ConsoleInjector；新增 --send 无界面发指令模式。远程三服实测 exit=0 并回显命令列表；新增 maintenance\command-channel\README.md。
+
+- 2026-10-06：控制台彩色渲染升级。REST 指令回显不再剥掉 Terraria 的 [c/RRGGBB:文字] 颜色标记，改为按标记拆成彩色片段渲染（/help 现在显示 TShock 原生配色：粉色标题、青色斜杠、黄色指令、红色 @、蓝色说明）；无标记的行仍走原有关键字着色。

@@ -401,8 +401,7 @@ namespace PGameTSManager
                     text = string.Join("\n", arr.Select(x => x?.ToString() ?? ""));
                 else text = resp.ToString();
 
-                // 去掉 Terraria 客户端颜色标记 [c/FF0000:文字] → 文字（面板自己上色，读起来更清爽）
-                text = System.Text.RegularExpressions.Regex.Replace(text, @"\[c/([0-9A-Fa-f]{6}):(.*?)\]", "$2");
+                // ★ 保留 Terraria 的 [c/RRGGBB:文字] 颜色标记：交给面板渲染成真实颜色（/help 就是靠这个上色）
                 return text.Replace("\r", "").TrimEnd();
             }
             catch { return body; }
@@ -480,6 +479,54 @@ namespace PGameTSManager
             try { dispatcher.BeginInvoke(new Action(() => AppendText(text))); } catch { }
         }
 
+        /// <summary>Terraria 彩色文本标记：[c/RRGGBB:文字]</summary>
+        private static readonly System.Text.RegularExpressions.Regex ColorTagRx =
+            new(@"\[c/([0-9A-Fa-f]{6}):(.*?)\]", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        private static readonly Dictionary<string, Brush> ColorBrushCache = new();
+
+        private static Brush BrushOfRgb(string hex, Brush fallback)
+        {
+            lock (ColorBrushCache)
+            {
+                if (ColorBrushCache.TryGetValue(hex, out var cached)) return cached;
+                try
+                {
+                    var r = Convert.ToByte(hex.Substring(0, 2), 16);
+                    var g = Convert.ToByte(hex.Substring(2, 2), 16);
+                    var b = Convert.ToByte(hex.Substring(4, 2), 16);
+                    var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+                    brush.Freeze();
+                    ColorBrushCache[hex] = brush;
+                    return brush;
+                }
+                catch { return fallback; }
+            }
+        }
+
+        /// <summary>把一行渲染进面板：带 [c/RRGGBB:...] 的按真实颜色拆成多段，否则按关键字着色。</summary>
+        private void AppendLine(string raw)
+        {
+            if (!ColorTagRx.IsMatch(raw))
+            {
+                _para.Inlines.Add(new Run(raw + "\n") { Foreground = ColorFor(raw) });
+                return;
+            }
+
+            var fallback = ColorFor(raw);
+            var idx = 0;
+            foreach (System.Text.RegularExpressions.Match m in ColorTagRx.Matches(raw))
+            {
+                if (m.Index > idx)
+                    _para.Inlines.Add(new Run(raw.Substring(idx, m.Index - idx)) { Foreground = fallback });
+                _para.Inlines.Add(new Run(m.Groups[2].Value) { Foreground = BrushOfRgb(m.Groups[1].Value, fallback) });
+                idx = m.Index + m.Length;
+            }
+            if (idx < raw.Length)
+                _para.Inlines.Add(new Run(raw.Substring(idx)) { Foreground = fallback });
+            _para.Inlines.Add(new Run("\n") { Foreground = fallback });
+        }
+
         private void AppendText(string text)
         {
             try
@@ -487,7 +534,7 @@ namespace PGameTSManager
                 foreach (var raw in text.Replace("\r\n", "\n").Split('\n'))
                 {
                     if (raw.Length == 0) continue;
-                    _para.Inlines.Add(new Run(raw + "\n") { Foreground = ColorFor(raw) });
+                    AppendLine(raw);
                 }
                 while (_para.Inlines.Count > 4096)
                 {
