@@ -124,6 +124,15 @@ namespace PGameTSManager
         /// <summary>true = 每台服务器另开独立可见控制台窗口；false（默认）= 在管理器内运行。</summary>
         public bool showServerWindow = false;
 
+        /// <summary>
+        /// 「全部启动」是否按顺序逐台启动：上一台真正就绪（端口在监听）后再起下一台。
+        /// 三台同时读世界会互相抢 CPU / 磁盘，表现就是界面卡很久才起来。
+        /// </summary>
+        public bool startAllSequential = true;
+
+        /// <summary>顺序启动时，单台服务器等待「就绪」的最长秒数（超时就跳过，继续下一台）。</summary>
+        public int startReadyTimeoutSeconds = 240;
+
         private static ManagerConfig? _instance;
         public static ManagerConfig Instance => _instance ??= LoadConfig() ?? new ManagerConfig();
 

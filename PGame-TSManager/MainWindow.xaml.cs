@@ -1,8 +1,10 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Threading.Tasks;
 using System.Windows.Input;
 
 namespace PGameTSManager
@@ -52,9 +54,11 @@ namespace PGameTSManager
 
             if (StartAllOnLoad)
             {
-                StartAll();
+                _ = StartAllSequentialAsync();      // ★ 顺序启动（不再三台一起抢资源）
             }
         }
+
+        private bool _startingAll;
 
         private void StartAll()
         {
@@ -64,6 +68,76 @@ namespace PGameTSManager
                 try { container.IsRunning = true; }
                 catch (Exception ex) { AppendLine($"[启动失败] {container.Name}：{ex.Message}"); }
             }
+        }
+
+        /// <summary>
+        /// ★ 顺序启动：第 1 台真正就绪（游戏端口在监听、插件初始化完）之后，再起第 2 台，依次往下。
+        /// 之所以要这样：三台 TShock 同时加载世界会互相抢 CPU / 磁盘，表现为“点了全部启动卡很久”。
+        /// 单台超时（默认 240 秒，配置项 startReadyTimeoutSeconds）就跳过，不会卡死在某一台。
+        /// </summary>
+        private async Task StartAllSequentialAsync()
+        {
+            if (_startingAll) return;
+            _startingAll = true;
+            try
+            {
+                if (!_cfg.startAllSequential)
+                {
+                    AppendLine("[全部启动] 配置为同时启动（startAllSequential=false）");
+                    StartAll();
+                    return;
+                }
+
+                var list = Containers.ToList();
+                var timeout = TimeSpan.FromSeconds(Math.Max(30, _cfg.startReadyTimeoutSeconds));
+                AppendLine($"[顺序启动] 共 {list.Count} 台，逐台启动（每台最多等 {timeout.TotalSeconds:0} 秒）");
+
+                for (var i = 0; i < list.Count; i++)
+                {
+                    var c = list[i];
+                    var tag = $"[顺序启动] {i + 1}/{list.Count} {c.Name}";
+
+                    if (c.IsRunning)
+                    {
+                        c.Log($"{tag}：已在运行，跳过\n");
+                        AppendLine($"{tag}：已在运行，跳过");
+                        continue;
+                    }
+
+                    c.Log($"{tag}：正在启动…\n");
+                    AppendLine($"{tag}：正在启动…");
+                    var startedAt = DateTime.UtcNow;
+
+                    try { c.IsRunning = true; }
+                    catch (Exception ex)
+                    {
+                        var bad = $"{tag}：启动失败（{ex.Message}）";
+                        c.Log(bad + "\n");
+                        AppendLine(bad);
+                        continue;
+                    }
+
+                    var ok = await c.WaitUntilReadyAsync(timeout);
+                    var secs = (DateTime.UtcNow - startedAt).TotalSeconds;
+                    if (ok)
+                    {
+                        c.Log($"{tag}：已就绪 ✓（{secs:0} 秒）\n");
+                        AppendLine($"{tag}：已就绪 ✓（{secs:0} 秒）");
+                    }
+                    else
+                    {
+                        c.Log($"{tag}：等待就绪超时（{secs:0} 秒），继续下一台\n");
+                        AppendLine($"{tag}：等待就绪超时（{secs:0} 秒），继续下一台");
+                    }
+                }
+
+                AppendLine("[顺序启动] 全部完成");
+            }
+            catch (Exception ex)
+            {
+                AppendLine("[顺序启动] 异常：" + ex.Message);
+            }
+            finally { _startingAll = false; }
         }
 
         private void StartButton_Click(object _, RoutedEventArgs e)
@@ -80,7 +154,7 @@ namespace PGameTSManager
             current.IsRunning = false;
         }
 
-        private void StartAllButton_Click(object _, RoutedEventArgs e) => StartAll();
+        private async void StartAllButton_Click(object _, RoutedEventArgs e) => await StartAllSequentialAsync();
 
         private void StopAllButton_Click(object _, RoutedEventArgs e)
         {

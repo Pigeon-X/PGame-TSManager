@@ -51,6 +51,8 @@ namespace PGameTSManager
 
             var r = Current.Resources;
             void Set(string k, string hex) => r[k] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
+            // 渐变里的 GradientStop.Color 需要 Color 本身，给 Brush 会抛 XamlParseException
+            void SetColor(string k, string hex) => r[k] = (Color)ColorConverter.ConvertFromString(hex);
 
             // TShock 控制台的三种主色，浅色深色都用它
             Set("ConsoleBg", "#000000");
@@ -60,6 +62,38 @@ namespace PGameTSManager
             Set("Info", "#FFD23F");   // TShock ConsoleInfo 黄
             Set("Cmd", "#4FC3F7");
 
+            // ★ 液态玻璃配色：窗口底色是「极光渐变」，上面的面板都是半透明玻璃
+            if (light)
+            {
+                SetColor("Backdrop1", "#EFE9FF");
+                SetColor("Backdrop2", "#E6F0FF");
+                SetColor("Backdrop3", "#F7EDFF");
+                SetColor("Blob1", "#59C4B5FD");
+                SetColor("Blob2", "#4F93C5FD");
+                Set("GlassBg", "#B3FFFFFF");
+                Set("GlassBorder", "#4D7C6BC8");
+                Set("GlassHi", "#80FFFFFF");
+                Set("GlassPanel", "#99FFFFFF");
+                Set("GlassPanelHi", "#E6FFFFFF");
+                Set("ConsoleBg", "#F207070E");
+                Set("AccentBorder", "#66A855F7");
+            }
+            else
+            {
+                SetColor("Backdrop1", "#17123A");
+                SetColor("Backdrop2", "#0D1030");
+                SetColor("Backdrop3", "#1C1138");
+                SetColor("Blob1", "#8C7C3AED");
+                SetColor("Blob2", "#732563EB");
+                Set("GlassBg", "#1FFFFFFF");
+                Set("GlassBorder", "#3DFFFFFF");
+                Set("GlassHi", "#1FFFFFFF");
+                Set("GlassPanel", "#14FFFFFF");
+                Set("GlassPanelHi", "#24FFFFFF");
+                Set("ConsoleBg", "#CC05050C");
+                Set("AccentBorder", "#59A855F7");
+            }
+
             if (light)
             {
                 Set("Bg", "#F6F5FB");
@@ -68,13 +102,13 @@ namespace PGameTSManager
                 Set("Border", "#D5D1E8");
                 Set("Text", "#1C1A2B");
                 Set("TextDim", "#6E6A88");
-                Set("InputBg", "#FFFFFF");          // 输入框比面板更亮
+                Set("InputBg", "#F2FFFFFF");          // 更亮的玻璃输入框
                 Set("Accent", "#7C3AED");           // 亮紫（主色）
                 Set("Accent2", "#A855F7");
                 Set("AccentBlue", "#2563EB");
                 Set("AccentBorder", "#C4B5FD");
                 Set("AccentText", "#FFFFFF");
-                Set("ScrollThumb", "#B9A5F0");
+                Set("ScrollThumb", "#99A78BEA");
                 Set("ScrollThumbHot", "#7C3AED");
                 Set("BtnText", "#FFFFFF");
             }
@@ -86,13 +120,13 @@ namespace PGameTSManager
                 Set("Border", "#342F4D");
                 Set("Text", "#E8E6F5");
                 Set("TextDim", "#9B97B8");
-                Set("InputBg", "#26223A");          // ★ 输入框不再是暗底（比面板明显亮）
+                Set("InputBg", "#2EFFFFFF");          // ★ 亮玻璃底（在深色极光上明显更亮）
                 Set("Accent", "#A855F7");           // ★ 亮紫
                 Set("Accent2", "#C084FC");
                 Set("AccentBlue", "#5B9DFF");
                 Set("AccentBorder", "#4C3E77");
                 Set("AccentText", "#FFFFFF");
-                Set("ScrollThumb", "#6D5AA8");
+                Set("ScrollThumb", "#66C4B5FD");
                 Set("ScrollThumbHot", "#A855F7");
                 Set("BtnText", "#101014");
             }
@@ -224,7 +258,20 @@ namespace PGameTSManager
             PGameTSManager.MainWindow.StartAllOnLoad =
                 e.Args.Any(a => string.Equals(a, "--startall", StringComparison.OrdinalIgnoreCase));
 
-            var window = new MainWindow();
+            MainWindow window;
+            try
+            {
+                window = new MainWindow();
+            }
+            catch (Exception ex)
+            {
+                // 宁可明确报错退出，也不要留下“进程在、窗口没有”的僵死状态
+                LogCrash("MainWindowCtor", ex);
+                MessageBox.Show("界面初始化失败：\n\n" + ex.Message, "PGame-TSManager",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown(1);
+                return;
+            }
             SetupTrayIcon(window);
             // 原生外框跟随主题：深色标题栏 + 紫色描边（Win11 上还会变圆角）
             window.SourceInitialized += (_, _) =>

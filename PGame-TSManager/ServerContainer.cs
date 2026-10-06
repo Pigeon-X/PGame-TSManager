@@ -6,8 +6,10 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
@@ -102,6 +104,57 @@ namespace PGameTSManager
             _title = Name;
         }
 
+        /// <summary>该服的对外端口（1.PigeonServers\&lt;服&gt;\config.json 的「端口」）。</summary>
+        public int GamePort
+        {
+            get { try { return _profile.LoadManifest()?.Port ?? 0; } catch { return 0; } }
+        }
+
+        /// <summary>该服的 REST 端口。</summary>
+        public int RestPort
+        {
+            get { try { return _profile.LoadManifest()?.RestPort ?? 0; } catch { return 0; } }
+        }
+
+        /// <summary>往本服自己的日志面板写一行（顺序启动等外部流程用）。</summary>
+        public void Log(string text) => AddText(text);
+
+        /// <summary>
+        /// 等本服「真正起来」：进程还活着 + 游戏端口进入监听（世界加载完、开始收玩家）。
+        /// 端口通了之后再稳一小会儿，让插件把初始化跑完。
+        /// </summary>
+        public async Task<bool> WaitUntilReadyAsync(TimeSpan timeout, int settleMs = 2500)
+        {
+            var port = GamePort;
+            var deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline)
+            {
+                var proc = _process;
+                if (proc == null) return false;                       // 已经退出 = 启动失败
+                try { if (proc.HasExited) return false; } catch { return false; }
+                if (port > 0 && IsPortListening(port))
+                {
+                    if (settleMs > 0) await Task.Delay(settleMs);
+                    proc = _process;
+                    if (proc == null) return false;
+                    try { return !proc.HasExited; } catch { return false; }
+                }
+                await Task.Delay(600);
+            }
+            return false;
+        }
+
+        /// <summary>只读探测：本机有没有人在监听这个端口（不建连接，不会污染服务器日志）。</summary>
+        private static bool IsPortListening(int port)
+        {
+            try
+            {
+                return IPGlobalProperties.GetIPGlobalProperties()
+                    .GetActiveTcpListeners()
+                    .Any(ep => ep.Port == port);
+            }
+            catch { return false; }
+        }
         /// <summary>服务器配置目录：1.PigeonServers\&lt;服&gt;（config.json + tshock\）。</summary>
         private string ServerDirectory => _profile.IsProfileMode
             ? _profile.ResolvedRootPath
