@@ -64,3 +64,57 @@ powershell -ExecutionPolicy Bypass -File tools\Test-TShockConfig.ps1 -ServerPath
 - 排序按目录名开头的数字：`1.` → `2.` → `10.`（数字大小，不是字符串）。
 - 服务器目录改名后，`_runtime\<服>\tshock` 这个目录联接会被自动检测并重建
   （悬空联接会让插件以为配置丢了，CustomPlayer 那种会 `Console.ReadKey()` 直接把服务器启动搞崩）。
+
+## 看门狗与告警（2026-10-06）
+
+### 看门狗（异常退出自动重启）
+
+服务器**非手动**退出时，自动按顺序处理：
+
+1. 记录退出码与运行时长 → 写日志 + 发告警
+2. 若运行时长 ≥ `watchdogStableSeconds`（默认 300 秒）→ 认为不是崩溃循环，重启计数清零
+3. 未达上限 → 等 `watchdogRestartDelaySeconds`（默认 8 秒）后自动重启，并再发一条告警
+4. 达到 `watchdogMaxRestarts`（默认 3 次）→ 停止重启并告警「请人工检查」
+5. **人工点「启动本服」会把计数清零**（否则达到上限后以后都不会再自动重启）
+
+手动点「停止本服」不会触发看门狗（内部 `_userStopRequested` 标记）。
+
+### 告警（发到测试群）
+
+走远程现成的上报脚本：
+
+```
+AI维护文件\12-机器人\机器人上报测试群.ps1 -Text "<消息>" -GroupId 1125570228
+```
+
+触发点：
+- 服务器异常退出 / 正在自动重启 / 反复崩溃放弃重启
+- 顺序启动时某台启动失败或超过就绪超时
+- 日志里出现致命关键字（`Unhandled exception`、`Startup aborted`、`Fatal`、`Failed to load assembly`、`OutOfMemory` 等），每服 5 分钟最多一次
+
+限流：`alertMinIntervalSeconds`（默认 60 秒）内的多条告警只发第一条，避免刷屏。
+
+### 配置
+
+```json
+"watchdogEnabled": true,
+"watchdogMaxRestarts": 3,
+"watchdogRestartDelaySeconds": 8,
+"watchdogStableSeconds": 300,
+"alertEnabled": true,
+"alertScript": "",
+"alertGroupId": 1125570228,
+"alertMinIntervalSeconds": 60
+```
+
+`alertScript` 留空会**自动找**桌面 `AI维护文件\12-机器人\机器人上报测试群.ps1`。
+
+### 控制台落盘
+
+管理器面板里所有内容（含看门狗/告警行）会同时写到：
+
+```
+Logs\<服名>-yyyyMMdd.log
+```
+
+每行带 `[HH:mm:ss]` 时间戳，方便事后排查与导出。

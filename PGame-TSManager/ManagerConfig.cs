@@ -130,6 +130,25 @@ namespace PGameTSManager
         /// </summary>
         public bool startAllSequential = true;
 
+        // —— 看门狗：服务器异常退出后自动拉起 ——
+        /// <summary>是否开启看门狗（异常退出自动重启）。</summary>
+        public bool watchdogEnabled = true;
+        /// <summary>连续自动重启次数上限，超过就放弃并告警（防止无限崩溃循环）。</summary>
+        public int watchdogMaxRestarts = 3;
+        /// <summary>自动重启前等待秒数（给端口/文件句柄一点释放时间）。</summary>
+        public int watchdogRestartDelaySeconds = 8;
+        /// <summary>运行超过这个秒数算「稳定」，重启计数清零（偶尔崩一次不会累积到上限）。</summary>
+        public int watchdogStableSeconds = 300;
+
+        // —— 告警：异常/掉线自动发测试群 ——
+        /// <summary>是否自动上报测试群。</summary>
+        public bool alertEnabled = true;
+        /// <summary>上报脚本路径；留空 = 自动找桌面 AI维护文件\12-机器人\机器人上报测试群.ps1。</summary>
+        public string alertScript = "";
+        /// <summary>上报到的群号。</summary>
+        public long alertGroupId = 1125570228;
+        /// <summary>同类告警最小间隔秒数（防刷屏）。</summary>
+        public int alertMinIntervalSeconds = 60;
         /// <summary>顺序启动时，单台服务器等待「就绪」的最长秒数（超时就跳过，继续下一台）。</summary>
         public int startReadyTimeoutSeconds = 240;
 

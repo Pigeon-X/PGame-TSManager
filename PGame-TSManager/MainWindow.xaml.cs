@@ -34,7 +34,11 @@ namespace PGameTSManager
 
         private void Window_Loaded(object _, RoutedEventArgs e)
         {
+            Alerter.Configure(_cfg);                 // ★ 告警通道（异常/掉线发测试群）
             ReloadContainers();
+            AppendLine(Alerter.Ready
+                ? "[告警] 已启用，异常/掉线与自动重启都会发到测试群"
+                : "[告警] 未启用或找不到上报脚本（config.json 的 alertEnabled / alertScript）");
 
             if (Containers.Count == 0)
             {
@@ -72,6 +76,11 @@ namespace PGameTSManager
 
                 var container = new ServerContainer(_cfg, profile);
                 container.OnTextChanged += sender => { if (sender == Current) CliTextBox.ScrollToEnd(); };
+                container.OnAlert += (c, title, detail) =>
+                {
+                    c.Log($"[告警] {title} —— {detail}\n");
+                    Alerter.Send(title, detail);        // ★ 看门狗/日志异常 → 测试群
+                };
                 Containers.Add(container);
             }
 
@@ -95,6 +104,7 @@ namespace PGameTSManager
 
         // ---------- 在线人数：定时轮询 REST ----------
         private DispatcherTimer? _statusTimer;
+        private string _lastAlertResult = "";
 
         private void StartStatusTimer()
         {
@@ -106,6 +116,14 @@ namespace PGameTSManager
                     try { await c.RefreshStatusAsync(); } catch { }
                 }
                 UpdateTrayTip();
+
+                // 告警发送结果回显（异步发送完才会变）
+                var r = Alerter.LastResult;
+                if (!string.IsNullOrEmpty(r) && r != _lastAlertResult)
+                {
+                    _lastAlertResult = r;
+                    AppendLine("[告警] 上报状态：" + r);
+                }
             };
             _statusTimer.Start();
         }
@@ -268,6 +286,7 @@ namespace PGameTSManager
                         var bad = $"{tag}：启动失败（{ex.Message}）";
                         c.Log(bad + "\n");
                         AppendLine(bad);
+                        Alerter.Send($"服务器启动失败：{c.Name}", ex.Message);
                         continue;
                     }
 
@@ -282,6 +301,8 @@ namespace PGameTSManager
                     {
                         c.Log($"{tag}：等待就绪超时（{secs:0} 秒），继续下一台\n");
                         AppendLine($"{tag}：等待就绪超时（{secs:0} 秒），继续下一台");
+                        Alerter.Send($"服务器启动后未就绪：{c.Name}",
+                            $"等待 {secs:0} 秒仍未进入监听状态（端口 {c.GamePort}），已继续启动下一台，请检查。");
                     }
                 }
 
@@ -322,6 +343,14 @@ namespace PGameTSManager
 
         private void AppendLine(string text)
         {
+            // 走当前服务器的控制台流：既能显示，也会写进 Logs\<服>-日期.log（AppendLine 直接加段落就绕过了落盘）
+            var c = Current;
+            if (c != null)
+            {
+                c.Log(text + "\n");
+                CliTextBox.ScrollToEnd();
+                return;
+            }
             CliTextBox.Document.Blocks.Add(new Paragraph(new Run(text)));
             CliTextBox.ScrollToEnd();
         }

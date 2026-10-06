@@ -37,6 +37,16 @@ namespace PGameTSManager
         private Process? _process;
         private StreamWriter? _stdin;
 
+        // —— 看门狗状态 ——
+        private bool _userStopRequested;                       // 手动停止 → 不自动重启
+        private bool _watchdogRestarting;                      // 正在由看门狗重启（此时不要清零计数）
+        private int _restartCount;                             // 连续自动重启次数
+        private DateTime _startedAt = DateTime.UtcNow;
+        private DateTime _lastLogAlertUtc = DateTime.MinValue;
+
+        /// <summary>告警事件：(服, 标题, 详情)。由主窗口转给 Alerter。</summary>
+        public event Action<ServerContainer, string, string>? OnAlert;
+
         public bool IsRunning
         {
             get => _process != null;
@@ -51,6 +61,7 @@ namespace PGameTSManager
                     {
                         try { if (dead.HasExited) { dead.Dispose(); _process = null; } } catch { }
                     }
+                    if (!_watchdogRestarting) _restartCount = 0;   // ★ 人工启动 = 重置崩溃计数
                     if (!IsRunning) { Start(); OnPropertyChanged(nameof(IsRunning)); }
                 }
                 else
@@ -58,6 +69,7 @@ namespace PGameTSManager
                     var process = _process;
                     if (process != null)
                     {
+                        _userStopRequested = true;                 // ★ 手动停止：看门狗不要自动拉起
                         try { process.Kill(true); } catch { try { process.Kill(); } catch { } }
                         OnPropertyChanged(nameof(IsRunning));
                     }
@@ -258,6 +270,48 @@ namespace PGameTSManager
             while (DateTime.UtcNow < deadline && IsRunning)
                 await Task.Delay(250);
         }
+        /// <summary>日志里出现「会要命」的字眼就告警（每服 5 分钟最多一次，避免刷屏）。</summary>
+        private bool IsSevereLine(string line)
+        {
+            try
+            {
+                var severe = line.Contains("Unhandled exception") || line.Contains("未处理的异常") ||
+                             line.Contains("Startup aborted") || line.Contains("致命") ||
+                             line.Contains("OutOfMemory") || line.Contains("StackOverflow") ||
+                             line.Contains("Failed to load assembly");
+                if (!severe) return false;
+                if ((DateTime.UtcNow - _lastLogAlertUtc).TotalSeconds < 300) return false;
+                _lastLogAlertUtc = DateTime.UtcNow;
+                return true;
+            }
+            catch { return false; }
+        }
+
+        private static readonly object FileLogGate = new();
+
+        /// <summary>把控制台内容同时写到文件：&lt;程序目录&gt;\Logs\&lt;服&gt;-yyyyMMdd.log（便于事后排查/导出）。</summary>
+        private void WriteToFile(string text)
+        {
+            try
+            {
+                var dir = Path.Combine(ManagerConfig.Resolve(""), "Logs");
+                Directory.CreateDirectory(dir);
+                var safe = string.Join("_", Name.Split(Path.GetInvalidFileNameChars()));
+                var file = Path.Combine(dir, safe + "-" + DateTime.Now.ToString("yyyyMMdd") + ".log");
+                var line = text.Replace("\r\n", "\n").TrimEnd('\n');
+                if (line.Length == 0) return;
+                lock (FileLogGate)
+                {
+                    File.AppendAllText(file, "[" + DateTime.Now.ToString("HH:mm:ss") + "] " + line + Environment.NewLine,
+                        new UTF8Encoding(false));
+                }
+            }
+            catch { }
+        }
+        private void RaiseAlert(string title, string detail)
+        {
+            try { OnAlert?.Invoke(this, title, detail); } catch { }
+        }
         /// <summary>只读探测：本机有没有人在监听这个端口（不建连接，不会污染服务器日志）。</summary>
         private static bool IsPortListening(int port)
         {
@@ -437,15 +491,78 @@ namespace PGameTSManager
             _process.Exited += (_, _) =>
             {
                 var code = _process != null && _process.HasExited ? _process.ExitCode : -999;
+                var wasUserStop = _userStopRequested;
+                var uptime = DateTime.UtcNow - _startedAt;
+
                 AddText($"---服务器已退出（退出码 {code}）---\n");
                 _process?.Dispose();
                 _process = null;
+                _userStopRequested = false;
                 OnPropertyChanged(nameof(IsRunning));
                 OnPropertyChanged(nameof(StatusBrush));
                 OnPropertyChanged(nameof(StatusText));
+
+                if (wasUserStop)
+                {
+                    _restartCount = 0;
+                    AddText("[看门狗] 这是手动停止，不自动重启\n");
+                    return;
+                }
+
+                if (uptime.TotalSeconds >= _managerConfig.watchdogStableSeconds) _restartCount = 0;
+
+                var max = Math.Max(0, _managerConfig.watchdogMaxRestarts);
+                var exitInfo = $"退出码 {code}，运行时长 {uptime.TotalMinutes:0.0} 分钟";
+
+                if (!_managerConfig.watchdogEnabled)
+                {
+                    AddText("[看门狗] 已关闭，不自动重启\n");
+                    RaiseAlert($"服务器异常退出：{Name}", exitInfo + "；看门狗已关闭，未自动重启。");
+                    return;
+                }
+
+                if (_restartCount >= max)
+                {
+                    AddText($"[看门狗] 连续自动重启已达上限 {max} 次，停止重启（请人工检查）\n");
+                    RaiseAlert($"服务器反复崩溃，已放弃自动重启：{Name}",
+                        exitInfo + $"；连续自动重启 {_restartCount} 次达到上限 {max}，已停止自动重启，请人工检查原因。");
+                    return;
+                }
+
+                _restartCount++;
+                var delay = Math.Max(0, _managerConfig.watchdogRestartDelaySeconds);
+                AddText($"[看门狗] {exitInfo}，{delay} 秒后自动重启（第 {_restartCount}/{max} 次）\n");
+                RaiseAlert($"服务器异常退出，正在自动重启：{Name}",
+                    exitInfo + $"；第 {_restartCount}/{max} 次自动重启（{delay} 秒后）。");
+
+                Task.Delay(TimeSpan.FromSeconds(delay)).ContinueWith(_ =>
+                {
+                    try
+                    {
+                        var dispatcher = _para.Dispatcher;
+                        if (dispatcher == null) return;
+                        dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            try
+                            {
+                                _watchdogRestarting = true;
+                                try
+                                {
+                                    if (!IsRunning) IsRunning = true;
+                                    AddText($"[看门狗] 已发起第 {_restartCount}/{max} 次重启\n");
+                                }
+                                finally { _watchdogRestarting = false; }
+                            }
+                            catch (Exception ex) { AddText("[看门狗] 重启失败：" + ex.Message + "\n"); }
+                        }));
+                    }
+                    catch { }
+                });
             };
 
             AddText($"[启动] {Name}  (共享 ServerPlugins，无窗口)\n");
+            _startedAt = DateTime.UtcNow;
+            _userStopRequested = false;
             _process.Start();
             try { _process.BeginOutputReadLine(); _process.BeginErrorReadLine(); } catch { }
             // 直接往服务器进程的 stdin 写指令（和旧版 TSM 一样），不依赖 REST
@@ -739,7 +856,10 @@ namespace PGameTSManager
                 {
                     if (raw.Length == 0) continue;
                     AppendLine(raw);
+                    if (IsSevereLine(raw)) RaiseAlert($"服务器日志出现严重异常：{Name}", raw.Trim());
                 }
+                WriteToFile(text);          // ★ 同时落盘，方便事后查（Logs\<服>-日期.log）
+
                 while (_para.Inlines.Count > 4096)
                 {
                     if (_para.Inlines.FirstInline == null) break;
