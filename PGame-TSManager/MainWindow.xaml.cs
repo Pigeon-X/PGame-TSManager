@@ -174,7 +174,7 @@ namespace PGameTSManager
             }
 
             menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-            menu.Items.Add("全部启动（顺序）", null, (_, _) => { _ = StartAllSequentialAsync(); });
+            menu.Items.Add("全部启动", null, (_, _) => { _ = StartAllSequentialAsync(); });
             menu.Items.Add("全部停止", null, (_, _) =>
             {
                 foreach (var c in Containers)
@@ -413,8 +413,6 @@ namespace PGameTSManager
         }
 
         private void QuickSave_Click(object _, RoutedEventArgs e) => SendQuickCommand("/save");
-
-        private void QuickReload_Click(object _, RoutedEventArgs e) => SendQuickCommand("/ac reload");
 
         private void QuickBroadcast_Click(object _, RoutedEventArgs e)
         {

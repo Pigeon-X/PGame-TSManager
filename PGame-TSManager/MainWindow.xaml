@@ -7,7 +7,7 @@
         xmlns:Linq="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json" x:Class="PGameTSManager.MainWindow"
         mc:Ignorable="d"
         DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
-        Title="PGame-TSManager" Height="700" Width="1120" MinHeight="560" MinWidth="960"
+        Title="PGame-TSManager" Height="760" Width="1120" MinHeight="620" MinWidth="960"
         Name="Window" Loaded="Window_Loaded" Icon="PGame-TSManager.ico"
         WindowState="Normal" ShowInTaskbar="True" UseLayoutRounding="True" SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Display"
@@ -26,10 +26,10 @@
             <Setter Property="Foreground" Value="{DynamicResource Text}"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Height" Value="42"/>
-            <Setter Property="MinWidth" Value="104"/>
-            <Setter Property="Padding" Value="18,0"/>
-            <Setter Property="Margin" Value="10,0,0,0"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="MinWidth" Value="84"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -187,7 +187,7 @@
                 <!-- 顶部高光条 -->
                 <Border Height="1" VerticalAlignment="Top" Margin="16,1,16,0" Background="{DynamicResource GlassHi}"/>
 
-                <Grid Margin="16,18,16,16">
+                <Grid Margin="14,14,14,12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
@@ -230,7 +230,7 @@
                     </Grid>
 
                     <!-- 控制台 -->
-                    <Border Grid.Row="1" Margin="0,16,0,0" CornerRadius="12" Background="{DynamicResource ConsoleBg}"
+                    <Border Grid.Row="1" Margin="0,8,0,0" CornerRadius="12" Background="{DynamicResource ConsoleBg}"
                             BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1">
                         <RichTextBox x:Name="CliTextBox" Background="Transparent" Foreground="{DynamicResource LogNormal}"
                                      BorderThickness="0" FontFamily="Consolas, Microsoft YaHei UI" FontSize="13.5" IsReadOnly="True"
@@ -239,7 +239,7 @@
                     </Border>
 
                     <!-- 输入 + 发送 -->
-                    <Grid Grid.Row="2" Margin="0,16,0,0">
+                    <Grid Grid.Row="2" Margin="0,8,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
@@ -259,12 +259,12 @@
                                 </Style>
                             </Border.Style>
                             <Grid>
-                                <TextBlock x:Name="Placeholder" Text="输入指令，例如  /help    /save    /ac status"
+                                <TextBlock x:Name="Placeholder" Text="输入指令，例如  /help    /save    /hr help"
                                            Foreground="{DynamicResource TextDim}" FontSize="14"
                                            VerticalAlignment="Center" Margin="14,0" IsHitTestVisible="False"/>
                                 <TextBox x:Name="TextBox" Background="Transparent" Foreground="{DynamicResource Text}"
                                          CaretBrush="{DynamicResource Accent2}"
-                                         BorderThickness="0" FontSize="14" Height="42" VerticalContentAlignment="Center"
+                                         BorderThickness="0" FontSize="14" Height="36" VerticalContentAlignment="Center"
                                          Padding="12,0" PreviewKeyDown="TextBox_PreviewKeyDown" TextChanged="TextBox_TextChanged"
                                          ToolTip="输入指令后回车（走该服 REST 的 v3/server/rawcmd 发送）"/>
                             </Grid>
@@ -274,17 +274,16 @@
                     </Grid>
 
                     <!-- 常用管理员指令：只发送指令，不改服务器配置 -->
-                    <ScrollViewer Grid.Row="3" Height="42" Margin="0,10,0,0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <ScrollViewer Grid.Row="3" Height="34" Margin="0,6,0,0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="快捷指令" Foreground="{DynamicResource TextDim}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                             <Button Content="保存世界" Style="{StaticResource NeutralBtn}" Click="QuickSave_Click" ToolTip="发送 /save 到当前服务器"/>
-                            <Button Content="重载插件" Style="{StaticResource NeutralBtn}" Click="QuickReload_Click" ToolTip="发送 /ac reload 到当前服务器"/>
                             <Button Content="广播" Style="{StaticResource NeutralBtn}" Click="QuickBroadcast_Click" ToolTip="把输入框内容作为 /bc 广播"/>
                         </StackPanel>
                     </ScrollViewer>
 
                     <!-- 全局启停 -->
-                    <Grid Grid.Row="4" Height="42" Margin="0,16,0,0">
+                    <Grid Grid.Row="4" Height="34" Margin="0,8,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
@@ -299,7 +298,7 @@
                                     ToolTip="重新扫描 1.PigeonServers，自动发现新目录"/>
                         </StackPanel>
 
-                        <Button Grid.Column="2" x:Name="StartAllButton" Content="全部启动（顺序）" Style="{StaticResource StartBtn}" Click="StartAllButton_Click" ToolTip="按顺序逐台启动：上一台就绪后再起下一台"/>
+                        <Button Grid.Column="2" x:Name="StartAllButton" Content="全部启动" Style="{StaticResource StartBtn}" Click="StartAllButton_Click" ToolTip="按顺序逐台启动：上一台就绪后再起下一台"/>
                         <Button Grid.Column="3" Content="全部停止" Style="{StaticResource StopBtn}" Click="StopAllButton_Click"/>
                     </Grid>
                 </Grid>
