@@ -1,4 +1,4 @@
-[CmdletBinding(SupportsShouldProcess = $true)]
+﻿[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [string]$ManagerDir = (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)),
     [string]$PackagePath,
