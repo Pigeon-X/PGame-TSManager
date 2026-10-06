@@ -35,7 +35,7 @@ namespace PGameTSManager
         /// 并根据 Windows 的「应用主题」自动切深色/浅色。
         /// </summary>
         /// <summary>Windows 的「应用主题」是不是浅色。</summary>
-        private static bool IsLightTheme()
+        public static bool IsLightTheme()
         {
             try
             {
@@ -102,7 +102,7 @@ namespace PGameTSManager
                 Set("Border", "#D5D1E8");
                 Set("Text", "#1C1A2B");
                 Set("TextDim", "#6E6A88");
-                Set("InputBg", "#F2FFFFFF");          // 更亮的玻璃输入框
+                Set("InputBg", "#FFFFFF");          // 浅色主题：纯白输入框
                 Set("Accent", "#7C3AED");           // 亮紫（主色）
                 Set("Accent2", "#A855F7");
                 Set("AccentBlue", "#2563EB");
@@ -120,7 +120,7 @@ namespace PGameTSManager
                 Set("Border", "#342F4D");
                 Set("Text", "#E8E6F5");
                 Set("TextDim", "#9B97B8");
-                Set("InputBg", "#2EFFFFFF");          // ★ 亮玻璃底（在深色极光上明显更亮）
+                Set("InputBg", "#3A3159");          // ★ 亮紫玻璃底：明显更亮 + 带主色
                 Set("Accent", "#A855F7");           // ★ 亮紫
                 Set("Accent2", "#C084FC");
                 Set("AccentBlue", "#5B9DFF");

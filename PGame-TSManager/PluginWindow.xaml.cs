@@ -34,6 +34,15 @@ namespace PGameTSManager
         public PluginWindow(string serverName, string serverDirectory, string poolDir)
         {
             InitializeComponent();
+
+            // 外框跟随主窗口：深色标题栏 + 紫色描边
+            SourceInitialized += (_, _) =>
+            {
+                var lightTheme = App.IsLightTheme();
+                WindowChromeHelper.Apply(this, !lightTheme,
+                    WindowChromeHelper.Bgr(lightTheme ? "#EDE9FE" : "#1B1533"),
+                    WindowChromeHelper.Bgr(lightTheme ? "#A855F7" : "#6D28D9"));
+            };
             _serverName = serverName;
             _manifestPath = Path.Combine(serverDirectory, ServerProfile.ManifestFileName);
             _poolDir = poolDir;
