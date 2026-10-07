@@ -489,8 +489,6 @@ namespace PGameTSManager
             if (MenuStopCurrent != null) MenuStopCurrent.IsEnabled = current?.IsRunning == true;
             if (MenuStartAll != null) MenuStartAll.IsEnabled = hasStopped;
             if (MenuStopAll != null) MenuStopAll.IsEnabled = hasRunning;
-            if (StartAllButton != null) StartAllButton.IsEnabled = hasStopped;
-            if (StopAllButton != null) StopAllButton.IsEnabled = hasRunning;
         }
 
         private void AppendLine(string text)

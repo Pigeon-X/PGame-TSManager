@@ -285,8 +285,33 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <Menu Grid.Column="0" Background="Transparent" Foreground="{DynamicResource Text}"
-                              FontSize="11.5" Padding="0" VerticalAlignment="Center" HorizontalAlignment="Left">
+                        <ComboBox Grid.Column="0" x:Name="ComboBox" Style="{StaticResource TShockCombo}"
+                                  Width="290" Height="28" HorizontalAlignment="Left"
+                                  ItemsSource="{Binding Containers, ElementName=Window, Mode=OneWay}"
+                                  SelectionChanged="ComboBox_SelectionChanged" ToolTip="选择服务器（按目录序号 1. 2. 3. 自动排序）">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="8" Height="8" Margin="2,0,7,0" VerticalAlignment="Center" Fill="{Binding StatusBrush}"/>
+                                        <TextBlock Text="{Binding ListLabel}" Foreground="{DynamicResource Text}" FontSize="12.5" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding StatusText}" Margin="8,0,0,0" Foreground="{Binding StatusBrush}" FontSize="11" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left"
+                                    VerticalAlignment="Center" Margin="16,0,0,0">
+                            <RadioButton x:Name="ConsolePageButton" Content="控制台" GroupName="WorkspacePage"
+                                         Style="{StaticResource WorkspaceTabButton}" IsChecked="True"
+                                         Checked="WorkspacePage_Checked"/>
+                            <RadioButton x:Name="OperationsPageButton" Content="运维中心" GroupName="WorkspacePage"
+                                         Style="{StaticResource WorkspaceTabButton}"
+                                         Checked="WorkspacePage_Checked"/>
+                        </StackPanel>
+
+                        <Menu Grid.Column="3" Background="Transparent" Foreground="{DynamicResource Text}"
+                              FontSize="11.5" Padding="0" VerticalAlignment="Center" HorizontalAlignment="Right">
                             <MenuItem Header="服务器">
                                 <MenuItem x:Name="MenuStartCurrent" Header="启动本服" Foreground="{DynamicResource Ok}"
                                           Click="StartButton_Click"/>
@@ -313,43 +338,6 @@
                                 <MenuItem Header="保存世界" Click="QuickSave_Click"/>
                             </MenuItem>
                         </Menu>
-
-                        <ComboBox Grid.Column="1" x:Name="ComboBox" Style="{StaticResource TShockCombo}"
-                                  Width="290" Height="28" Margin="10,0,0,0" HorizontalAlignment="Left"
-                                  ItemsSource="{Binding Containers, ElementName=Window, Mode=OneWay}"
-                                  SelectionChanged="ComboBox_SelectionChanged" ToolTip="选择服务器（按目录序号 1. 2. 3. 自动排序）">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Ellipse Width="8" Height="8" Margin="2,0,7,0" VerticalAlignment="Center" Fill="{Binding StatusBrush}"/>
-                                        <TextBlock Text="{Binding ListLabel}" Foreground="{DynamicResource Text}" FontSize="12.5" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding StatusText}" Margin="8,0,0,0" Foreground="{Binding StatusBrush}" FontSize="11" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Left"
-                                    VerticalAlignment="Center" Margin="18,0,0,0">
-                            <RadioButton x:Name="ConsolePageButton" Content="控制台" GroupName="WorkspacePage"
-                                         Style="{StaticResource WorkspaceTabButton}" IsChecked="True"
-                                         Checked="WorkspacePage_Checked"/>
-                            <RadioButton x:Name="OperationsPageButton" Content="运维中心" GroupName="WorkspacePage"
-                                         Style="{StaticResource WorkspaceTabButton}"
-                                         Checked="WorkspacePage_Checked"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button x:Name="StartButton" Content="启动本服" Style="{StaticResource StartBtn}" Click="StartButton_Click"
-                                DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
-                                IsEnabled="{Binding Path=IsRunning, Mode=OneWay, Converter={StaticResource InverseBooleanConverter}}"/>
-                            <Button x:Name="KillButton" Content="停止本服" Style="{StaticResource StopBtn}" Click="KillButton_Click"
-                                DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
-                                IsEnabled="{Binding IsRunning, Mode=OneWay}"/>
-                            <Button x:Name="StartAllButton" Content="全部启动" Style="{StaticResource StartBtn}" Click="StartAllButton_Click"
-                                    ToolTip="按顺序逐台启动：上一台就绪后再起下一台"/>
-                            <Button x:Name="StopAllButton" Content="全部停止" Style="{StaticResource StopBtn}" Click="StopAllButton_Click"/>
-                        </StackPanel>
                     </Grid>
 
                     <!-- 主内容页：第一行页签切换 -->
