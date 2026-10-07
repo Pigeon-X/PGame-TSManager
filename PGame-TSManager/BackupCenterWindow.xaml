@@ -1,0 +1,98 @@
+<Window x:Class="PGameTSManager.BackupCenterWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="回滚中心" Height="600" Width="780" MinHeight="460" MinWidth="640"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource AppBackdrop}" FontFamily="Microsoft YaHei UI" UseLayoutRounding="True">
+    <Window.Resources>
+        <Style TargetType="TabItem">
+            <Setter Property="Foreground" Value="{DynamicResource TextDim}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="TabBorder" Background="Transparent" CornerRadius="7"
+                                Padding="{TemplateBinding Padding}" Margin="0,0,4,0">
+                            <ContentPresenter ContentSource="Header"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource Accent2}"/>
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource GlassPanelHi}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource GlassPanel}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <DataTemplate x:Key="BackupCardTemplate">
+            <Border Margin="0,2" Padding="8,6" CornerRadius="7" Background="{DynamicResource GlassPanel}"
+                    BorderBrush="{DynamicResource GlassBorder}" BorderThickness="1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Text}" FontSize="12" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource TextDim}" FontSize="11" Margin="0,2,0,0"/>
+                        <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextDim}" FontSize="10.5"
+                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding SizeText}" Foreground="{DynamicResource Accent2}"
+                               FontSize="11" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <Border Margin="6" CornerRadius="14" Background="{DynamicResource GlassBg}"
+                BorderBrush="{DynamicResource GlassBorder}" BorderThickness="1">
+            <Grid>
+                <Border Height="1" VerticalAlignment="Top" Margin="16,1,16,0" Background="{DynamicResource GlassHi}"/>
+                <Grid Margin="16,14,16,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="回滚中心" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
+                        <TextBlock Text="按类型查看备份；服务器配置恢复前会再次确认，恢复后请求重启当前服。"
+                                   Margin="0,4,0,0" FontSize="11.5" Foreground="{DynamicResource TextDim}"/>
+                    </StackPanel>
+
+                    <TabControl Grid.Row="1" x:Name="Tabs" Margin="0,10,0,0"
+                                Background="Transparent" BorderThickness="0" SelectionChanged="Tabs_SelectionChanged">
+                        <TabItem Header="服务器配置备份">
+                            <ListBox x:Name="ServerBackupList" Background="Transparent" BorderThickness="0"
+                                     ItemTemplate="{StaticResource BackupCardTemplate}"/>
+                        </TabItem>
+                        <TabItem Header="管理器更新备份">
+                            <ListBox x:Name="ManagerBackupList" Background="Transparent" BorderThickness="0"
+                                     ItemTemplate="{StaticResource BackupCardTemplate}"/>
+                        </TabItem>
+                    </TabControl>
+
+                    <Grid Grid.Row="2" Margin="0,10,0,0">
+                        <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="11"
+                                   Foreground="{DynamicResource TextDim}"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="刷新" Style="{StaticResource DlgBtn}" Click="Refresh_Click"/>
+                            <Button Content="打开目录" Style="{StaticResource DlgBtn}" Click="OpenFolder_Click"/>
+                            <Button x:Name="RestoreButton" Content="恢复选中" Style="{StaticResource DlgBtn}"
+                                    Background="{DynamicResource Err}" Foreground="{DynamicResource BtnText}"
+                                    Click="Restore_Click"/>
+                            <Button Content="关闭" Style="{StaticResource DlgBtn}" Click="Close_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

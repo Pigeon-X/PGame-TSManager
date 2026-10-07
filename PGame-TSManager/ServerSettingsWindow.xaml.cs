@@ -375,13 +375,15 @@ namespace PGameTSManager
             return false;
         }
 
-        private static bool SaveDocument(ConfigDocument doc, JArray? inventory, out string message)
+        private static bool TryBuildDocument(ConfigDocument doc, JArray? inventory,
+            out JObject root, out string message)
         {
             message = "";
+            root = new JObject();
             if (!File.Exists(doc.FilePath)) return true;
             try
             {
-                var root = JObject.Parse(File.ReadAllText(doc.FilePath, System.Text.Encoding.UTF8));
+                root = JObject.Parse(File.ReadAllText(doc.FilePath, System.Text.Encoding.UTF8));
                 foreach (var setting in doc.Items)
                 {
                     if (setting.Kind == "Info") continue;
@@ -427,6 +429,21 @@ namespace PGameTSManager
                 if (inventory != null && !SetByPath(root, new[] { "Settings", "StartingInventory" }, inventory))
                     throw new InvalidOperationException("找不到配置项：Settings.StartingInventory");
 
+                return true;
+            }
+            catch (Exception ex)
+            {
+                message = ex.Message;
+                return false;
+            }
+        }
+
+        private static bool SaveDocument(ConfigDocument doc, JArray? inventory, out string message)
+        {
+            if (!TryBuildDocument(doc, inventory, out var root, out message)) return false;
+            if (!File.Exists(doc.FilePath)) return true;
+            try
+            {
                 try { File.WriteAllText(doc.FilePath + ".bak", File.ReadAllText(doc.FilePath, System.Text.Encoding.UTF8), new System.Text.UTF8Encoding(false)); } catch { }
                 File.WriteAllText(doc.FilePath, root.ToString(Formatting.Indented), new System.Text.UTF8Encoding(false));
                 return true;
@@ -436,6 +453,91 @@ namespace PGameTSManager
                 message = ex.Message;
                 return false;
             }
+        }
+
+        private bool TryBuildDiffCategories(out List<DiffCategory> categories, out string error)
+        {
+            categories = new List<DiffCategory>();
+            error = "";
+            if (!TryBuildInventory(out var inventory, out error)) return false;
+            if (!TryBuildDocument(_config, null, out var configNew, out error)) return false;
+            if (!TryBuildDocument(_ssc, inventory, out var sscNew, out error)) return false;
+
+            categories.Add(BuildJsonDiff("TShock 配置", ReadText(_config.FilePath), configNew));
+            categories.Add(BuildJsonDiff("SSC 配置", ReadText(_ssc.FilePath), sscNew));
+            var oldSsc = TryParseObject(ReadText(_ssc.FilePath));
+            var oldInventory = oldSsc?["Settings"]?["StartingInventory"]?.ToString(Formatting.Indented) ?? "[]";
+            var newInventory = sscNew["Settings"]?["StartingInventory"]?.ToString(Formatting.Indented) ?? "[]";
+            categories.Add(BuildLineDiff("初始物品", oldInventory, newInventory));
+            return true;
+        }
+
+        private bool ConfirmDiffOrCancel()
+        {
+            if (!TryBuildDiffCategories(out var categories, out var error))
+            {
+                MessageBox.Show(this, "无法生成变更预览：\n" + error, "服务器设置",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+            var changed = categories.Where(x => x.Lines.Count > 0).ToList();
+            if (changed.Count == 0) return true;
+            return new ConfigDiffWindow(changed) { Owner = this }.ShowDialog() == true;
+        }
+
+        private static string ReadText(string path)
+        {
+            try { return File.Exists(path) ? File.ReadAllText(path, System.Text.Encoding.UTF8) : ""; }
+            catch { return ""; }
+        }
+
+        private static JObject? TryParseObject(string text)
+        {
+            try { return JObject.Parse(text); }
+            catch { return null; }
+        }
+
+        private static DiffCategory BuildJsonDiff(string name, string oldText, JObject newRoot) =>
+            BuildLineDiff(name, oldText, newRoot.ToString(Formatting.Indented));
+
+        private static DiffCategory BuildLineDiff(string name, string oldText, string newText)
+        {
+            var oldLines = oldText.Replace("\r\n", "\n").Split('\n');
+            var newLines = newText.Replace("\r\n", "\n").Split('\n');
+            var lcs = new int[oldLines.Length + 1, newLines.Length + 1];
+
+            for (var i = oldLines.Length - 1; i >= 0; i--)
+            {
+                for (var j = newLines.Length - 1; j >= 0; j--)
+                {
+                    lcs[i, j] = oldLines[i] == newLines[j]
+                        ? lcs[i + 1, j + 1] + 1
+                        : Math.Max(lcs[i + 1, j], lcs[i, j + 1]);
+                }
+            }
+
+            var result = new DiffCategory { Name = name };
+            var x = 0;
+            var y = 0;
+            while (x < oldLines.Length || y < newLines.Length)
+            {
+                if (x < oldLines.Length && y < newLines.Length && oldLines[x] == newLines[y])
+                {
+                    x++;
+                    y++;
+                }
+                else if (y < newLines.Length && (x >= oldLines.Length || lcs[x, y + 1] >= lcs[x + 1, y]))
+                {
+                    result.Lines.Add(new DiffLine { Kind = "Add", Text = newLines[y] });
+                    y++;
+                }
+                else
+                {
+                    result.Lines.Add(new DiffLine { Kind = "Remove", Text = oldLines[x] });
+                    x++;
+                }
+            }
+            return result;
         }
 
         private bool SaveAll()
@@ -545,6 +647,7 @@ namespace PGameTSManager
 
         private void Save_Click(object _, RoutedEventArgs e)
         {
+            if (!ConfirmDiffOrCancel()) return;
             if (!SaveAll()) return;
             StatusText.Text = "已保存，重启服务器后生效";
             DialogResult = true;
@@ -553,6 +656,7 @@ namespace PGameTSManager
 
         private void SaveRestart_Click(object _, RoutedEventArgs e)
         {
+            if (!ConfirmDiffOrCancel()) return;
             var confirm = new ChoiceDialog(
                 "确认保存并重启",
                 $"将保存 {_serverName} 当前所有配置页，并重启该服务器。\n确定继续吗？",
@@ -577,6 +681,7 @@ namespace PGameTSManager
 
         private void SaveAndReload(string command, string label)
         {
+            if (!ConfirmDiffOrCancel()) return;
             if (!SaveAll()) return;
             if (_reloadCommand == null)
             {
@@ -595,6 +700,34 @@ namespace PGameTSManager
             }
 
             StatusText.Text = $"已保存并重载 {label}";
+            DialogResult = true;
+            Close();
+        }
+
+        private void ShowDiff_Click(object _, RoutedEventArgs e)
+        {
+            if (!TryBuildDiffCategories(out var categories, out var error))
+            {
+                MessageBox.Show(this, "无法生成变更预览：\n" + error, "配置变更预览",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            var changed = categories.Where(x => x.Lines.Count > 0).ToList();
+            if (changed.Count == 0)
+            {
+                MessageBox.Show(this, "当前配置没有未保存的变更。", "配置变更预览",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            new ConfigDiffWindow(changed, saveFlow: false) { Owner = this }.ShowDialog();
+        }
+
+        private void RollbackCenter_Click(object _, RoutedEventArgs e)
+        {
+            var backupRoot = ManagerConfig.Resolve(ManagerConfig.Instance.backupDir);
+            var dialog = new BackupCenterWindow(_serverName, _config.FilePath, backupRoot) { Owner = this };
+            if (dialog.ShowDialog() != true || !dialog.Restored) return;
+            RestartRequested = true;
             DialogResult = true;
             Close();
         }
