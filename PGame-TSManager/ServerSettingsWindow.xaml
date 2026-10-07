@@ -94,7 +94,7 @@
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="250"/>
-                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="170"/>
                         <ColumnDefinition Width="150"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
@@ -102,8 +102,17 @@
                     <Button Content="{Binding DisplayName}" Tag="{Binding}" Click="PickInventoryItem_Click"
                             Style="{StaticResource DlgBtn}" Height="26" MinWidth="0" Padding="7,0"
                             HorizontalAlignment="Left" ToolTip="{Binding Detail}"/>
-                    <TextBox Grid.Column="1" Text="{Binding StackText, UpdateSourceTrigger=PropertyChanged}"
-                             Height="26" FontSize="11.5" Padding="6,0" ToolTip="数量"/>
+                    <Grid Grid.Column="1" Margin="5,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="48"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Text="{Binding StackText, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="26" FontSize="11.5" Padding="6,0" ToolTip="数量"/>
+                        <Slider Grid.Column="1" Minimum="1" Maximum="9999" Value="{Binding StackValue, Mode=TwoWay}"
+                                IsSnapToTickEnabled="True" TickFrequency="1" SmallChange="1" LargeChange="10"
+                                Margin="5,0,0,0" VerticalAlignment="Center" ToolTip="拖动调整数量"/>
+                    </Grid>
                     <ComboBox Grid.Column="2" ItemsSource="{Binding PrefixOptions}" DisplayMemberPath="Display"
                               SelectedValuePath="Id" SelectedValue="{Binding PrefixId, Mode=TwoWay}"
                               Height="26" FontSize="11.5" Margin="5,0,0,0" ToolTip="物品前缀"/>
@@ -254,9 +263,12 @@
                             <Button Content="保存" Style="{StaticResource DlgBtn}"
                                     Background="{DynamicResource Accent}" Foreground="{DynamicResource AccentText}"
                                     Click="Save_Click"/>
-                            <Button Content="保存并重读" Style="{StaticResource DlgBtn}"
+                            <Button Content="保存并重载 TShock" Style="{StaticResource DlgBtn}"
+                                    Background="{DynamicResource AccentBlue}" Foreground="{DynamicResource AccentText}"
+                                    Click="SaveReloadTshock_Click"/>
+                            <Button Content="保存并重载 SSC" Style="{StaticResource DlgBtn}"
                                     Background="{DynamicResource Accent2}" Foreground="{DynamicResource AccentText}"
-                                    Click="SaveReload_Click"/>
+                                    Click="SaveReloadSsc_Click"/>
                             <Button Content="保存并重启本服" Style="{StaticResource DlgBtn}"
                                     Background="{DynamicResource Ok}" Foreground="{DynamicResource BtnText}"
                                     Click="SaveRestart_Click"/>

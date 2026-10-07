@@ -215,7 +215,8 @@ namespace PGameTSManager
             if (current == null) return;
 
             var pool = ManagerConfig.Resolve(_cfg.pluginDir);
-            var dlg = new PluginWindow(current.Name, current.ProfileDirectory, pool) { Owner = this };
+            var dlg = new PluginWindow(current.Name, current.ProfileDirectory, pool,
+                command => current.SendCommandViaRest(command, out var _output)) { Owner = this };
             var ok = dlg.ShowDialog();
             if (ok != true) return;
 

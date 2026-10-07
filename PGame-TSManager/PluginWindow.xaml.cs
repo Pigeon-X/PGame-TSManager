@@ -26,6 +26,13 @@ namespace PGameTSManager
         private readonly string _manifestPath;
         private readonly string _poolDir;
         private readonly string _serverName;
+        private readonly Func<string, string?>? _hotReloadCommand;
+        private readonly HashSet<string> _originalEnabled = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> ProtectedPlugins = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "TShockAPI.dll",
+            "HotReload.dll"
+        };
 
         private static readonly Dictionary<string, string> PluginDescriptions =
             new(StringComparer.OrdinalIgnoreCase)
@@ -74,7 +81,8 @@ namespace PGameTSManager
 
         public ObservableCollection<PluginToggle> Items { get; } = new();
 
-        public PluginWindow(string serverName, string serverDirectory, string poolDir)
+        public PluginWindow(string serverName, string serverDirectory, string poolDir,
+            Func<string, string?>? hotReloadCommand = null)
         {
             InitializeComponent();
 
@@ -89,10 +97,11 @@ namespace PGameTSManager
             _serverName = serverName;
             _manifestPath = Path.Combine(serverDirectory, ServerProfile.ManifestFileName);
             _poolDir = poolDir;
+            _hotReloadCommand = hotReloadCommand;
 
             Header.Text = "插件开关 — " + serverName;
             SubHeader.Text = "勾选 = 这台服加载的插件（对应 config.json 的「插件」清单）。" +
-                             "TShockAPI.dll 必选。保存后需要重启该服才会生效。";
+                             "TShockAPI.dll 必选。启用了 HotReload.dll 时，可用「热重载应用」立即加载/卸载变更；其他情况保存后需要重启该服。";
             List.ItemsSource = Items;
             LoadItems();
         }
@@ -110,6 +119,8 @@ namespace PGameTSManager
                 }
             }
             catch { }
+            _originalEnabled.Clear();
+            foreach (var name in enabled) _originalEnabled.Add(name);
 
             var pool = new List<string>();
             try
@@ -203,6 +214,63 @@ namespace PGameTSManager
         {
             if (!SaveManifest()) return;
             RestartRequested = true;
+            DialogResult = true;
+            Close();
+        }
+
+        private void HotReload_Click(object sender, RoutedEventArgs e)
+        {
+            if (!SaveManifest()) return;
+            if (_hotReloadCommand == null)
+            {
+                MessageBox.Show(this, "当前服务器未运行，无法执行热重载。", "插件开关",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var hotReloadEnabled = Items.Any(x =>
+                string.Equals(x.Name, "HotReload.dll", StringComparison.OrdinalIgnoreCase) && x.Enabled);
+            if (!hotReloadEnabled)
+            {
+                MessageBox.Show(this, "当前插件清单没有启用 HotReload.dll，不能用热重载应用。\n请勾选 HotReload.dll 后重启本服，再回来使用。",
+                    "插件开关", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var toLoad = Items
+                .Where(x => x.Enabled && !_originalEnabled.Contains(x.Name) && !ProtectedPlugins.Contains(x.Name))
+                .Select(x => Path.GetFileNameWithoutExtension(x.Name))
+                .ToList();
+            var toUnload = Items
+                .Where(x => !x.Enabled && _originalEnabled.Contains(x.Name) && !ProtectedPlugins.Contains(x.Name))
+                .Select(x => Path.GetFileNameWithoutExtension(x.Name))
+                .ToList();
+
+            if (toLoad.Count == 0 && toUnload.Count == 0)
+            {
+                MessageBox.Show(this, "插件状态没有变化。", "热重载", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var errors = new List<string>();
+            foreach (var name in toUnload)
+            {
+                var err = _hotReloadCommand("/hr unload " + name);
+                if (!string.IsNullOrWhiteSpace(err)) errors.Add("卸载 " + name + "：" + err);
+            }
+            foreach (var name in toLoad)
+            {
+                var err = _hotReloadCommand("/hr load " + name);
+                if (!string.IsNullOrWhiteSpace(err)) errors.Add("加载 " + name + "：" + err);
+            }
+
+            if (errors.Count > 0)
+            {
+                MessageBox.Show(this, "热重载未完全成功：\n\n" + string.Join("\n", errors),
+                    "热重载", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             DialogResult = true;
             Close();
         }

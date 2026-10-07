@@ -69,6 +69,7 @@ namespace PGameTSManager
     {
         private int _netId;
         private string _stackText = "1";
+        private int _stackValue = 1;
         private bool _favorited;
 
         public int NetId
@@ -87,7 +88,30 @@ namespace PGameTSManager
         public string StackText
         {
             get => _stackText;
-            set { if (_stackText != value) { _stackText = value; Raise(nameof(StackText)); } }
+            set
+            {
+                if (_stackText == value) return;
+                _stackText = value;
+                Raise(nameof(StackText));
+                if (int.TryParse(value, out var parsed) && parsed >= 1)
+                {
+                    _stackValue = parsed;
+                    Raise(nameof(StackValue));
+                }
+            }
+        }
+
+        public int StackValue
+        {
+            get => _stackValue;
+            set
+            {
+                if (_stackValue == value) return;
+                _stackValue = value;
+                _stackText = value.ToString();
+                Raise(nameof(StackValue));
+                Raise(nameof(StackText));
+            }
         }
 
         public int PrefixId { get; set; }
@@ -310,7 +334,7 @@ namespace PGameTSManager
                     _inventoryItems.Add(new SscInventoryItem
                     {
                         NetId = netId,
-                        StackText = (token.Value<int?>("stack") ?? 1).ToString(),
+                        StackValue = token.Value<int?>("stack") ?? 1,
                         PrefixId = token.Value<int?>("prefix") ?? 0,
                         Favorited = token.Value<bool?>("favorited") ?? false
                     });
@@ -521,26 +545,32 @@ namespace PGameTSManager
             Close();
         }
 
-        private void SaveReload_Click(object _, RoutedEventArgs e)
+        private void SaveReloadTshock_Click(object _, RoutedEventArgs e) =>
+            SaveAndReload("/reload", "TShock");
+
+        private void SaveReloadSsc_Click(object _, RoutedEventArgs e) =>
+            SaveAndReload("/reload ssc", "SSC");
+
+        private void SaveAndReload(string command, string label)
         {
             if (!SaveAll()) return;
             if (_reloadCommand == null)
             {
-                MessageBox.Show(this, "当前服务器未运行，无法执行重读。", "服务器设置",
+                MessageBox.Show(this, $"当前服务器未运行，无法执行重载 {label}。", "服务器设置",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            var error = _reloadCommand("/reload ssc");
+            var error = _reloadCommand(command);
             if (!string.IsNullOrWhiteSpace(error))
             {
-                MessageBox.Show(this, "保存成功，但重读 SSC 失败：\n" + error, "服务器设置",
+                MessageBox.Show(this, $"保存成功，但重载 {label} 失败：\n" + error, "服务器设置",
                     MessageBoxButton.OK, MessageBoxImage.Error);
-                StatusText.Text = "已保存，重读失败";
+                StatusText.Text = $"已保存，重载 {label} 失败";
                 return;
             }
 
-            StatusText.Text = "已保存并重读 SSC";
+            StatusText.Text = $"已保存并重载 {label}";
             DialogResult = true;
             Close();
         }
