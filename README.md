@@ -121,4 +121,8 @@ dotnet publish PGame-TSManager/PGame-TSManager.csproj `
 - `PGame-TSManager-template.zip`
 - `PGame-TSManager-source.zip`
 
+`main` 推送或手动运行工作流时，会自动创建
+`v<项目版本>-build.<运行号>` 预发布，并把上述三个 ZIP 上传到 GitHub Releases。
+推送 `v*` 标签时进入正式 Release 流程。
+
 工作流同时执行仓库布局检查，防止世界、数据库、日志、运行沙箱和私人内容进入通用包。
