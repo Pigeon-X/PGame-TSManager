@@ -1,259 +1,124 @@
 # PGame-TSManager
 
-Multi-server manager for TShock（鸽子服 TShock 多开管理器）。
+面向 Windows 的 TShock 多服务器管理器。用同一个管理器维护多个服务端目录，统一完成启动、停止、控制台查看、指令发送、插件同步、备份和自检。
 
-Pigeon-X 维护版，汇总 TShock 更新、配置中文映射、REST 修复和插件维护。
+## 主要功能
 
-## Core 与 Personal
+- 一个窗口管理多个 TShock 服务端，可切换服务器查看日志。
+- 支持单服启动、顺序全部启动、全部停止。
+- 支持服务器配置、插件清单、初始物品和 SSC 的可视化设置。
+- 启动前按服务器配置同步插件，停用插件不删除。
+- 支持启动前配置备份、运行日志、崩溃检测和自动重启。
+- 支持 REST 指令发送、控制台显示、热重载和插件状态检查。
+- 支持无界面自检，部署后可直接验证目录和配置完整性。
 
-本仓库只维护通用 Core；个人服配置、RPG 插件、PGameAPI、PigeonBot 强耦合插件不进入公共包。
+## 运行要求
 
-- `PGame-TSManager-universal.zip`：公共通用版，包含管理器、TShock 兼容、通用 UI 和维护工具。
-- `PGame-TSManager-personal.zip`：个人版，由私有 overlay 从同一 Core tag 叠加构建。
-- `personal-overlay/`：个人叠加层模板；真实个人内容放在私有仓库或私有发行包。
-- 两个版本共用 Core 版本号；`build-personal.yml` 只做叠加构建，不反向污染通用包。
+- Windows 10 / Windows 11
+- TShock 6.2.x
+- 自包含发布包不需要额外安装 .NET；源码构建需要 .NET 9 SDK
 
-## 目录
+## 快速开始
 
-- PGame-TSManager/：管理器源码（构建产物为 PGame-TSManager.exe）。
-- TerrariaServerAPI/：内联的上游子模块源码，替代 git submodule。
-- maintenance/：TShock 维护分类。
+1. 解压部署包到目标目录。
+2. 编辑根目录 `config.json`，确认 `serverProfiles` 指向正确的服务端目录。
+3. 双击 `PGame-TSManager.exe` 启动管理器。
+4. 在服务器列表选择目标服务器，点击“启动本服”或“全部启动”。
+5. 首次部署后执行一次自检，确认服务和配置目录完整。
 
-## 固定规则
+## 常用命令
 
-- TShock 更新：maintenance/tshock-update，独立于 PGame-TSManager 程序运行。
-- 配置中文映射：maintenance/config-translation。
-- REST 修复：maintenance/rest-fixes。
-- 插件维护：maintenance/plugin-maintenance。
-- SSC 英文冻结：maintenance/ssc-lock，不翻译、不改键、不改字段。
-- /help 冻结：maintenance/help-lock，不修改、不禁用、不覆盖该指令。
+```powershell
+# 启动管理器并顺序启动全部服务器
+PGame-TSManager.exe --startall
+
+# 只同步插件，不启动服务器
+PGame-TSManager.exe --syncplugins
+
+# 无界面自检，结果写入 selfcheck.txt
+PGame-TSManager.exe --selfcheck
+
+# 强制无界面运行
+PGame-TSManager.exe --nowindow
+```
+
+## 目录说明
+
+| 目录或文件 | 用途 |
+| --- | --- |
+| `PGame-TSManager.exe` | 管理器主程序 |
+| `config.json` | 服务器列表和运行策略 |
+| `1.PigeonServers` | 各服务器独立目录 |
+| `Plugins` | 插件统一维护目录 |
+| `bin` | TShock 与插件依赖库 |
+| `_runtime` | 运行沙箱、控制台日志和临时运行文件 |
+| `Backups` | 配置备份 |
+| `Data` | 中文物品名等通用数据 |
+| `maintenance` | 更新、校验和维护工具 |
+
+## 服务器配置
+
+`config.json` 中的 `serverProfiles` 负责描述服务器。管理器只读取该配置并启动对应目录，不会自动改写服务器自身配置。
+
+```json
+{
+  "name": "示例服",
+  "rootPath": "D:\\TShockServers\\Example",
+  "executable": "TShock.Server.exe",
+  "arguments": "",
+  "enabled": true,
+  "remark": "示例服务器"
+}
+```
+
+- `name`：管理器显示名称。
+- `rootPath`：现有服务端目录。
+- `executable`：服务端可执行文件。
+- `arguments`：原样透传的启动参数。
+- `enabled`：是否允许启动。
+
+## 插件加载规则
+
+- `Plugins` 是插件总库。
+- 每台服务器实际加载哪些插件，以该服务器 `config.json` 的插件清单为准。
+- 启动前由管理器同步到运行目录。
+- 不在清单中的插件会移入停用目录，不直接删除。
+- 插件依赖 DLL 放在 `bin`，不要混入插件本体目录。
+
+## 备份与安全
+
+- `backupBeforeStart` 开启后，启动前备份服务器关键配置。
+- `backupKeep` 控制保留份数。
+- 世界文件、数据库、日志和玩家数据不进入 Git 仓库。
+- 自检和配置校验默认只读，不修改服务器文件。
+
+## 维护边界
+
+- TShock 更新使用 `maintenance/tshock-update` 的独立流程。
+- 配置中文映射使用 `maintenance/config-translation`。
+- REST 修复使用 `maintenance/rest-fixes`。
+- SSC 保持英文，不翻译、不改键、不改字段。
+- `/help` 保持原逻辑，不覆盖、不禁用。
+- 通用底层改动在本仓库维护；个人服、私人插件和 RPG 数据由私有覆盖层维护。
 
 ## 构建
 
 ```powershell
 dotnet build PGame-TSManager.sln -c Release
+
+dotnet publish PGame-TSManager/PGame-TSManager.csproj `
+  -c Release -r win-x64 --self-contained true `
+  -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
+  -o artifacts/manager
 ```
 
-产物：PGame-TSManager\bin\Release\net9.0-windows\PGame-TSManager.exe。
+## 自动构建
 
-- 目标框架 net9.0-windows，需要 .NET 9 Desktop Runtime（或发布 self-contained）。
-- 本仓库只保存源码，不提交 OTAPI/XNA、TerrariaServerAPI 编译产物或其它 DLL/EXE。
+`.github/workflows/build.yml` 在 `main`、Pull Request 和 `v*` 标签触发，生成：
 
-### GitHub Actions 自动构建
+- `PGame-TSManager-universal.zip`
+- `PGame-TSManager-template.zip`
+- `PGame-TSManager-source.zip`
 
-`.github/workflows/build.yml` 会在 `main`、Pull Request 和 `v*` 标签上构建，并生成：
-
-- `PGame-TSManager-source.zip`：源码与维护工具；
-- `PGame-TSManager-template.zip`：自包含管理器和空配置模板。
-
-流水线运行 `Test-RepositoryLayout.ps1`。`1.PigeonServers`、`_runtime`、`Worlds`、`Plugins`、
-`ServerPlugins`、数据库、日志、世界文件、DLL/EXE 都不会进入源码包或 Git 跟踪。
-
-TShock 更新不从 TSM 界面触发。请按 `maintenance/tshock-update/README.md` 的独立流程执行，
-完成远程测试和回滚备份后，再使用 TSM 启动三服。
-
-## 多服务器映射（serverProfiles）
-
-config.json 中的 serverProfiles 直接指向已经存在的服务端目录，
-PGame-TSManager 只负责 启动 / 停止 / 转发控制台，**不生成、不覆盖任何服务器配置**。
-
-示例：
-
-```json
-{
-  "backupBeforeStart": true,
-  "backupDir": "Backups",
-  "backupKeep": 10,
-  "serverProfiles": [
-    {
-      "name": "流光城",
-      "rootPath": "D:\\59934\\Desktop\\流光服\\1.流光城",
-      "executable": "TShock.Server.exe",
-      "arguments": "-lang 7 -port 2021 -world \"地图\\1.PigeonGame.wld\"",
-      "enabled": true,
-      "remark": "流光城 端口 2021 / REST 7878"
-    }
-  ]
-}
-```
-
-- name：界面显示名。
-- rootPath：已存在的服务端目录。
-- executable：可执行文件名，默认 TShock.Server.exe。
-- arguments：启动参数，原样透传给子进程。
-- enabled：是否启用。
-- backupBeforeStart：启动前把 server.properties、tshock\config.json、tshock\sscconfig.json
-  备份到 Backups\<服务器名>\<时间戳>\，仅备份，不改写源文件。
-
-未配置 serverProfiles 时，回退到旧版 Servers\<名称> 自建目录模式。
-
-## TShock 6.2 兼容启动（旧模式）
-
-旧模式（Servers\<名称>）仍可用 ManagerConfig：
-
-- serverExecutable：默认 TShock.Server.exe。
-- serverPropertiesFile：默认 server.properties。
-- useTShockLaunchArguments：默认 true，使用 TShock 6.2 启动参数。
-
-TerrariaServerAPI 源码保留在仓库中作为参考，但已从解决方案构建链移除，
-避免旧 OTAPI/XNA 引用阻断 PGame-TSManager。
-## 自检（一键部署后验证）
-
-```powershell
-PGame-TSManager.exe --selfcheck
-```
-
-无界面运行，检查 config.json 与每台服务器的目录 / TShock.Server.exe / tshock\config.json，
-结果写入同目录 selfcheck.txt，退出码 0=全部就绪、1=有缺失。
-
-- 程序以自身所在目录为基准解析 config.json 与相对路径（不受工作目录影响）。
-- 自检只读，不会启动服务器、不会改写任何配置。
-## 维护校验
-
-```powershell
-powershell -ExecutionPolicy Bypass -File maintenance\tools\Test-TShockConfig.ps1 -ServerPath '<服务端目录>'
-```
-
-只读校验该服务端目录：config.json 中文键、REST 令牌字段（用户名/用户组）、SSC 保持英文。
-退出码 0 = 通过。详见 maintenance/README.md。
-## 目录结构（旧版 TS 管理器模型：总库 + 每服独立插件）
-
-```
-PGame-TSManager\                          ← 运行时只此一份
-├─ TShock.Server.exe  bin\ i18n\ runtimes\ x64\  GeoIP.dat   运行时母本
-├─ ServerPlugins\                        ★ 插件总库（统一维护的唯一来源）
-├─ PGame-TSManager.exe / config.json
-├─ maintenance\  Backups\
-└─ 1.PigeonServers\
-    ├─ 流光城\
-    │   ├─ config.json        ★ 本服 TSM 配置：启动参数 + 加载哪些插件（含 TShockAPI）
-    │   ├─ ServerPlugins\     本服实际加载的插件（启动时按 config.json 从总库同步）
-    │   ├─ ServerPlugins.disabled\  被停用的插件（移动，不删除）
-    │   ├─ TShock.Server.exe  硬链接 → 根（不占额外空间）
-    │   ├─ bin\ i18n\ runtimes\ x64\  目录联接 → 根（不占额外空间）
-    │   ├─ server.properties / tshock\ / 地图\ / Logs\
-    ├─ 泰拉大陆\   同上
-    └─ 流光神域\   同上
-```
-
-**核心规则**
-
-- 根 `ServerPlugins` = **插件总库**，只方便统一维护（换版本、加插件只改这里）。
-- **每个服加载哪些插件，完全由该服 `config.json` 的「插件」清单决定**（绝对以 config 为准）。
-- 管理器启动某服前，按该服 `config.json` 把总库里的插件同步到该服 `ServerPlugins`；
-  未列出的插件移入 `ServerPlugins.disabled`（不删除，可恢复）。
-- 运行时（exe/bin/i18n/runtimes/x64/GeoIP.dat）只存根目录一份，各服用
-  **硬链接 / 目录联接**引用，不重复占空间。
-
-每服 `config.json` 示例：
-
-```json
-{
-  "服务器名称": "流光城",
-  "启用": true,
-  "启动参数": "-lang 7 -port 2021 -world \"地图\\1.PigeonGame.wld\"",
-  "总插件库": "..\\..\\ServerPlugins",
-  "覆盖插件目录": true,
-  "插件": ["TShockAPI.dll", "AntiCheatingTool.dll", "Chameleon.dll", "..."],
-  "备注": "流光城 端口 2021 / REST 7878"
-}
-```
-
-## 维护方针（以 PGame-TSManager 为主）
-
-- **唯一主体**：`PGame-TSManager` 就是这套 TShock 的运行目录，三个服都在它里面开。
-- **TShock 更新**：从官方 git / Actions 取新版，由本仓库负责**兼容适配**、
-  **配置汉化映射**、**config / REST 修复**。
-- **SSC 保持英文**：不翻译、不改键、不改字段。
-- **其余不做改动**：不动 /help，不动玩法逻辑。
-- **插件更新**：所有 TShock 插件编译好后**统一放进 `Plugins\`**（插件总库）。
-  哪个服用哪些插件，只改 `1.PigeonServers\<服>\config.json` 的「插件」清单。
-- **插件依赖库放 `bin\`**：`Plugins\` 里只允许放 TShock 插件本体。
-  不含 `TShockAPI` / `TerrariaPlugin` 引用的 DLL（如 linq2db、Microsoft.Data.Sqlite、
-  SQLitePCLRaw.*、Mono.Cecil.*、MonoMod.*）属于**插件的依赖**，一律放 `bin\`。
-
-```powershell
-# 自动把 Plugins\ 里的依赖库归类到 bin\（并同步修正各服插件清单）
-powershell -ExecutionPolicy Bypass -File maintenance\tools\Sort-PluginDependencies.ps1 `
-  -ManagerDir D:\59934\Desktop\PGame-TSManager
-
-# 清理残余与备份（归档/Backups/沙箱日志/停用插件/生成物）
-powershell -ExecutionPolicy Bypass -File maintenance\tools\Remove-UnrelatedFiles.ps1 `
-  -ManagerDir D:\59934\Desktop\PGame-TSManager
-```
-
-## 目录里的几个特殊文件夹
-
-| 目录 | 是什么 | 能不能删 |
-| --- | --- | --- |
-| `bin\` | TShock 运行时本体（OTAPI/TerrariaServer/ModFramework/HttpServer）+ **插件的依赖库**（linq2db、Microsoft.Data.Sqlite、SQLitePCLRaw.*、Mono.Cecil.*、MonoMod.*） | ❌ 不能删 |
-| `runtimes\` | 插件依赖带的**原生库目录**：SQLite 原生引擎 `e_sqlite3`，按平台各一份。Windows 只需 `win-x64\`，其余是死重量 | 只删非 win-* 平台即可 |
-| `x64\` | TShock 自己建的空目录 | 空的可删 |
-| `_runtime\<服>\` | 每服的**运行沙箱**（exe 硬链接、bin/i18n/runtimes 用目录联接、tshock 联接回真配置目录、ServerPlugins 按该服 config.json 同步）。程序自动生成 | 可删，下次启动重建 |
-| `Plugins\` | 插件总库，**只放 TShock 插件本体** | ❌ 不能删 |
-| `Worlds\` | 世界文件 | ❌ 不能删 |
-
-```powershell
-# 精简 runtimes（只留 Windows 平台）
-powershell -ExecutionPolicy Bypass -File maintenance\tools\Trim-Runtimes.ps1 -ManagerDir D:\59934\Desktop\PGame-TSManager
-```
-
-## 运行方式
-
-- 默认 **只有 PGame-TSManager 一个窗口**：服务器用隐藏控制台运行（保住 stdin 不会 EOF 自退），
-  输出写进 `_runtime\<服>\console.log` 由管理器面板显示。
-- 管理器输入框发指令走该服的 **REST**（`/v2/server/rawcmd`），不需要控制台。
-- 想给某台服务器单独开可见控制台：把 `config.json` 的 `showServerWindow` 改成 `true`。
-- 调试可用命令行 `--nowindow`（强制无窗口）配合 `--startall`。
-
-## 启动方式
-
-**直接双击 exe 启动，不再用 bat：**
-
-- 双击桌面快捷方式「PGame-TSManager 管理器」
-- 或双击 `PGame-TSManager.exe`
-
-**三个服务器都在 PGame-TSManager 里开启**：
-
-- 顶部下拉框选服务器，右上角点「启动本服 / 停止本服」
-- 右上角点「**全部启动**」/「全部停止」（三服一键开关）
-- 插件开关、新建服务器、刷新列表和保存世界在顶部菜单栏中
-
-服务器在管理器内部运行，日志显示在管理器的控制台面板，输入框可在管理器里发指令。
-`config.json` 的 `showServerWindow`（默认 `false`）改成 `true` 时，才会另开独立控制台窗口。
-
-命令行也可一键开三服（打开管理器并自动启动全部）：
-
-```powershell
-PGame-TSManager.exe --startall
-```
-
-图标：`PGame-TSManager.ico`（16/24/32/48/64/128/256）已嵌入 exe，同时作为程序与窗口图标。
-
-## 插件同步
-
-启动服务器前自动执行；也可单独执行（不启动服务器）：
-
-```powershell
-PGame-TSManager.exe --syncplugins
-```
-
-结果写入 `syncplugins.txt`。
-
-## 建/修布局脚本
-
-```powershell
-# 建立“总库 + 每服独立插件 + 共享运行时引用”
-powershell -ExecutionPolicy Bypass -File maintenance\tools\To-PerServerPluginsLayout.ps1 `
-  -ManagerDir D:\59934\Desktop\PGame-TSManager
-
-# 迁移三服到 1.PigeonServers
-powershell -ExecutionPolicy Bypass -File maintenance\tools\New-PigeonServersLayout.ps1 `
-  -ManagerDir D:\59934\Desktop\PGame-TSManager -SourceRoot D:\59934\Desktop\流光服
-```
-
-## 实测结论（TShock 6.2.1）
-
-- TShock 的插件目录 = **TShock.Server.exe 所在目录**（子目录里的 ServerPlugins 不生效）。
-  所以要让各服插件独立，每个服必须有它自己的 exe（本项目用硬链接，不占空间）。
-- 工作目录 = 各服目录 ⇒ tshock 配置、世界、日志、插件数据各归各的。
+工作流同时执行仓库布局检查，防止世界、数据库、日志、运行沙箱和私人内容进入通用包。
