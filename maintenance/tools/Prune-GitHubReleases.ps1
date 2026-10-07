@@ -28,7 +28,9 @@ for ($page = 1; $page -le 100; $page++) {
 }
 
 $ordered = @($releases | Sort-Object { [datetime]$_.created_at } -Descending)
+$kept = @($ordered | Select-Object -First $Keep)
 $remove = @($ordered | Select-Object -Skip $Keep)
+$keptTags = @($kept | ForEach-Object { [string]$_.tag_name })
 Write-Host "Release 总数：$($ordered.Count)，保留：$([Math]::Min($Keep, $ordered.Count))，清理：$($remove.Count)" -ForegroundColor Cyan
 
 foreach ($release in $remove) {
@@ -65,6 +67,43 @@ foreach ($release in $remove) {
         catch {
             Write-Host "Tag 已不存在或无需删除：$tag" -ForegroundColor DarkYellow
         }
+    }
+}
+
+# 删除已经没有 Release 的旧构建 tag，避免 Release 页面继续显示历史测试版。
+$tagRefs = @()
+for ($page = 1; $page -le 100; $page++) {
+    $batch = @(Invoke-RestMethod `
+        -Uri "https://api.github.com/repos/$Repository/git/matching-refs/tags/?per_page=100&page=$page" `
+        -Headers $headers `
+        -TimeoutSec 60)
+    if ($batch.Count -eq 0) { break }
+    $tagRefs += $batch
+    if ($batch.Count -lt 100) { break }
+}
+
+$oldBuildTags = @($tagRefs | Where-Object {
+    $tag = [string]$_.ref -replace '^refs/tags/', ''
+    $tag -match '-build\.\d+$' -and $keptTags -notcontains $tag
+})
+Write-Host "旧构建 tag 清理数：$($oldBuildTags.Count)" -ForegroundColor Cyan
+foreach ($tagRef in $oldBuildTags) {
+    $tag = [string]$tagRef.ref -replace '^refs/tags/', ''
+    if ($DryRun) {
+        Write-Host "[预览] 删除构建 Tag：$tag" -ForegroundColor DarkYellow
+        continue
+    }
+    try {
+        $encodedTag = [Uri]::EscapeDataString($tag)
+        Invoke-RestMethod `
+            -Method Delete `
+            -Uri "https://api.github.com/repos/$Repository/git/refs/tags/$encodedTag" `
+            -Headers $headers `
+            -TimeoutSec 60 | Out-Null
+        Write-Host "已删除构建 Tag：$tag" -ForegroundColor DarkGray
+    }
+    catch {
+        Write-Warning "删除构建 Tag 失败：$tag / $($_.Exception.Message)"
     }
 }
 
