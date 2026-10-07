@@ -31,6 +31,8 @@ try {
             Copy-Item -LiteralPath $source -Destination $destination -Force
         }
     }
+    & (Join-Path $root 'maintenance\tools\Migrate-ManagerLayout.ps1') `
+        -ManagerDir $stage -IncludeSourceDirectories
     $parent = Split-Path -Parent $OutputPath
     New-Item -ItemType Directory -Force -Path $parent | Out-Null
     if (Test-Path -LiteralPath $OutputPath) { Remove-Item -LiteralPath $OutputPath -Force }

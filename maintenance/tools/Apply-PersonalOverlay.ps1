@@ -17,11 +17,11 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
 $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $mappings = @{
     plugins = 'Plugins'
-    bin = 'bin'
-    data = 'Data'
-    servers = '1.PigeonServers'
-    rpgConfigs = 'RPGConfigs'
-    botIntegration = 'PigeonBot'
+    bin = 'Core\bin'
+    data = 'Core\Data'
+    servers = 'Servers\Profiles'
+    rpgConfigs = 'Servers\RPGConfigs'
+    botIntegration = 'Tools\PigeonBot'
     tools = 'Tools'
 }
 

@@ -42,9 +42,6 @@ namespace PGameTSManager
 
             var worlds = ManagerConfig.Resolve(cfg.worldDir);
             sb.AppendLine("世界目录 : " + worlds + (Directory.Exists(worlds) ? " [正常]" : " [警告：不存在]"));
-            var sharedPlugins = Path.Combine(ManagerConfig.Resolve(""), "ServerPlugins");
-            sb.AppendLine("共享插件目录: " + sharedPlugins + (Directory.Exists(sharedPlugins) ? " [正常]" : " [未创建]"));
-
             var profiles = new List<ServerProfile>(cfg.LoadProfiles());
             sb.AppendLine("服务器数量: " + profiles.Count);
             if (profiles.Count == 0) { ok = false; sb.AppendLine("  [失败] 未配置任何服务器"); }

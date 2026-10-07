@@ -87,7 +87,7 @@ namespace PGameTSManager
             var result = new List<ItemNameEntry>();
             try
             {
-                var path = Path.Combine(AppContext.BaseDirectory, "Data", "item-names.zh-CN.json");
+                var path = Path.Combine(ManagerConfig.Resolve(ManagerConfig.Instance.dataDir), "item-names.zh-CN.json");
                 if (!File.Exists(path)) return result;
                 var root = JObject.Parse(File.ReadAllText(path, System.Text.Encoding.UTF8));
                 if (root["list"] is not JArray list) return result;

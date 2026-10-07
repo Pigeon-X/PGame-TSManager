@@ -25,6 +25,8 @@ try {
     Copy-DirectoryContents $publish $stage
     & (Join-Path $root 'maintenance\tools\Apply-PersonalOverlay.ps1') `
         -CoreRoot $stage -OverlayRoot $overlay -AllowManagerConfigOverwrite
+    & (Join-Path $root 'maintenance\tools\Migrate-ManagerLayout.ps1') `
+        -ManagerDir $stage -IncludeSourceDirectories
     $parent = Split-Path -Parent $OutputPath
     New-Item -ItemType Directory -Force -Path $parent | Out-Null
     if (Test-Path -LiteralPath $OutputPath) { Remove-Item -LiteralPath $OutputPath -Force }

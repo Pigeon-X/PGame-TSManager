@@ -371,8 +371,7 @@ namespace PGameTSManager
         }
 
         public string TodayLogPath => Path.Combine(
-            ManagerConfig.Resolve(""),
-            "Logs",
+            ManagerConfig.Resolve(_managerConfig.logDir),
             SanitizeFileName(Name) + "-" + DateTime.Now.ToString("yyyyMMdd") + ".log");
 
         public string WorldPath
@@ -550,7 +549,7 @@ namespace PGameTSManager
         {
             try
             {
-                var dir = Path.Combine(ManagerConfig.Resolve(""), "Logs");
+                var dir = ManagerConfig.Resolve(_managerConfig.logDir);
                 Directory.CreateDirectory(dir);
                 var safe = string.Join("_", Name.Split(Path.GetInvalidFileNameChars()));
                 var file = Path.Combine(dir, safe + "-" + DateTime.Now.ToString("yyyyMMdd") + ".log");
@@ -592,20 +591,20 @@ namespace PGameTSManager
         /// 这里用 硬链接(exe) + 目录联接(bin/i18n/runtimes/x64) 指回管理器根目录，
         /// 不会多占磁盘；ServerPlugins 是该服自己的实体目录。
         /// </summary>
-        private string RuntimeDirectory => Path.Combine(RootDirectory, "_runtime", Name);
+        private string RuntimeDirectory => Path.Combine(ManagerConfig.Resolve(_managerConfig.runtimeDir), Name);
 
         /// <summary>建立/修补该服的运行沙箱（幂等）。</summary>
         private void EnsureRuntimeSandbox(string serverDirectory)
         {
             var rt = RuntimeDirectory;
-            var root = RootDirectory;
+            var runtimeRoot = ManagerConfig.Resolve(_managerConfig.sharedRuntimeDir);
             Directory.CreateDirectory(rt);
 
             var exeName = string.IsNullOrWhiteSpace(_profile.executable) ? _managerConfig.serverExecutable : _profile.executable;
-            LinkFile(Path.Combine(root, exeName), Path.Combine(rt, exeName));
-            LinkFile(Path.Combine(root, "GeoIP.dat"), Path.Combine(rt, "GeoIP.dat"));
+            LinkFile(Path.Combine(runtimeRoot, exeName), Path.Combine(rt, exeName));
+            LinkFile(Path.Combine(runtimeRoot, "GeoIP.dat"), Path.Combine(rt, "GeoIP.dat"));
             foreach (var d in new[] { "bin", "i18n", "runtimes", "x64" })
-                EnsureJunction(Path.Combine(root, d), Path.Combine(rt, d));
+                EnsureJunction(Path.Combine(runtimeRoot, d), Path.Combine(rt, d));
 
             // ★ tshock 目录联接回本服真实配置目录。
             //   插件常常用相对路径 "tshock\xxx.json" 找配置；服务器目录改名后，

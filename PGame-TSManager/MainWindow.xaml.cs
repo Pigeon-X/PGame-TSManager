@@ -327,7 +327,7 @@ namespace PGameTSManager
         private void PluginCheck_Click(object _, RoutedEventArgs e)
         {
             var pluginDir = ManagerConfig.Resolve(_cfg.pluginDir);
-            var binDir = Path.Combine(ManagerConfig.BaseDir, "bin");
+            var binDir = Path.Combine(ManagerConfig.Resolve(_cfg.sharedRuntimeDir), "bin");
             new PluginCheckWindow(pluginDir, binDir) { Owner = this }.ShowDialog();
         }
 

@@ -98,23 +98,26 @@ namespace PGameTSManager
 
         // —— 旧版 TSManager 目录约定 ——
         /// <summary>世界文件目录（共享），相对程序目录。</summary>
-        public string worldDir = "Worlds";
+        public string worldDir = "Servers\\Worlds";
         /// <summary>插件总库（共享），相对程序目录。</summary>
         public string pluginDir = "Plugins";
         /// <summary>各服运行沙箱目录（自动生成），相对程序目录。</summary>
-        public string runtimeDir = "_runtime";
-        public string serverDir = "1.PigeonServers";
+        public string runtimeDir = "Core\\_runtime";
+        public string serverDir = "Servers\\Profiles";
         public string configFile = "config.json";
         public string serverExecutable = "TShock.Server.exe";
 
         // —— 运行选项 ——
         public bool backupBeforeStart = true;
-        public string backupDir = "Backups";
+        public string backupDir = "Core\\Backups";
+        public string logDir = "Core\\Logs";
+        public string dataDir = "Core\\Data";
+        public string toolsDir = "Tools";
         public int backupKeep = 10;
         public List<ServerProfile> serverProfiles = new();
 
         /// <summary>运行时母本目录；留空 = 程序目录（exe/bin/i18n/runtimes/x64/GeoIP.dat 所在处）。</summary>
-        public string sharedRuntimeDir = "";
+        public string sharedRuntimeDir = "Core";
         /// <summary>启动前按各服 config.json 从插件总库同步插件。</summary>
         public bool syncPluginsOnStart = true;
         /// <summary>未列出的插件移入 ServerPlugins.disabled（不删除）。</summary>
@@ -328,7 +331,7 @@ namespace PGameTSManager
 
         public void MakeDirectories()
         {
-            foreach (var d in new[] { worldDir, pluginDir, runtimeDir })
+            foreach (var d in new[] { worldDir, pluginDir, runtimeDir, backupDir, logDir, dataDir, toolsDir, serverDir })
             {
                 try { var full = Resolve(d); if (!Directory.Exists(full)) Directory.CreateDirectory(full); }
                 catch { }
