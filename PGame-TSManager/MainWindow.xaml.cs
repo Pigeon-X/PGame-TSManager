@@ -36,6 +36,7 @@ namespace PGameTSManager
         {
             Alerter.Configure(_cfg);                 // ★ 告警通道（异常/掉线发测试群）
             ReloadContainers();
+            OperationsView.Initialize(Current, Containers);
             AppendLine(Alerter.Ready
                 ? "[告警] 已启用，异常/掉线与自动重启都会发到测试群"
                 : "[告警] 未启用或找不到上报脚本（config.json 的 alertEnabled / alertScript）");
@@ -94,6 +95,7 @@ namespace PGameTSManager
                     if (string.Equals(Containers[i].Name, selected, StringComparison.OrdinalIgnoreCase)) { idx = i; break; }
             }
             ComboBox.SelectedIndex = idx;
+            OperationsView.SetContext(Current, Containers);
             BuildTrayMenu();
             UpdateActionStates();
         }
@@ -300,15 +302,10 @@ namespace PGameTSManager
             new PlayerManagerWindow(current) { Owner = this }.ShowDialog();
         }
 
-        private void OperationsCenter_Click(object _, RoutedEventArgs e)
+        private void ShowOperationsPage_Click(object _, RoutedEventArgs e)
         {
-            var current = Current;
-            if (current == null)
-            {
-                AppendLine("[运维中心] 当前没有选中的服务器");
-                return;
-            }
-            new OperationsCenterWindow(current, Containers) { Owner = this }.ShowDialog();
+            WorkspaceTabs.SelectedIndex = 1;
+            OperationsView.RefreshAll();
         }
 
         private void PluginCheck_Click(object _, RoutedEventArgs e)
@@ -494,6 +491,7 @@ namespace PGameTSManager
         {
             var current = Current;
             if (current == null) return;
+            OperationsView.SetContext(current, Containers);
             CliTextBox.Document = current.Document;
             CliTextBox.ScrollToEnd();
             UpdateActionStates();

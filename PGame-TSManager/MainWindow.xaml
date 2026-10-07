@@ -72,6 +72,31 @@
             <Setter Property="Foreground" Value="{DynamicResource Text}"/>
         </Style>
 
+        <Style TargetType="TabItem" x:Key="MainTabItem">
+            <Setter Property="Foreground" Value="{DynamicResource TextDim}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="TabBorder" Background="Transparent" CornerRadius="8"
+                                Padding="{TemplateBinding Padding}" Margin="0,0,5,0">
+                            <ContentPresenter ContentSource="Header"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource Accent2}"/>
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource GlassPanelHi}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource GlassPanel}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- 玻璃菜单栏 -->
         <Style TargetType="MenuItem">
             <Setter Property="Foreground" Value="{DynamicResource Text}"/>
@@ -265,7 +290,7 @@
                                           Click="StopAllButton_Click"/>
                             </MenuItem>
                             <MenuItem Header="管理">
-                                <MenuItem Header="运维中心…" Click="OperationsCenter_Click"/>
+                                <MenuItem Header="运维中心" Click="ShowOperationsPage_Click"/>
                                 <MenuItem Header="新建服务器" Click="NewServerButton_Click"/>
                                 <MenuItem Header="刷新服务器列表" Click="RefreshButton_Click"/>
                             </MenuItem>
@@ -302,14 +327,22 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- 控制台 -->
-                    <Border Grid.Row="1" Margin="0,4,0,0" CornerRadius="12" Background="{DynamicResource ConsoleBg}"
-                            BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1">
-                        <RichTextBox x:Name="CliTextBox" Background="Transparent" Foreground="{DynamicResource LogNormal}"
-                                     BorderThickness="0" FontFamily="Consolas, Microsoft YaHei UI" FontSize="12.5" IsReadOnly="True"
-                                     Padding="9" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
-                                     ToolTip="服务器控制台输出（可上下滚动）"/>
-                    </Border>
+                    <!-- 主内容页：控制台 / 运维中心 -->
+                    <TabControl x:Name="WorkspaceTabs" Grid.Row="1" Margin="0,4,0,0"
+                                Background="Transparent" BorderThickness="0">
+                        <TabItem Header="控制台" Style="{StaticResource MainTabItem}">
+                            <Border Margin="0" CornerRadius="12" Background="{DynamicResource ConsoleBg}"
+                                    BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1">
+                                <RichTextBox x:Name="CliTextBox" Background="Transparent" Foreground="{DynamicResource LogNormal}"
+                                             BorderThickness="0" FontFamily="Consolas, Microsoft YaHei UI" FontSize="12.5" IsReadOnly="True"
+                                             Padding="9" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                                             ToolTip="服务器控制台输出（可上下滚动）"/>
+                            </Border>
+                        </TabItem>
+                        <TabItem Header="运维中心" Style="{StaticResource MainTabItem}">
+                            <local:OperationsCenterView x:Name="OperationsView"/>
+                        </TabItem>
+                    </TabControl>
 
                     <!-- 最底部：只保留一行指令输入 -->
                     <Grid Grid.Row="2" Margin="0,4,0,0">
