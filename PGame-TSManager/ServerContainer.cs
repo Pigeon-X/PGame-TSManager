@@ -715,7 +715,7 @@ namespace PGameTSManager
                     PluginSync.Apply(runtimeDirectory, ManagerConfig.Resolve(_managerConfig.pluginDir),
                         _profile.ResolvePlugins(manifest),
                         manifest.PrunePlugins ?? _managerConfig.prunePlugins,
-                        _managerConfig.disabledPluginDir, AddText);
+                        _managerConfig.disabledPluginDir, message => AddText(message));
                 }
                 catch (Exception ex) { AddText($"[插件同步] 失败：{ex.Message}\n"); }
             }
@@ -742,7 +742,7 @@ namespace PGameTSManager
 
             _process = new Process { StartInfo = info, EnableRaisingEvents = true };
             _process.OutputDataReceived += (_, a) => { if (a.Data != null) AddText(a.Data + "\n"); };
-            _process.ErrorDataReceived += (_, a) => { if (a.Data != null) AddText(a.Data + "\n"); };
+            _process.ErrorDataReceived += (_, a) => { if (a.Data != null) AddText(a.Data + "\n", isError: true); };
             _process.Exited += (_, _) =>
             {
                 var code = _process != null && _process.HasExited ? _process.ExitCode : -999;
@@ -1043,8 +1043,9 @@ namespace PGameTSManager
 
         // ---------- 彩色文本 ----------
         /// <summary>
-        /// 控制台着色规则（尽量让每一类行都有颜色）：
-        ///   错误=红  警告=琥珀  成功/状态=绿  键值/INFO=青  插件标签=紫  指令=蓝  列表/次要=灰
+        /// 控制台着色规则：
+        ///   TShock 标准输出=金色  Server API/提示=青  插件标签=紫
+        ///   错误=红  警告=琥珀  成功/状态=绿  管理器/指令=蓝  列表/次要=灰
         /// </summary>
         private static Brush ColorFor(string line)
         {
@@ -1056,26 +1057,52 @@ namespace PGameTSManager
 
             // 真错误（用具体特征，避免 ExceptionProbe / HotReload 这类名字被误判）
             if (s.Contains("Exception:") || s.Contains("Unhandled exception") ||
+                s.Contains("StackOverflow", StringComparison.OrdinalIgnoreCase) ||
+                s.Contains("Startup aborted", StringComparison.OrdinalIgnoreCase) ||
+                s.Contains("Failed to load", StringComparison.OrdinalIgnoreCase) ||
                 s.Contains("致命") || s.Contains("错误") || s.Contains("失败") ||
-                s.Contains("Error:") || s.Contains("ERROR:")) return ClrError;
+                s.Contains("Error:", StringComparison.OrdinalIgnoreCase) ||
+                s.Contains("Fatal", StringComparison.OrdinalIgnoreCase)) return ClrError;
 
             // 警告 / 缺失
-            if (s.Contains("警告") || s.Contains("Warning") || s.Contains("WARN") ||
+            if (s.Contains("警告") || s.Contains("Warning", StringComparison.OrdinalIgnoreCase) ||
+                s.Contains("WARN", StringComparison.OrdinalIgnoreCase) ||
                 s.Contains("已跳过") || s.Contains("找不到") || s.Contains("未找到") ||
-                s.Contains("不存在")) return ClrWarn;
+                s.Contains("不存在") || s.Contains("超时") ||
+                s.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
+                s.Contains("missing", StringComparison.OrdinalIgnoreCase)) return ClrWarn;
 
             // 关键成功状态
             if (s.Contains("服务器已启动") || s.Contains("正在侦听") || s.Contains("插件同步") ||
-                s.Contains("[启动]") || s.Contains("总库齐备") || s.Contains("已加载") ||
+                s.Contains("正在监听") || s.Contains("[启动]") || s.Contains("总库齐备") || s.Contains("已加载") ||
                 s.Contains("已启用") || s.Contains("已初始化") || s.Contains("已注册") ||
-                s.Contains("已创建") || s.Contains("已开启") || s.Contains("已刷新")) return ClrGood;
+                s.Contains("已创建") || s.Contains("已开启") || s.Contains("已刷新") ||
+                s.Contains("已更新") || s.Contains("已就绪") || s.Contains("全部完成") ||
+                s.Contains("同步完成")) return ClrGood;
+
+            // 管理器状态标签：失败/超时已在上面拦截，剩余状态统一蓝色。
+            if (s.StartsWith("[看门狗]") || s.StartsWith("[告警]")) return ClrWarn;
+            if (s.StartsWith("[插件同步]") || s.StartsWith("[插件开关]")) return ClrPlugin;
+            if (s.StartsWith("[顺序启动]") ||
+                s.StartsWith("[刷新]") || s.StartsWith("[服务器设置]") ||
+                s.StartsWith("[新建服务器]") || s.StartsWith("[回滚中心]") ||
+                s.StartsWith("[计划任务]") || s.StartsWith("[玩家管理]") ||
+                s.StartsWith("[快捷指令]") || s.StartsWith("[全部启动]") ||
+                s.StartsWith("[停止]")) return ClrCmd;
 
             // 提示 / 说明
             if (s.StartsWith(":") || s.Contains("输入“help”") || s.Contains("输入\"help\"") ||
                 s.Contains("DisableUUIDLogin") || s.Contains("UUID")) return ClrInfo;
 
-            // 插件相关
+            // 玩家、连接、世界等运行信息
+            if (s.Contains("已加入") || s.Contains("已离开") || s.Contains("加入游戏") ||
+                s.Contains("离开游戏") || s.Contains("登录") || s.Contains("连接") ||
+                s.Contains("世界") || s.Contains("保存") || s.Contains("备份")) return ClrInfo;
+
+            // TShock Server API 信息：青色，区别于普通金色 TShock 输出。
             if (s.StartsWith("[Server API]")) return ClrInfo;
+
+            // 插件/功能标签：紫色
             if (s.StartsWith("[")) return ClrPlugin;
 
             // 键值行：xxx: yyy
@@ -1091,12 +1118,12 @@ namespace PGameTSManager
             return ClrNormal;
         }
 
-        private void AddText(string text)
+        private void AddText(string text, bool isError = false)
         {
             if (string.IsNullOrEmpty(text)) return;
             var dispatcher = _para.Dispatcher;
             if (dispatcher == null) return;
-            try { dispatcher.BeginInvoke(new Action(() => AppendText(text))); } catch { }
+            try { dispatcher.BeginInvoke(new Action(() => AppendText(text, isError))); } catch { }
         }
 
         /// <summary>Terraria 彩色文本标记：[c/RRGGBB:文字]</summary>
@@ -1125,15 +1152,15 @@ namespace PGameTSManager
         }
 
         /// <summary>把一行渲染进面板：带 [c/RRGGBB:...] 的按真实颜色拆成多段，否则按关键字着色。</summary>
-        private void AppendLine(string raw)
+        private void AppendLine(string raw, bool isError = false)
         {
             if (!ColorTagRx.IsMatch(raw))
             {
-                _para.Inlines.Add(new Run(raw + "\n") { Foreground = ColorFor(raw) });
+                _para.Inlines.Add(new Run(raw + "\n") { Foreground = isError ? ClrError : ColorFor(raw) });
                 return;
             }
 
-            var fallback = ColorFor(raw);
+            var fallback = isError ? ClrError : ColorFor(raw);
             var idx = 0;
             foreach (System.Text.RegularExpressions.Match m in ColorTagRx.Matches(raw))
             {
@@ -1147,14 +1174,14 @@ namespace PGameTSManager
             _para.Inlines.Add(new Run("\n") { Foreground = fallback });
         }
 
-        private void AppendText(string text)
+        private void AppendText(string text, bool isError = false)
         {
             try
             {
                 foreach (var raw in text.Replace("\r\n", "\n").Split('\n'))
                 {
                     if (raw.Length == 0) continue;
-                    AppendLine(raw);
+                    AppendLine(raw, isError);
                     if (IsSevereLine(raw)) RaiseAlert($"服务器日志出现严重异常：{Name}", raw.Trim());
                     RecordWatchdogLogError(raw);
                 }

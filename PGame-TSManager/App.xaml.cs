@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Windows;
 using System.Windows.Media;
 using Microsoft.Win32;
@@ -13,6 +14,13 @@ namespace PGameTSManager
     /// </summary>
     public partial class App : Application
     {
+        private const string SingleInstanceMutexName = @"Local\Pigeon.PGameTSManager.SingleInstance";
+        private const string SingleInstanceShowEventName = @"Local\Pigeon.PGameTSManager.ShowWindow";
+        private static Mutex? _singleInstanceMutex;
+        private static EventWaitHandle? _showWindowEvent;
+        private static RegisteredWaitHandle? _showWindowRegistration;
+        private static bool _showWindowRequested;
+
         public App()
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -132,8 +140,9 @@ namespace PGameTSManager
             }
 
             // ★ 控制台配色：保持原来那套（彩色、区分度高），不跟随窗口主题
-            //   时间戳/普通=浅灰  INFO=青  插件名=紫  警告=琥珀  错误=红  成功=绿  指令=蓝
-            r["LogNormal"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E6E6EE"));
+            //   TShock 标准输出=金色  Server API/提示=青  插件名=紫
+            //   警告=琥珀  错误=红  成功=绿  管理器指令=蓝
+            r["LogNormal"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFD23F"));
             r["LogInfo"]   = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4FC3F7"));
             r["LogPlugin"] = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#8B5CF6"));
             r["LogWarn"]   = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F59E0B"));
@@ -156,7 +165,8 @@ namespace PGameTSManager
                 {
                     Text = "PGame-TSManager",
                     Visible = false,
-                    Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location)
+                    Icon = System.Drawing.Icon.ExtractAssociatedIcon(
+                        Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "PGame-TSManager.exe"))
                 };
                 var menu = new System.Windows.Forms.ContextMenuStrip();
                 menu.Items.Add("显示管理器", null, (_, _) => RestoreFromTray(window));
@@ -223,7 +233,7 @@ namespace PGameTSManager
         /// <summary>托盘菜单里「退出」用。</summary>
         public static void ExitFromTray()
         {
-            ShutdownApplication("TrayExit");
+            ShutdownApplication();
         }
 
         private static void StopManagedServers()
@@ -239,7 +249,7 @@ namespace PGameTSManager
         /// <summary>
         /// 统一退出：先停掉所有受管 TShock 子进程，再释放托盘，最后确保 TSM 进程退出。
         /// </summary>
-        private static void ShutdownApplication(string source)
+        private static void ShutdownApplication()
         {
             if (_exiting) return;
             _exiting = true;
@@ -247,11 +257,90 @@ namespace PGameTSManager
             {
                 StopManagedServers();
                 if (_tray != null) { _tray.Visible = false; _tray.Dispose(); _tray = null; }
-                LogCrash(source, null);
             }
             catch { }
+            DisposeSingleInstance();
             try { Current.Shutdown(); } catch { }
             try { Environment.Exit(0); } catch { }
+        }
+
+        private static bool EnsureSingleInstance()
+        {
+            try
+            {
+                _singleInstanceMutex = new Mutex(true, SingleInstanceMutexName, out var createdNew);
+                if (createdNew)
+                {
+                    _showWindowEvent = new EventWaitHandle(false, EventResetMode.AutoReset, SingleInstanceShowEventName);
+                    _showWindowRegistration = ThreadPool.RegisterWaitForSingleObject(
+                        _showWindowEvent,
+                        (_, timedOut) => { if (!timedOut) RequestShowExistingWindow(); },
+                        null,
+                        Timeout.Infinite,
+                        executeOnlyOnce: false);
+                    return true;
+                }
+
+                _singleInstanceMutex.Dispose();
+                _singleInstanceMutex = null;
+
+                // First instance owns the mutex; ask it to restore its window.
+                for (var i = 0; i < 20; i++)
+                {
+                    try
+                    {
+                        using var showEvent = EventWaitHandle.OpenExisting(SingleInstanceShowEventName);
+                        showEvent.Set();
+                        return false;
+                    }
+                    catch (WaitHandleCannotBeOpenedException)
+                    {
+                        Thread.Sleep(50);
+                    }
+                    catch
+                    {
+                        break;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                // Never prevent startup merely because the single-instance gate failed.
+                LogCrash("EnsureSingleInstance", ex);
+                return true;
+            }
+        }
+
+        private static void RequestShowExistingWindow()
+        {
+            try
+            {
+                var app = Current;
+                if (app == null) return;
+                app.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _showWindowRequested = true;
+                    if (_window == null) return;
+                    _showWindowRequested = false;
+                    RestoreFromTray(_window);
+                }));
+            }
+            catch { }
+        }
+
+        private static void DisposeSingleInstance()
+        {
+            try { _showWindowRegistration?.Unregister(null); } catch { }
+            _showWindowRegistration = null;
+
+            _showWindowEvent?.Dispose();
+            _showWindowEvent = null;
+
+            try { _singleInstanceMutex?.ReleaseMutex(); } catch { }
+            _singleInstanceMutex?.Dispose();
+            _singleInstanceMutex = null;
         }
 
         /// <summary>
@@ -296,7 +385,7 @@ namespace PGameTSManager
                     if (confirm.Result == ChoiceDialogResult.Primary)
                     {
                         e.Cancel = false;
-                        ShutdownApplication("MainWindowClosing");
+                        ShutdownApplication();
                     }
                 }
             }
@@ -318,6 +407,12 @@ namespace PGameTSManager
 
             if (e.Args.Any(a => string.Equals(a, "--send", StringComparison.OrdinalIgnoreCase)))
             { Shutdown(Cli.Send(e.Args)); return; }
+
+            if (!EnsureSingleInstance())
+            {
+                Shutdown(0);
+                return;
+            }
 
             ApplyTheme();
 
@@ -357,6 +452,17 @@ namespace PGameTSManager
             window.ShowInTaskbar = true;
             window.Activate();
             try { window.Topmost = true; window.Topmost = false; window.Focus(); } catch { }
+            if (_showWindowRequested)
+            {
+                _showWindowRequested = false;
+                RestoreFromTray(window);
+            }
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            DisposeSingleInstance();
+            base.OnExit(e);
         }
     }
 }
