@@ -56,3 +56,4 @@
 - 2026-10-08：通用版构建自动下载官方 TShock Windows x64 运行时并注入 `Core`，覆盖汉化 `TShockAPI.dll`，同时加入 `HotReload.dll`；两套模板默认必需启用这两个插件，解压后只补世界文件即可启动。
 - 2026-10-08：看门狗改为保守策略：`/hr`、`/reload`、`/world`、`/save`、热重载和换图日志会进入维护抑制窗口；游戏端口仍在监听时不因 REST 失败重启；只有端口持续异常达到 `watchdogUnhealthySeconds`（默认 60 秒）才重启；维护窗口内进程退出不自动拉起。
 - 2026-10-08：继续修看门狗误判。① 任何来源（管理器、TsWeb、插件）发出 `/stop`、`/exit`、`/off` 都会被识别为手动停止；② 退出码 0 一律视为正常退出，不自动重启；③ `/hr`、`/reload`、`/world`、`/save` 及热重载/换图日志进入最少 120 秒维护抑制，端口异常判定提升到最少 120 秒；④ 重启前只清理“同一运行沙箱”内残留的 TShock 进程，避免 `ServerLog.txt`/世界文件句柄未释放导致二次启动失败。
+- 2026-10-08：修复 GitHub Actions 发布任务失败：`release` 与 `publish-build` 在调用 `Prune-GitHubReleases.ps1` 前缺少源码 checkout，导致 Release 已发布但“保留最近 10 条”清理步骤报脚本不存在。
