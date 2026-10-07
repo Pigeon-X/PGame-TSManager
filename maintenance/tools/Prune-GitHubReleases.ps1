@@ -16,18 +16,29 @@ $headers = @{
     'Authorization' = 'Bearer ' + $Token
 }
 
-$releases = @()
+function Expand-ReleaseItems([object]$value) {
+    foreach ($item in @($value)) {
+        if ($null -eq $item) { continue }
+        if ($item -is [System.Array]) {
+            Expand-ReleaseItems $item
+            continue
+        }
+        $item
+    }
+}
+
+$releases = [System.Collections.Generic.List[object]]::new()
 for ($page = 1; $page -le 100; $page++) {
-    $batch = @(Invoke-RestMethod `
+    $batch = @(Expand-ReleaseItems (Invoke-RestMethod `
         -Uri "https://api.github.com/repos/$Repository/releases?per_page=100&page=$page" `
         -Headers $headers `
-        -TimeoutSec 60)
+        -TimeoutSec 60))
     if ($batch.Count -eq 0) { break }
-    $releases += $batch
+    foreach ($item in $batch) { $releases.Add($item) }
     if ($batch.Count -lt 100) { break }
 }
 
-$ordered = @($releases | Sort-Object { [datetime]$_.created_at } -Descending)
+$ordered = @($releases.ToArray() | Sort-Object { [datetime]([string]$_.created_at) } -Descending)
 $kept = @($ordered | Select-Object -First $Keep)
 $remove = @($ordered | Select-Object -Skip $Keep)
 $keptTags = @($kept | ForEach-Object { [string]$_.tag_name })
