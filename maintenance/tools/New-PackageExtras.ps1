@@ -18,6 +18,8 @@ function Convert-CodePointsToText([int[]]$CodePoints) {
 
 $usageName = (Convert-CodePointsToText @(20351, 29992, 35828, 26126)) + '.txt'
 $updateName = (Convert-CodePointsToText @(26356, 26032, 20869, 23481)) + '.txt'
+$releaseUsageName = 'package-usage.zh-CN.txt'
+$releaseUpdateName = 'update-notes.txt'
 $templatePath = Join-Path $root 'maintenance\templates\package-usage.zh-CN.txt'
 if (-not (Test-Path -LiteralPath $templatePath -PathType Leaf)) {
     throw "Usage template not found: $templatePath"
@@ -28,6 +30,7 @@ $usage = $usage.Replace('{{VERSION}}', $Version)
 $usage = $usage.Replace('{{COMMIT}}', $Commit)
 $usage = $usage.Replace('{{RUN_NUMBER}}', $RunNumber)
 Set-Content -LiteralPath (Join-Path $output $usageName) -Value $usage -Encoding UTF8
+Set-Content -LiteralPath (Join-Path $output $releaseUsageName) -Value $usage -Encoding UTF8
 
 $previousTag = ''
 & git -C $root describe --tags --abbrev=0 --match 'v*-build.*' HEAD^ 2>$null | ForEach-Object { $previousTag = $_.Trim() }
@@ -57,6 +60,7 @@ $updateLines = @(
     '说明：本文件随公用包自动生成，列出上一构建发布之后的主要提交。'
 )
 Set-Content -LiteralPath (Join-Path $output $updateName) -Value ($updateLines -join "`r`n") -Encoding UTF8
+Set-Content -LiteralPath (Join-Path $output $releaseUpdateName) -Value ($updateLines -join "`r`n") -Encoding UTF8
 
 $releaseBody = @(
     "# PGame-TSManager $Version build $RunNumber"
@@ -74,6 +78,7 @@ $releaseBody = @(
     '| `PGame-TSManager-source.zip` | 源码与维护脚本 |'
     ''
     ('每个 ZIP 内附带 `{0}` 和 `{1}`。' -f $usageName, $updateName)
+    ('Release 附件使用兼容文件名：`{0}` 和 `{1}`。' -f $releaseUsageName, $releaseUpdateName)
     ''
     '## 更新内容'
     ''

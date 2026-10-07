@@ -98,6 +98,7 @@ jobs:
           )
           $extras = @(
             Get-ChildItem -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'artifacts/package-extras') -Filter '*.txt' |
+              Where-Object { $_.Name -notin @('package-usage.zh-CN.txt', 'update-notes.txt') } |
               ForEach-Object { $_.FullName }
           )
           ./maintenance/tools/Add-ZipEntries.ps1 -ArchivePath $archives -FilePath $extras
@@ -133,7 +134,8 @@ jobs:
           body_path: artifacts/package-extras/release-body.md
           files: |
             artifacts/*.zip
-            artifacts/package-extras/*.txt
+            artifacts/package-extras/package-usage.zh-CN.txt
+            artifacts/package-extras/update-notes.txt
 
   publish-build:
     if: >-
@@ -162,4 +164,5 @@ jobs:
           make_latest: false
           files: |
             artifacts/*.zip
-            artifacts/package-extras/*.txt
+            artifacts/package-extras/package-usage.zh-CN.txt
+            artifacts/package-extras/update-notes.txt
