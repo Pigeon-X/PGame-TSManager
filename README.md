@@ -1,7 +1,7 @@
 # PGame-TSManager
 
 <p align="center">
-  <strong>Windows 平台 TShock 多服务器管理、维护与兼容适配工具</strong>
+  <strong>Windows 平台 TShock 多服务器管理器</strong>
 </p>
 
 <p align="center">
@@ -25,59 +25,163 @@
 </p>
 
 > [!NOTE]
-> 本项目由 [Pigeon-X](https://github.com/Pigeon-X) 公开维护，持续跟进 TShock 6.2.x，
-> 保留旧版 TSManager 的多服管理思路，并整理配置汉化、REST 修复、插件同步与一键构建流程。
+> 本仓库维护的是**通用版**：管理器、维护工具和两套 TShock 服务器模板。
+> RPG、私人插件、个人服务器配置不会进入通用版，由独立个人版覆盖层维护。
+
+## 当前通用版
+
+通用包现在默认包含两套可直接被管理器识别的 TShock 模板：
+
+| 模板 | 目录 | 游戏端口 | REST 端口 |
+| --- | --- | ---: | ---: |
+| 生存 | `Servers\Profiles\1.生存` | `7777` | `7878` |
+| 生存2 | `Servers\Profiles\2.生存2` | `7778` | `7879` |
+
+模板包含：
+
+- PGame-TSManager 的 `config.json`
+- 中文 TShock `tshock\config.json`
+- SQLite 默认数据库配置
+- REST API 默认配置
+- 公共占位令牌，不包含私人令牌、MySQL 密码或玩家数据
+
+模板不包含 TShock 运行时和世界文件。使用者需要把官方 TShock 运行时放入 `Core`，把世界文件放入 `Servers\Worlds`。
 
 ## 项目定位
 
-PGame-TSManager 用一个 Windows 管理器统一维护多个 TShock 服务端目录。它负责启动、停止、控制台查看、指令发送、插件同步、配置备份、自检和更新辅助，不替代 TShock 本身。
+PGame-TSManager 用一个窗口管理多个 TShock 服务端。它负责：
 
-| 项目 | 地址 |
+- 服务器启动、停止和顺序启动
+- 控制台查看和服务器指令发送
+- 插件总库与每服插件清单同步
+- TShock config、SSC、初始物品可视化编辑
+- 启动前备份、回滚中心、看门狗和异常告警
+- 自检、维护工具和 GitHub Actions 自动构建
+
+它不替代 TShock 本身，也不会把世界、数据库、日志或玩家数据提交到 Git。
+
+## 四个目录
+
+运行端统一使用四个可见目录：
+
+```text
+PGame-TSManager/
+├─ PGame-TSManager.exe
+├─ config.json
+├─ Core/
+│  ├─ TShock.Server.exe
+│  ├─ GeoIP.dat
+│  ├─ bin/
+│  ├─ i18n/
+│  ├─ runtimes/
+│  ├─ x64/
+│  ├─ Data/
+│  ├─ Backups/
+│  ├─ Logs/
+│  └─ _runtime/
+├─ Servers/
+│  ├─ Profiles/
+│  │  ├─ 1.生存/
+│  │  │  ├─ config.json
+│  │  │  └─ tshock/config.json
+│  │  └─ 2.生存2/
+│  │     ├─ config.json
+│  │     └─ tshock/config.json
+│  └─ Worlds/
+├─ Plugins/
+└─ Tools/
+   └─ maintenance/
+```
+
+| 目录 | 用途 |
 | --- | --- |
-| 当前公开维护仓库 | [Pigeon-X/PGame-TSManager](https://github.com/Pigeon-X/PGame-TSManager) |
-| 当前构建下载 | [GitHub Releases](https://github.com/Pigeon-X/PGame-TSManager/releases) |
-| 旧版 TSManager 原作者项目 | [cc004/TSManager](https://github.com/cc004/TSManager) |
-| TShock 官方项目 | [Pryaxis/TShock](https://github.com/Pryaxis/TShock) |
+| `Core` | TShock 运行时、依赖、数据、日志、备份和运行沙箱 |
+| `Servers` | 每服配置、TShock 配置和世界文件 |
+| `Plugins` | 统一插件总库 |
+| `Tools` | 维护工具、模板和脚本 |
+
+## 快速开始
+
+1. 从 [Releases](https://github.com/Pigeon-X/PGame-TSManager/releases) 下载通用包。
+2. 解压到目标目录。
+3. 将 TShock 运行文件放入 `Core`：
+
+```text
+Core/
+├─ TShock.Server.exe
+├─ GeoIP.dat
+├─ bin/
+├─ i18n/
+├─ runtimes/
+└─ x64/
+```
+
+4. 将世界文件放入 `Servers\Worlds\生存.wld` 和 `Servers\Worlds\生存2.wld`。
+5. 按需修改两个模板里的 `tshock\config.json`。
+6. 双击 `PGame-TSManager.exe`。
+7. 首次部署执行：
+
+```powershell
+PGame-TSManager.exe --selfcheck
+```
+
+检查结果会写入 `selfcheck.txt`。
+
+## 服务器清单
+
+根目录 `config.json` 的 `serverProfiles` 负责服务器列表：
+
+```json
+{
+  "name": "生存",
+  "rootPath": "Servers\\Profiles\\1.生存",
+  "executable": "TShock.Server.exe",
+  "arguments": "",
+  "enabled": true,
+  "remark": "通用模板 7777 / REST 7878",
+  "plugins": [],
+  "pluginLibrary": ""
+}
+```
+
+每服自己的 `config.json` 描述世界、端口、语言和插件清单：
+
+```json
+{
+  "服务器名称": "生存",
+  "启用": true,
+  "世界": "生存.wld",
+  "语言": 7,
+  "端口": 7777,
+  "REST端口": 7878,
+  "最大玩家": 16,
+  "IP": "0.0.0.0",
+  "密码": "",
+  "启动参数": "",
+  "插件": [],
+  "插件总库": "Plugins",
+  "覆盖插件目录": true,
+  "备注": "通用模板 7777 / REST 7878"
+}
+```
+
+管理器会自动发现 `Servers\Profiles` 下带有 `config.json` 且填写了端口的服务器目录。
 
 ## 功能概览
 
 | 功能 | 说明 |
 | --- | --- |
-| 多服务器管理 | 一个窗口管理多个 TShock 服务端，可切换查看日志 |
-| 启动控制 | 支持单服启动、顺序全部启动、全部停止 |
-| 配置管理 | 可视化调整服务器配置、插件清单、初始物品和 SSC |
-| 插件同步 | 按每服插件清单同步；未启用的插件移入停用目录，不删除 |
-| 运行保护 | 启动前备份、崩溃检测、自动重启和运行日志 |
-| 指令通道 | 控制台显示、REST 指令发送、热重载和插件状态检查 |
-| 部署自检 | 无界面检查服务器目录、服务端文件与配置完整性 |
-| 自动构建 | GitHub Actions 自动打包并发布到 Releases |
-
-## 运行要求
-
-- Windows 10 / Windows 11
-- TShock 6.2.x
-- 自包含发布包不需要额外安装 .NET
-- 源码构建需要 .NET 9 SDK
-
-## 快速开始
-
-1. 从 [Releases](https://github.com/Pigeon-X/PGame-TSManager/releases) 下载部署包。
-2. 解压到目标目录。
-3. 编辑根目录 `config.json`，确认 `serverProfiles` 指向正确的服务端目录。
-4. 双击 `PGame-TSManager.exe`。
-5. 在服务器列表选择目标服务器，点击“启动本服”或“全部启动”。
-6. 首次部署后执行 `PGame-TSManager.exe --selfcheck`，确认目录完整。
-
-## 发布包
-
-| 包 | 用途 |
-| --- | --- |
-| `PGame-TSManager-universal.zip` | 通用管理器与维护工具 |
-| `PGame-TSManager-template.zip` | 自包含管理器与空配置模板 |
-| `PGame-TSManager-source.zip` | 源码与维护脚本 |
-
-每个 ZIP 内附带 `使用说明.txt` 和 `更新内容.txt`，Releases 页面也会提供这两个文件。
-每次 `main` 构建会生成 `v<版本>-build.<运行号>` 预发布并附带上述 ZIP。推送 `v*` 标签时进入正式 Release 流程。
+| 多服务器管理 | 一个窗口切换不同 TShock 服务端 |
+| 顺序启动 | 上一台真正就绪后再启动下一台，降低同时加载世界的压力 |
+| 控制台 | TShock 输出、插件、警告、错误和成功状态分类着色 |
+| 指令发送 | 支持当前服发送、全部服发送和 `--send` 命令 |
+| 插件同步 | 按每服清单从 `Plugins` 同步，停用插件移入 `ServerPlugins.disabled` |
+| 配置管理 | TShock、SSC、初始物品和更多设置分页编辑 |
+| 备份与回滚 | 启动前备份，支持查看和恢复管理器更新备份 |
+| 看门狗 | 异常退出自动重启，连续失败后停止并告警 |
+| 内存压缩 | 空服时压缩工作集，不关闭端口、不中断首次进入 |
+| 单实例 | 重复双击 exe 只唤醒已有管理器，不创建第二个窗口 |
+| 自定义标题栏 | PGame-TSManager 标题、圆角 Logo、居中窗口按钮 |
 
 ## 常用命令
 
@@ -85,96 +189,29 @@ PGame-TSManager 用一个 Windows 管理器统一维护多个 TShock 服务端�
 | --- | --- |
 | `PGame-TSManager.exe --startall` | 启动管理器并顺序启动全部服务器 |
 | `PGame-TSManager.exe --syncplugins` | 只同步插件，不启动服务器 |
-| `PGame-TSManager.exe --selfcheck` | 无界面自检，结果写入 `selfcheck.txt` |
+| `PGame-TSManager.exe --selfcheck` | 无界面自检 |
+| `PGame-TSManager.exe --send <服务器名> <指令>` | 通过 REST 发送服务器指令 |
 | `PGame-TSManager.exe --nowindow` | 强制无界面运行 |
 
-## 目录说明
+## 插件规则
 
-```text
-PGame-TSManager/
-├─ PGame-TSManager.exe       管理器主程序
-├─ config.json               服务器列表和运行策略
-├─ 1.PigeonServers/          各服务器独立目录
-├─ Plugins/                  插件统一维护目录
-├─ bin/                      TShock 与插件依赖库
-├─ Data/                     中文物品名等通用数据
-├─ Backups/                  配置备份
-├─ _runtime/                 运行沙箱与控制台日志
-└─ maintenance/              更新、校验和维护工具
-```
+- `Plugins` 是统一插件总库。
+- 每台服务器加载哪些插件，由该服 `config.json` 的 `插件` 清单决定。
+- 未列出的第三方插件会被移动到停用目录，不会直接删除。
+- `TShockAPI.*` 由 TShock 自身保留，不参与插件同步和停用。
+- 插件依赖 DLL 放入 `Core\bin`，不要混入 `Plugins`。
 
-| 目录或文件 | 用途 |
-| --- | --- |
-| `PGame-TSManager.exe` | 管理器主程序 |
-| `config.json` | 服务器列表和运行策略 |
-| `1.PigeonServers` | 各服务器独立目录 |
-| `Plugins` | 插件统一维护目录 |
-| `bin` | TShock 与插件依赖库 |
-| `_runtime` | 运行沙箱、控制台日志和临时文件 |
-| `Backups` | 配置备份 |
-| `Data` | 中文物品名等通用数据 |
-| `maintenance` | 更新、校验和维护工具 |
+## TShock 维护规则
 
-## 服务器配置
-
-`config.json` 中的 `serverProfiles` 描述服务器。管理器只读取配置并启动对应目录，不自动改写服务器自身配置。
-
-```json
-{
-  "name": "示例服",
-  "rootPath": "D:\\TShockServers\\Example",
-  "executable": "TShock.Server.exe",
-  "arguments": "",
-  "enabled": true,
-  "remark": "示例服务器"
-}
-```
-
-| 字段 | 说明 |
-| --- | --- |
-| `name` | 管理器显示名称 |
-| `rootPath` | 现有服务端目录 |
-| `executable` | 服务端可执行文件 |
-| `arguments` | 原样透传的启动参数 |
-| `enabled` | 是否允许启动 |
-
-## 插件加载规则
-
-- `Plugins` 是插件总库。
-- 每台服务器实际加载哪些插件，以该服务器 `config.json` 的插件清单为准。
-- 启动前由管理器同步到运行目录。
-- 不在清单中的插件移入停用目录，不直接删除。
-- 插件依赖 DLL 放在 `bin`，不要混入插件本体目录。
-
-## 备份与安全
-
-- `backupBeforeStart` 开启后，启动前备份服务器关键配置。
-- `backupKeep` 控制保留份数。
-- 世界文件、数据库、日志和玩家数据不进入 Git 仓库。
-- 自检和配置校验默认只读，不修改服务器文件。
-
-## 空闲内存压缩
-
-服务器在线人数为 0 且持续达到 `idleMemoryTrimMinutes` 后，管理器会调用
-`EmptyWorkingSet` 压缩 TShock 工作集：
-
-- 不关闭进程，不关闭游戏端口。
-- 玩家第一次进入不会遇到连接被拒绝。
-- 被换出的内存会在玩家进入时由系统按需换回。
-- `idleMemoryTrimEnabled` 控制总开关。
-- `idleMemoryTrimCooldownMinutes` 控制两次压缩的最小间隔。
-- `idleMemoryTrimMinWorkingSetMB` 控制最低压缩阈值。
-
-## 维护边界
-
-- TShock 更新使用 `maintenance/tshock-update` 的独立流程。
-- 配置中文映射使用 `maintenance/config-translation`。
-- REST 修复使用 `maintenance/rest-fixes`。
-- SSC 保持英文，不翻译、不改键、不改字段。
-- `/help` 保持原逻辑，不覆盖、不禁用。
-- 通用底层由本仓库维护；个人服配置、私人插件和 RPG 数据由独立覆盖层维护。
+- TShock 更新通过 `Tools\maintenance\tshock-update` 独立处理。
+- `config.json` 使用中文键。
+- REST 令牌字段使用「用户名 / 用户组」。
+- `sscconfig.json` 保持英文，不翻译、不改键、不改字段。
+- `/help` 保持 TShock 原逻辑，不覆盖、不禁用。
 
 ## 构建
+
+源码构建需要 .NET 9 SDK：
 
 ```powershell
 dotnet build PGame-TSManager.sln -c Release
@@ -186,19 +223,32 @@ dotnet publish PGame-TSManager/PGame-TSManager.csproj `
   -o artifacts/manager
 ```
 
-## 自动构建与发布
+通用包和模板包会自动调用 `Add-TShockTemplates.ps1` 写入两套 TShock 模板。
 
-`.github/workflows/build.yml` 在 `main`、Pull Request、手动运行和 `v*` 标签触发：
+## 发布包
 
-| 事件 | 结果 |
+| 包 | 用途 |
 | --- | --- |
-| `main` 推送 / 手动运行 | 创建 `v<版本>-build.<运行号>` 预发布并上传 ZIP |
-| `v*` 标签 | 创建正式 GitHub Release |
-| Pull Request | 只执行构建与仓库布局检查 |
+| `PGame-TSManager-universal.zip` | 管理器、维护工具和两套 TShock 模板 |
+| `PGame-TSManager-template.zip` | 管理器模板和两套 TShock 模板 |
+| `PGame-TSManager-source.zip` | 源码、工作流和维护脚本 |
 
-工作流同时检查仓库布局，防止世界、数据库、日志、运行沙箱和私人内容进入通用包。
+每次 `main` 推送会生成测试 Release；推送 `v*` 标签会生成正式 Release。
+
+## 通用版与个人版
+
+| 内容 | 通用版 | 个人版 |
+| --- | --- | --- |
+| 管理器与 UI | 有 | 有 |
+| 维护工具 | 有 | 有 |
+| TShock 模板 | 有 | 有自己的三服配置 |
+| RPG 插件 | 无 | 有 |
+| PGameAPI/PChrome | 无 | 有 |
+| 个人服务器配置 | 无 | 有 |
+| 世界、数据库、玩家数据 | 不进入 Git | 不进入 Git |
 
 ## 致谢
 
-- 感谢 [cc004/TSManager](https://github.com/cc004/TSManager) 提供旧版 TS 管理器思路。
-- 感谢 [Pryaxis/TShock](https://github.com/Pryaxis/TShock) 及其贡献者维护 TShock 上游。
+- 旧版多服管理器思路来自 [cc004/TSManager](https://github.com/cc004/TSManager)。
+- TShock 上游由 [Pryaxis/TShock](https://github.com/Pryaxis/TShock) 维护。
+- 本项目由 [Pigeon-X](https://github.com/Pigeon-X) 公开维护。

@@ -7,8 +7,8 @@ REST 外部应用令牌字典的**字段名必须中文化**，否则令牌读�
 ```json
 {
   "Rest外部应用令牌字典": {
-    "xztxzt0928": {
-      "用户名": "流光之城",
+    "change-me": {
+      "用户名": "TsWeb",
       "用户组": "superadmin"
     }
   }
@@ -20,7 +20,7 @@ REST 外部应用令牌字典的**字段名必须中文化**，否则令牌读�
 ## 常见错误
 
 ```json
-{ "xztxzt0928": { "Username": null, "UserGroupName": null } }   // 错误：英文键 + 空值
+{ "change-me": { "Username": null, "UserGroupName": null } }   // 错误：英文键 + 空值
 ```
 
 - 字段名必须是「用户名 / 用户组」，不能是 `Username` / `UserGroupName`。
