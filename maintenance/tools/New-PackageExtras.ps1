@@ -34,12 +34,14 @@ Set-Content -LiteralPath (Join-Path $output $releaseUsageName) -Value $usage -En
 
 $previousTag = ''
 & git -C $root describe --tags --abbrev=0 --match 'v*-build.*' HEAD^ 2>$null | ForEach-Object { $previousTag = $_.Trim() }
-$logArgs = if (-not [string]::IsNullOrWhiteSpace($previousTag)) {
-    @("$previousTag..HEAD")
-} else {
-    @('-30')
+$changes = @()
+if (-not [string]::IsNullOrWhiteSpace($previousTag)) {
+    $range = "$previousTag..HEAD"
+    $changes = @(& git -C $root log $range --date=short --pretty=format:'- %h %ad %s' 2>$null)
 }
-$changes = @(& git -C $root log @logArgs --date=short --pretty=format:'- %h %ad %s' 2>$null)
+if ($changes.Count -eq 0) {
+    $changes = @(& git -C $root log -30 --date=short --pretty=format:'- %h %ad %s' 2>$null)
+}
 if ($changes.Count -eq 0) {
     $changes = @('- 当前构建未检测到可列出的提交记录。')
 }
