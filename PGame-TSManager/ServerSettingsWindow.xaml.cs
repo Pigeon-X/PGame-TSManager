@@ -195,6 +195,20 @@ namespace PGameTSManager
             InventoryList.ItemsSource = _inventoryItems;
             UpdateCount(ConfigList, ConfigSearch, ConfigCount, _config);
             UpdateCount(SscList, SscSearch, SscCount, _ssc);
+            UpdateTabActions();
+        }
+
+        private void SettingsTabs_SelectionChanged(object _, SelectionChangedEventArgs e) =>
+            UpdateTabActions();
+
+        private void UpdateTabActions()
+        {
+            if (ReloadTshockButton == null || ReloadSscButton == null || SettingsTabs == null) return;
+            var selected = SettingsTabs.SelectedItem as TabItem;
+            ReloadTshockButton.Visibility = selected == TShockTab ? Visibility.Visible : Visibility.Collapsed;
+            ReloadSscButton.Visibility = selected == SscTab || selected == InventoryTab
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         }
 
         private static void LoadDocument(ConfigDocument doc, string filePath, string fileName, bool skipStartingInventory = false)

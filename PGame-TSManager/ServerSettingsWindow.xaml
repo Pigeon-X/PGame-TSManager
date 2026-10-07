@@ -178,8 +178,9 @@
                                    Foreground="{DynamicResource TextDim}"/>
                     </StackPanel>
 
-                    <TabControl Grid.Row="1" Margin="0,10,0,0">
-                        <TabItem Header="TShock 配置">
+                    <TabControl Grid.Row="1" Margin="0,10,0,0" x:Name="SettingsTabs"
+                                SelectionChanged="SettingsTabs_SelectionChanged">
+                        <TabItem Header="TShock 配置" x:Name="TShockTab">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -204,7 +205,7 @@
                             </Grid>
                         </TabItem>
 
-                        <TabItem Header="SSC 配置">
+                        <TabItem Header="SSC 配置" x:Name="SscTab">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -229,7 +230,7 @@
                             </Grid>
                         </TabItem>
 
-                        <TabItem Header="初始物品">
+                        <TabItem Header="初始物品" x:Name="InventoryTab">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -259,7 +260,7 @@
                             </Grid>
                         </TabItem>
 
-                        <TabItem Header="更多设置">
+                        <TabItem Header="更多设置" x:Name="MoreTab">
                             <TextBlock Margin="12" FontSize="12" Foreground="{DynamicResource TextDim}"
                                        TextWrapping="Wrap"
                                        Text="后续可继续加入世界、备份、数据库、REST、插件数据等配置页。当前版本先提供 TShock config 与 SSC 两个分页，结构与保存逻辑已独立封装。" />
@@ -274,12 +275,12 @@
                             <Button Content="保存" Style="{StaticResource DlgBtn}"
                                     Background="{DynamicResource Accent}" Foreground="{DynamicResource AccentText}"
                                     Click="Save_Click"/>
-                            <Button Content="保存并重载 TShock" Style="{StaticResource DlgBtn}"
+                            <Button x:Name="ReloadTshockButton" Content="保存并重载 TShock" Style="{StaticResource DlgBtn}"
                                     Background="{DynamicResource AccentBlue}" Foreground="{DynamicResource AccentText}"
                                     Click="SaveReloadTshock_Click"/>
-                            <Button Content="保存并重载 SSC" Style="{StaticResource DlgBtn}"
+                            <Button x:Name="ReloadSscButton" Content="保存并重载 SSC" Style="{StaticResource DlgBtn}"
                                     Background="{DynamicResource Accent2}" Foreground="{DynamicResource AccentText}"
-                                    Click="SaveReloadSsc_Click"/>
+                                    Click="SaveReloadSsc_Click" Visibility="Collapsed"/>
                             <Button Content="保存并重启本服" Style="{StaticResource DlgBtn}"
                                     Background="{DynamicResource Ok}" Foreground="{DynamicResource BtnText}"
                                     Click="SaveRestart_Click"/>
