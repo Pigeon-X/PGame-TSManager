@@ -149,6 +149,16 @@ namespace PGameTSManager
         public int watchdogRestartDelaySeconds = 8;
         /// <summary>运行超过这个秒数算「稳定」，重启计数清零（偶尔崩一次不会累积到上限）。</summary>
         public int watchdogStableSeconds = 300;
+        /// <summary>端口/REST 连续健康检查失败多少次后判定为死服并重启。</summary>
+        public int watchdogHealthFailureThreshold = 3;
+        /// <summary>启动后的看门狗保护期，避免世界加载期间误判。</summary>
+        public int watchdogStartupGraceSeconds = 30;
+        /// <summary>是否把连续致命日志异常作为死服重启依据。</summary>
+        public bool watchdogLogErrorRestartEnabled = true;
+        /// <summary>窗口期内出现多少条致命日志后触发重启。</summary>
+        public int watchdogLogErrorThreshold = 3;
+        /// <summary>致命日志统计窗口秒数。</summary>
+        public int watchdogLogErrorWindowSeconds = 60;
 
         // —— 告警：异常/掉线自动发测试群 ——
         /// <summary>是否自动上报测试群。</summary>

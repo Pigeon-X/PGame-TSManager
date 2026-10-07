@@ -45,6 +45,15 @@ namespace PGameTSManager
         private DateTime _lastLogAlertUtc = DateTime.MinValue;
         private DateTime _idleSinceUtc = DateTime.MinValue;
         private DateTime _lastIdleTrimUtc = DateTime.MinValue;
+        private bool _serverReady;
+        private bool _restProbeConfigured;
+        private bool _restProbeOk;
+        private int _healthFailureCount;
+        private int _lastKnownPlayerCount = -1;
+        private bool _deadServerRestartRequested;
+        private int _severeLogCount;
+        private DateTime _severeLogWindowStartUtc = DateTime.MinValue;
+        private DateTime _lastHealthAlertUtc = DateTime.MinValue;
 
         /// <summary>告警事件：(服, 标题, 详情)。由主窗口转给 Alerter。</summary>
         public event Action<ServerContainer, string, string>? OnAlert;
@@ -163,9 +172,10 @@ namespace PGameTSManager
             }
 
             var port = RestPort;
-            if (port <= 0) return;
+            if (port <= 0) { _restProbeConfigured = false; return; }
             var token = ReadRestToken();
-            if (string.IsNullOrEmpty(token)) return;
+            if (string.IsNullOrEmpty(token)) { _restProbeConfigured = false; return; }
+            _restProbeConfigured = true;
 
             try
             {
@@ -180,10 +190,15 @@ namespace PGameTSManager
                 if (pc != null) PlayerCount = Convert.ToInt32(pc.ToString());
                 if (mp != null) MaxPlayers = Convert.ToInt32(mp.ToString());
                 if (up != null) Uptime = up.ToString();
+                _lastKnownPlayerCount = PlayerCount;
+                _restProbeOk = true;
+                _serverReady = true;
+                _healthFailureCount = 0;
             }
             catch
             {
                 // 服务器可能正在加载世界 / 已停止：忽略即可
+                _restProbeOk = false;
                 if (PlayerCount != -1) PlayerCount = -1;
             }
         }
@@ -233,6 +248,69 @@ namespace PGameTSManager
             {
                 // 进程可能刚好退出或正在保存世界，忽略本轮。
             }
+        }
+
+        /// <summary>
+        /// 看门狗健康检查：只处理意外情况，手动停止不会进入这里。
+        /// 触发条件：游戏端口消失、REST 连续失效、日志连续致命异常。
+        /// </summary>
+        public void TickWatchdog()
+        {
+            if (!_managerConfig.watchdogEnabled || !IsRunning ||
+                _userStopRequested || _watchdogRestarting || _deadServerRestartRequested)
+            {
+                return;
+            }
+
+            var now = DateTime.UtcNow;
+            var uptime = now - _startedAt;
+            var grace = Math.Max(10, _managerConfig.watchdogStartupGraceSeconds);
+            if (!_serverReady && uptime.TotalSeconds < grace) return;
+
+            var gamePortOk = GamePort <= 0 || IsPortListening(GamePort);
+            var restOk = !_restProbeConfigured || _restProbeOk;
+            if (gamePortOk && restOk)
+            {
+                _healthFailureCount = 0;
+                _serverReady = true;
+                return;
+            }
+
+            _healthFailureCount++;
+            var threshold = Math.Max(1, _managerConfig.watchdogHealthFailureThreshold);
+            if (_healthFailureCount < threshold) return;
+
+            var detail = $"游戏端口={GamePort}:{(gamePortOk ? "正常" : "失效")}，" +
+                         $"REST={( _restProbeConfigured ? (_restProbeOk ? "正常" : "失效") : "未配置")}，" +
+                         $"最近在线={Math.Max(0, _lastKnownPlayerCount)}";
+
+            // REST 单独失效且最近确认有玩家时不强杀，避免网络瞬时抖动误伤在线玩家。
+            if (gamePortOk && _restProbeConfigured && _lastKnownPlayerCount > 0)
+            {
+                if ((now - _lastHealthAlertUtc).TotalSeconds >= 60)
+                {
+                    _lastHealthAlertUtc = now;
+                    RaiseAlert($"服务器健康检查异常：{Name}", detail + "；因最近确认有玩家，暂不自动重启。");
+                }
+                _healthFailureCount = 0;
+                return;
+            }
+
+            RequestDeadServerRestart("检测到服务器进程存活但已不可用", detail);
+        }
+
+        private void RequestDeadServerRestart(string title, string detail)
+        {
+            if (_deadServerRestartRequested || _userStopRequested || !IsRunning) return;
+            _deadServerRestartRequested = true;
+            _serverReady = false;
+            AddText($"[看门狗] {title}：{detail}\n");
+            RaiseAlert($"服务器判断为死服，准备重启：{Name}", detail);
+
+            var process = _process;
+            if (process == null) return;
+            try { process.Kill(true); }
+            catch { try { process.Kill(); } catch { } }
         }
 
         public Brush Foreground { get; private set; }
@@ -432,6 +510,37 @@ namespace PGameTSManager
                 return true;
             }
             catch { return false; }
+        }
+
+        private void RecordWatchdogLogError(string line)
+        {
+            if (!_managerConfig.watchdogLogErrorRestartEnabled) return;
+            var fatal =
+                line.Contains("Unhandled exception", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("OutOfMemory", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("StackOverflow", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("Startup aborted", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("Failed to load assembly", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("未处理的异常", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("致命", StringComparison.OrdinalIgnoreCase);
+            if (!fatal) return;
+
+            var now = DateTime.UtcNow;
+            var window = TimeSpan.FromSeconds(Math.Max(10, _managerConfig.watchdogLogErrorWindowSeconds));
+            if (_severeLogWindowStartUtc == DateTime.MinValue || now - _severeLogWindowStartUtc > window)
+            {
+                _severeLogWindowStartUtc = now;
+                _severeLogCount = 0;
+            }
+            _severeLogCount++;
+
+            var threshold = Math.Max(1, _managerConfig.watchdogLogErrorThreshold);
+            var grace = Math.Max(10, _managerConfig.watchdogStartupGraceSeconds);
+            if (_severeLogCount >= threshold && (_serverReady || (now - _startedAt).TotalSeconds >= grace))
+            {
+                _severeLogCount = 0;
+                RequestDeadServerRestart("日志出现连续致命异常", line.Trim());
+            }
         }
 
         private static readonly object FileLogGate = new();
@@ -711,6 +820,14 @@ namespace PGameTSManager
             _startedAt = DateTime.UtcNow;
             _idleSinceUtc = DateTime.MinValue;
             _lastIdleTrimUtc = DateTime.MinValue;
+            _serverReady = false;
+            _restProbeConfigured = false;
+            _restProbeOk = false;
+            _healthFailureCount = 0;
+            _lastKnownPlayerCount = -1;
+            _deadServerRestartRequested = false;
+            _severeLogCount = 0;
+            _severeLogWindowStartUtc = DateTime.MinValue;
             _userStopRequested = false;
             _process.Start();
             try { _process.BeginOutputReadLine(); _process.BeginErrorReadLine(); } catch { }
@@ -803,6 +920,7 @@ namespace PGameTSManager
             var cmd = (msg ?? "").Trim();
             if (cmd.Length == 0) return;
             if (cmd[0] != '/') cmd = "/" + cmd;          // TShock 要求前导斜杠
+            if (IsManualStopCommand(cmd)) _userStopRequested = true;
 
             var restErr = TrySendViaRest(cmd);
             if (restErr == null) return;
@@ -832,6 +950,7 @@ namespace PGameTSManager
         public string? SendCommandViaRest(string cmd, out string output)
         {
             output = "";
+            if (IsManualStopCommand(cmd)) _userStopRequested = true;
             var manifest = _profile.LoadManifest();
             var port = manifest?.RestPort ?? 0;
             if (port <= 0) return "该服未配置 REST 端口（config.json 的 REST端口）";
@@ -856,6 +975,17 @@ namespace PGameTSManager
                 catch (Exception ex) { lastErr = ex.Message; }
             }
             return lastErr ?? "未知错误";
+        }
+
+        private static bool IsManualStopCommand(string? command)
+        {
+            var name = (command ?? "").Trim().TrimStart('/').Split(' ', 2)[0];
+            return string.Equals(name, "stop", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "exit", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "off", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "stop-nosave", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "exit-nosave", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "off-nosave", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>读取该服 TShock REST JSON 接口。成功返回 null，body 为响应文本。</summary>
@@ -1027,6 +1157,7 @@ namespace PGameTSManager
                     if (raw.Length == 0) continue;
                     AppendLine(raw);
                     if (IsSevereLine(raw)) RaiseAlert($"服务器日志出现严重异常：{Name}", raw.Trim());
+                    RecordWatchdogLogError(raw);
                 }
                 WriteToFile(text);          // ★ 同时落盘，方便事后查（Logs\<服>-日期.log）
 

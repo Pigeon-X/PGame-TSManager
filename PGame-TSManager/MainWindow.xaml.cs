@@ -139,6 +139,7 @@ namespace PGameTSManager
                     try
                     {
                         await c.RefreshStatusAsync();
+                        c.TickWatchdog();
                         c.TickIdleMemory();
                     }
                     catch { }
