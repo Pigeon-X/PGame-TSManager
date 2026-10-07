@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -16,10 +17,36 @@ namespace PGameTSManager
         public string DisplayName { get; set; } = "";
         public string Path { get; set; } = "";
         public string PathText { get; set; } = "";
+        public List<string> Segments { get; set; } = new();
         public string Kind { get; set; } = "Text";
         public string TypeName { get; set; } = "文本";
         public string ValueText { get; set; } = "";
         public string RawJson { get; set; } = "";
+
+        private string _colorHex = "#FFFFFF";
+        public string ColorHex
+        {
+            get => _colorHex;
+            set
+            {
+                if (_colorHex == value) return;
+                _colorHex = value;
+                Raise(nameof(ColorHex));
+                Raise(nameof(ColorBrush));
+            }
+        }
+
+        public Brush ColorBrush
+        {
+            get
+            {
+                try { return (Brush)new BrushConverter().ConvertFromString(ColorHex)!; }
+                catch { return Brushes.White; }
+            }
+        }
+
+        private void Raise(string name) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
         private bool _boolValue;
         public bool BoolValue
@@ -100,6 +127,7 @@ namespace PGameTSManager
         private readonly ConfigDocument _ssc = new();
         private readonly ObservableCollection<SscInventoryItem> _inventoryItems = new();
         private readonly string _serverName;
+        private readonly Func<string, string?>? _reloadCommand;
 
         private static readonly Dictionary<string, string> SscNames = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -115,10 +143,12 @@ namespace PGameTSManager
 
         public bool RestartRequested { get; private set; }
 
-        public ServerSettingsWindow(string serverName, string serverDirectory)
+        public ServerSettingsWindow(string serverName, string serverDirectory,
+            Func<string, string?>? reloadCommand = null)
         {
             InitializeComponent();
             _serverName = serverName;
+            _reloadCommand = reloadCommand;
             SourceInitialized += (_, _) =>
             {
                 var lightTheme = App.IsLightTheme();
@@ -196,6 +226,7 @@ namespace PGameTSManager
             {
                 PathText = string.Join(".", path),
                 Path = string.Join(".", path),
+                Segments = path.ToList(),
                 DisplayName = path.Count > 0 ? path[^1] : "(root)"
             };
             if (skipStartingInventory && path.Count == 2 && path[0] == "Settings" &&
@@ -205,11 +236,22 @@ namespace PGameTSManager
                 setting.PathText = "SSC · " + localizedName;
             }
 
-            if (token is JArray array)
+            if (token is JArray array && path.Count == 2 && path[0] == "Settings" &&
+                path[1].Contains("颜色(RGB)", StringComparison.OrdinalIgnoreCase) && array.Count >= 3)
+            {
+                var r = Math.Clamp(array[0].Value<int>(), 0, 255);
+                var g = Math.Clamp(array[1].Value<int>(), 0, 255);
+                var b = Math.Clamp(array[2].Value<int>(), 0, 255);
+                setting.Kind = "Color";
+                setting.TypeName = "颜色";
+                setting.ColorHex = $"#{r:X2}{g:X2}{b:X2}";
+                setting.ValueText = setting.ColorHex;
+            }
+            else if (token is JArray jsonArray)
             {
                 setting.Kind = "Complex";
                 setting.TypeName = "JSON 数组";
-                setting.RawJson = array.ToString(Formatting.Indented);
+                setting.RawJson = jsonArray.ToString(Formatting.Indented);
                 setting.ValueText = setting.RawJson;
             }
             else if (token is JObject nested)
@@ -277,16 +319,15 @@ namespace PGameTSManager
             catch { }
         }
 
-        private static bool SetByPath(JObject root, string path, JToken value)
+        private static bool SetByPath(JObject root, IReadOnlyList<string> parts, JToken value)
         {
-            var parts = path.Split('.', StringSplitOptions.RemoveEmptyEntries);
             JToken current = root;
-            for (var i = 0; i < parts.Length; i++)
+            for (var i = 0; i < parts.Count; i++)
             {
                 if (current is not JObject obj) return false;
                 var property = obj.Property(parts[i], StringComparison.OrdinalIgnoreCase);
                 if (property == null) return false;
-                if (i == parts.Length - 1)
+                if (i == parts.Count - 1)
                 {
                     property.Value = value;
                     return true;
@@ -310,6 +351,11 @@ namespace PGameTSManager
                     if (setting.Kind == "Bool")
                     {
                         value = new JValue(setting.BoolValue);
+                    }
+                    else if (setting.Kind == "Color")
+                    {
+                        var color = (Color)ColorConverter.ConvertFromString(setting.ColorHex);
+                        value = new JArray(color.R, color.G, color.B);
                     }
                     else if (setting.Kind == "Complex")
                     {
@@ -337,10 +383,10 @@ namespace PGameTSManager
                         value = new JValue(setting.ValueText ?? "");
                     }
 
-                    if (!SetByPath(root, setting.Path, value))
+                    if (!SetByPath(root, setting.Segments, value))
                         throw new InvalidOperationException($"找不到配置项：{setting.Path}");
                 }
-                if (inventory != null && !SetByPath(root, "Settings.StartingInventory", inventory))
+                if (inventory != null && !SetByPath(root, new[] { "Settings", "StartingInventory" }, inventory))
                     throw new InvalidOperationException("找不到配置项：Settings.StartingInventory");
 
                 try { File.WriteAllText(doc.FilePath + ".bak", File.ReadAllText(doc.FilePath, System.Text.Encoding.UTF8), new System.Text.UTF8Encoding(false)); } catch { }
@@ -473,6 +519,38 @@ namespace PGameTSManager
             RestartRequested = true;
             DialogResult = true;
             Close();
+        }
+
+        private void SaveReload_Click(object _, RoutedEventArgs e)
+        {
+            if (!SaveAll()) return;
+            if (_reloadCommand == null)
+            {
+                MessageBox.Show(this, "当前服务器未运行，无法执行重读。", "服务器设置",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var error = _reloadCommand("/reload ssc");
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                MessageBox.Show(this, "保存成功，但重读 SSC 失败：\n" + error, "服务器设置",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusText.Text = "已保存，重读失败";
+                return;
+            }
+
+            StatusText.Text = "已保存并重读 SSC";
+            DialogResult = true;
+            Close();
+        }
+
+        private void PickColor_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.Tag is not ConfigSetting setting) return;
+            var picker = new ColorPickerDialog(setting.ColorHex) { Owner = this };
+            if (picker.ShowDialog() != true) return;
+            setting.ColorHex = picker.ColorHex;
         }
     }
 }

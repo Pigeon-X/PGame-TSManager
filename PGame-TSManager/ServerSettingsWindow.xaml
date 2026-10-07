@@ -77,6 +77,18 @@
                        FontSize="12" VerticalAlignment="Center"/>
         </DataTemplate>
 
+        <DataTemplate x:Key="ColorEditor">
+            <StackPanel Orientation="Horizontal">
+                <Border Width="30" Height="24" CornerRadius="5" Background="{Binding ColorBrush}"
+                        BorderBrush="{DynamicResource GlassBorder}" BorderThickness="1"/>
+                <TextBlock Text="{Binding ColorHex}" Foreground="{DynamicResource Text}" FontSize="11.5"
+                           VerticalAlignment="Center" Margin="8,0,8,0"/>
+                <Button Content="调色板…" Tag="{Binding}" Click="PickColor_Click"
+                        Style="{StaticResource DlgBtn}" Height="26" MinWidth="66" FontSize="11"
+                        Padding="7,0"/>
+            </StackPanel>
+        </DataTemplate>
+
         <DataTemplate x:Key="InventoryItemTemplate">
             <Border Margin="0,1" Padding="4,2" CornerRadius="6" Background="{DynamicResource GlassPanel}">
                 <Grid>
@@ -130,6 +142,9 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Kind}" Value="Info">
                     <Setter TargetName="EditorHost" Property="ContentTemplate" Value="{StaticResource InfoEditor}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Kind}" Value="Color">
+                    <Setter TargetName="EditorHost" Property="ContentTemplate" Value="{StaticResource ColorEditor}"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -239,6 +254,9 @@
                             <Button Content="保存" Style="{StaticResource DlgBtn}"
                                     Background="{DynamicResource Accent}" Foreground="{DynamicResource AccentText}"
                                     Click="Save_Click"/>
+                            <Button Content="保存并重读" Style="{StaticResource DlgBtn}"
+                                    Background="{DynamicResource Accent2}" Foreground="{DynamicResource AccentText}"
+                                    Click="SaveReload_Click"/>
                             <Button Content="保存并重启本服" Style="{StaticResource DlgBtn}"
                                     Background="{DynamicResource Ok}" Foreground="{DynamicResource BtnText}"
                                     Click="SaveRestart_Click"/>

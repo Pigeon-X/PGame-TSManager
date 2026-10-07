@@ -254,11 +254,15 @@
                         <Menu Grid.Column="0" Background="Transparent" Foreground="{DynamicResource Text}"
                               FontSize="11.5" Padding="0" VerticalAlignment="Center" HorizontalAlignment="Left">
                             <MenuItem Header="服务器">
-                                <MenuItem Header="启动本服" Click="StartButton_Click"/>
-                                <MenuItem Header="停止本服" Click="KillButton_Click"/>
+                                <MenuItem x:Name="MenuStartCurrent" Header="启动本服" Foreground="{DynamicResource Ok}"
+                                          Click="StartButton_Click"/>
+                                <MenuItem x:Name="MenuStopCurrent" Header="停止本服" Foreground="{DynamicResource Err}"
+                                          Click="KillButton_Click"/>
                                 <Separator/>
-                                <MenuItem Header="全部启动" Click="StartAllButton_Click"/>
-                                <MenuItem Header="全部停止" Click="StopAllButton_Click"/>
+                                <MenuItem x:Name="MenuStartAll" Header="全部启动" Foreground="{DynamicResource Ok}"
+                                          Click="StartAllButton_Click"/>
+                                <MenuItem x:Name="MenuStopAll" Header="全部停止" Foreground="{DynamicResource Err}"
+                                          Click="StopAllButton_Click"/>
                             </MenuItem>
                             <MenuItem Header="管理">
                                 <MenuItem Header="插件开关…" Click="PluginButton_Click"/>
@@ -295,7 +299,7 @@
                                 IsEnabled="{Binding IsRunning, Mode=OneWay}"/>
                             <Button x:Name="StartAllButton" Content="全部启动" Style="{StaticResource StartBtn}" Click="StartAllButton_Click"
                                     ToolTip="按顺序逐台启动：上一台就绪后再起下一台"/>
-                            <Button Content="全部停止" Style="{StaticResource StopBtn}" Click="StopAllButton_Click"/>
+                            <Button x:Name="StopAllButton" Content="全部停止" Style="{StaticResource StopBtn}" Click="StopAllButton_Click"/>
                         </StackPanel>
                     </Grid>
 

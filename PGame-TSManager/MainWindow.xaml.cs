@@ -84,7 +84,7 @@ namespace PGameTSManager
                 Containers.Add(container);
             }
 
-            if (Containers.Count == 0) return;
+            if (Containers.Count == 0) { UpdateActionStates(); return; }
 
             var idx = 0;
             if (selected != null)
@@ -94,6 +94,7 @@ namespace PGameTSManager
             }
             ComboBox.SelectedIndex = idx;
             BuildTrayMenu();
+            UpdateActionStates();
         }
 
         private void RefreshButton_Click(object _, RoutedEventArgs e)
@@ -116,6 +117,7 @@ namespace PGameTSManager
                     try { await c.RefreshStatusAsync(); } catch { }
                 }
                 UpdateTrayTip();
+                UpdateActionStates();
 
                 // 告警发送结果回显（异步发送完才会变）
                 var r = Alerter.LastResult;
@@ -157,7 +159,10 @@ namespace PGameTSManager
                 });
                 sub.DropDownItems.Add("停止", null, (_, _) =>
                 {
-                    try { target.IsRunning = false; } catch { }
+                    if (ConfirmStop(target.Name))
+                    {
+                        try { target.IsRunning = false; } catch { }
+                    }
                 });
                 sub.DropDownItems.Add(new System.Windows.Forms.ToolStripSeparator());
                 sub.DropDownItems.Add("单独启动（等就绪）", null, async (_, _) =>
@@ -177,13 +182,27 @@ namespace PGameTSManager
             menu.Items.Add("全部启动", null, (_, _) => { _ = StartAllSequentialAsync(); });
             menu.Items.Add("全部停止", null, (_, _) =>
             {
+                if (!ConfirmStop("全部服务器"))
+                    return;
                 foreach (var c in Containers)
                 {
                     try { if (c.IsRunning) c.IsRunning = false; } catch { }
                 }
             });
             menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-            menu.Items.Add("退出", null, (_, _) => App.ExitFromTray());
+            menu.Items.Add("退出", null, (_, _) =>
+            {
+                var dialog = new ChoiceDialog(
+                    "确认关闭",
+                    "确定要关闭 PGame-TSManager 吗？\n正在运行的服务器会一起被关闭。",
+                    "关闭",
+                    "",
+                    "取消",
+                    primaryDanger: true) { Owner = this };
+                dialog.ShowDialog();
+                if (dialog.Result == ChoiceDialogResult.Primary)
+                    App.ExitFromTray();
+            });
 
             App.SetTrayMenu(menu);
             UpdateTrayTip();
@@ -231,7 +250,8 @@ namespace PGameTSManager
                 return;
             }
 
-            var dlg = new ServerSettingsWindow(current.Name, current.ProfileDirectory) { Owner = this };
+            var dlg = new ServerSettingsWindow(current.Name, current.ProfileDirectory,
+                command => current.SendCommandViaRest(command, out var _output)) { Owner = this };
             if (dlg.ShowDialog() != true) return;
 
             AppendLine($"[服务器设置] {current.Name} 的配置已保存");
@@ -261,6 +281,7 @@ namespace PGameTSManager
                 try { container.IsRunning = true; }
                 catch (Exception ex) { AppendLine($"[启动失败] {container.Name}：{ex.Message}"); }
             }
+            UpdateActionStates();
         }
 
         /// <summary>
@@ -333,7 +354,7 @@ namespace PGameTSManager
             {
                 AppendLine("[顺序启动] 异常：" + ex.Message);
             }
-            finally { _startingAll = false; }
+            finally { _startingAll = false; UpdateActionStates(); }
         }
 
         private void StartButton_Click(object _, RoutedEventArgs e)
@@ -341,25 +362,58 @@ namespace PGameTSManager
             var current = Current;
             if (current == null) return;
             current.IsRunning = true;
+            UpdateActionStates();
         }
 
         private void KillButton_Click(object _, RoutedEventArgs e)
         {
             var current = Current;
-            if (current == null) return;
+            if (current == null || !current.IsRunning) return;
+            if (!ConfirmStop(current.Name)) return;
             current.IsRunning = false;
+            UpdateActionStates();
         }
 
         private async void StartAllButton_Click(object _, RoutedEventArgs e) => await StartAllSequentialAsync();
 
         private void StopAllButton_Click(object _, RoutedEventArgs e)
         {
+            if (!Containers.Any(c => c.IsRunning)) return;
+            if (!ConfirmStop("全部服务器")) return;
             foreach (var container in Containers)
             {
                 if (!container.IsRunning) continue;
                 try { container.IsRunning = false; }
                 catch (Exception ex) { AppendLine($"[停止失败] {container.Name}：{ex.Message}"); }
             }
+            UpdateActionStates();
+        }
+
+        private bool ConfirmStop(string serverName)
+        {
+            var dialog = new ChoiceDialog(
+                "确认停止服务器",
+                $"确定要停止 {serverName} 吗？\n正在运行的玩家连接会中断。",
+                "停止",
+                "",
+                "取消",
+                primaryDanger: true) { Owner = this };
+            dialog.ShowDialog();
+            return dialog.Result == ChoiceDialogResult.Primary;
+        }
+
+        private void UpdateActionStates()
+        {
+            var current = Current;
+            var hasRunning = Containers.Any(c => c.IsRunning);
+            var hasStopped = Containers.Any(c => !c.IsRunning);
+
+            if (MenuStartCurrent != null) MenuStartCurrent.IsEnabled = current != null && !current.IsRunning;
+            if (MenuStopCurrent != null) MenuStopCurrent.IsEnabled = current?.IsRunning == true;
+            if (MenuStartAll != null) MenuStartAll.IsEnabled = hasStopped;
+            if (MenuStopAll != null) MenuStopAll.IsEnabled = hasRunning;
+            if (StartAllButton != null) StartAllButton.IsEnabled = hasStopped;
+            if (StopAllButton != null) StopAllButton.IsEnabled = hasRunning;
         }
 
         private void AppendLine(string text)
@@ -382,6 +436,7 @@ namespace PGameTSManager
             if (current == null) return;
             CliTextBox.Document = current.Document;
             CliTextBox.ScrollToEnd();
+            UpdateActionStates();
         }
 
         /// <summary>输入框里没字时显示灰字提示。</summary>
