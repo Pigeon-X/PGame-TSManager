@@ -1,48 +1,106 @@
 # PGame-TSManager
 
-面向 Windows 的 TShock 多服务器管理器。用同一个管理器维护多个服务端目录，统一完成启动、停止、控制台查看、指令发送、插件同步、备份和自检。
+<p align="center">
+  <strong>Windows 平台 TShock 多服务器管理、维护与兼容适配工具</strong>
+</p>
 
-## 主要功能
+<p align="center">
+  <a href="https://github.com/Pigeon-X/PGame-TSManager/actions/workflows/build.yml">
+    <img src="https://github.com/Pigeon-X/PGame-TSManager/actions/workflows/build.yml/badge.svg" alt="Build status">
+  </a>
+  <a href="https://github.com/Pigeon-X/PGame-TSManager/releases">
+    <img src="https://img.shields.io/github/v/release/Pigeon-X/PGame-TSManager?include_prereleases&label=build&color=2f81f7" alt="Build release">
+  </a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4" alt="Windows 10/11">
+  <img src="https://img.shields.io/badge/TShock-6.2.x-4B8BBE" alt="TShock 6.2.x">
+  <img src="https://img.shields.io/badge/.NET-9.0-512BD4" alt=".NET 9">
+</p>
 
-- 一个窗口管理多个 TShock 服务端，可切换服务器查看日志。
-- 支持单服启动、顺序全部启动、全部停止。
-- 支持服务器配置、插件清单、初始物品和 SSC 的可视化设置。
-- 启动前按服务器配置同步插件，停用插件不删除。
-- 支持启动前配置备份、运行日志、崩溃检测和自动重启。
-- 支持 REST 指令发送、控制台显示、热重载和插件状态检查。
-- 支持无界面自检，部署后可直接验证目录和配置完整性。
+<p align="center">
+  <a href="https://github.com/Pigeon-X/PGame-TSManager/releases">下载构建</a>
+  ·
+  <a href="https://github.com/Pigeon-X/PGame-TSManager/actions">构建记录</a>
+  ·
+  <a href="https://github.com/Pigeon-X/PGame-TSManager/issues">问题反馈</a>
+</p>
+
+> [!NOTE]
+> 本项目由 [Pigeon-X](https://github.com/Pigeon-X) 公开维护，持续跟进 TShock 6.2.x，
+> 保留旧版 TSManager 的多服管理思路，并整理配置汉化、REST 修复、插件同步与一键构建流程。
+
+## 项目定位
+
+PGame-TSManager 用一个 Windows 管理器统一维护多个 TShock 服务端目录。它负责启动、停止、控制台查看、指令发送、插件同步、配置备份、自检和更新辅助，不替代 TShock 本身。
+
+| 项目 | 地址 |
+| --- | --- |
+| 当前公开维护仓库 | [Pigeon-X/PGame-TSManager](https://github.com/Pigeon-X/PGame-TSManager) |
+| 当前构建下载 | [GitHub Releases](https://github.com/Pigeon-X/PGame-TSManager/releases) |
+| 旧版 TSManager 原作者项目 | [cc004/TSManager](https://github.com/cc004/TSManager) |
+| TShock 官方项目 | [Pryaxis/TShock](https://github.com/Pryaxis/TShock) |
+
+## 功能概览
+
+| 功能 | 说明 |
+| --- | --- |
+| 多服务器管理 | 一个窗口管理多个 TShock 服务端，可切换查看日志 |
+| 启动控制 | 支持单服启动、顺序全部启动、全部停止 |
+| 配置管理 | 可视化调整服务器配置、插件清单、初始物品和 SSC |
+| 插件同步 | 按每服插件清单同步；未启用的插件移入停用目录，不删除 |
+| 运行保护 | 启动前备份、崩溃检测、自动重启和运行日志 |
+| 指令通道 | 控制台显示、REST 指令发送、热重载和插件状态检查 |
+| 部署自检 | 无界面检查服务器目录、服务端文件与配置完整性 |
+| 自动构建 | GitHub Actions 自动打包并发布到 Releases |
 
 ## 运行要求
 
 - Windows 10 / Windows 11
 - TShock 6.2.x
-- 自包含发布包不需要额外安装 .NET；源码构建需要 .NET 9 SDK
+- 自包含发布包不需要额外安装 .NET
+- 源码构建需要 .NET 9 SDK
 
 ## 快速开始
 
-1. 解压部署包到目标目录。
-2. 编辑根目录 `config.json`，确认 `serverProfiles` 指向正确的服务端目录。
-3. 双击 `PGame-TSManager.exe` 启动管理器。
-4. 在服务器列表选择目标服务器，点击“启动本服”或“全部启动”。
-5. 首次部署后执行一次自检，确认服务和配置目录完整。
+1. 从 [Releases](https://github.com/Pigeon-X/PGame-TSManager/releases) 下载部署包。
+2. 解压到目标目录。
+3. 编辑根目录 `config.json`，确认 `serverProfiles` 指向正确的服务端目录。
+4. 双击 `PGame-TSManager.exe`。
+5. 在服务器列表选择目标服务器，点击“启动本服”或“全部启动”。
+6. 首次部署后执行 `PGame-TSManager.exe --selfcheck`，确认目录完整。
+
+## 发布包
+
+| 包 | 用途 |
+| --- | --- |
+| `PGame-TSManager-universal.zip` | 通用管理器与维护工具 |
+| `PGame-TSManager-template.zip` | 自包含管理器与空配置模板 |
+| `PGame-TSManager-source.zip` | 源码与维护脚本 |
+
+每次 `main` 构建会生成 `v<版本>-build.<运行号>` 预发布并附带上述 ZIP。推送 `v*` 标签时进入正式 Release 流程。
 
 ## 常用命令
 
-```powershell
-# 启动管理器并顺序启动全部服务器
-PGame-TSManager.exe --startall
-
-# 只同步插件，不启动服务器
-PGame-TSManager.exe --syncplugins
-
-# 无界面自检，结果写入 selfcheck.txt
-PGame-TSManager.exe --selfcheck
-
-# 强制无界面运行
-PGame-TSManager.exe --nowindow
-```
+| 命令 | 用途 |
+| --- | --- |
+| `PGame-TSManager.exe --startall` | 启动管理器并顺序启动全部服务器 |
+| `PGame-TSManager.exe --syncplugins` | 只同步插件，不启动服务器 |
+| `PGame-TSManager.exe --selfcheck` | 无界面自检，结果写入 `selfcheck.txt` |
+| `PGame-TSManager.exe --nowindow` | 强制无界面运行 |
 
 ## 目录说明
+
+```text
+PGame-TSManager/
+├─ PGame-TSManager.exe       管理器主程序
+├─ config.json               服务器列表和运行策略
+├─ 1.PigeonServers/          各服务器独立目录
+├─ Plugins/                  插件统一维护目录
+├─ bin/                      TShock 与插件依赖库
+├─ Data/                     中文物品名等通用数据
+├─ Backups/                  配置备份
+├─ _runtime/                 运行沙箱与控制台日志
+└─ maintenance/              更新、校验和维护工具
+```
 
 | 目录或文件 | 用途 |
 | --- | --- |
@@ -51,14 +109,14 @@ PGame-TSManager.exe --nowindow
 | `1.PigeonServers` | 各服务器独立目录 |
 | `Plugins` | 插件统一维护目录 |
 | `bin` | TShock 与插件依赖库 |
-| `_runtime` | 运行沙箱、控制台日志和临时运行文件 |
+| `_runtime` | 运行沙箱、控制台日志和临时文件 |
 | `Backups` | 配置备份 |
 | `Data` | 中文物品名等通用数据 |
 | `maintenance` | 更新、校验和维护工具 |
 
 ## 服务器配置
 
-`config.json` 中的 `serverProfiles` 负责描述服务器。管理器只读取该配置并启动对应目录，不会自动改写服务器自身配置。
+`config.json` 中的 `serverProfiles` 描述服务器。管理器只读取配置并启动对应目录，不自动改写服务器自身配置。
 
 ```json
 {
@@ -71,18 +129,20 @@ PGame-TSManager.exe --nowindow
 }
 ```
 
-- `name`：管理器显示名称。
-- `rootPath`：现有服务端目录。
-- `executable`：服务端可执行文件。
-- `arguments`：原样透传的启动参数。
-- `enabled`：是否允许启动。
+| 字段 | 说明 |
+| --- | --- |
+| `name` | 管理器显示名称 |
+| `rootPath` | 现有服务端目录 |
+| `executable` | 服务端可执行文件 |
+| `arguments` | 原样透传的启动参数 |
+| `enabled` | 是否允许启动 |
 
 ## 插件加载规则
 
 - `Plugins` 是插件总库。
 - 每台服务器实际加载哪些插件，以该服务器 `config.json` 的插件清单为准。
 - 启动前由管理器同步到运行目录。
-- 不在清单中的插件会移入停用目录，不直接删除。
+- 不在清单中的插件移入停用目录，不直接删除。
 - 插件依赖 DLL 放在 `bin`，不要混入插件本体目录。
 
 ## 备份与安全
@@ -99,7 +159,7 @@ PGame-TSManager.exe --nowindow
 - REST 修复使用 `maintenance/rest-fixes`。
 - SSC 保持英文，不翻译、不改键、不改字段。
 - `/help` 保持原逻辑，不覆盖、不禁用。
-- 通用底层改动在本仓库维护；个人服、私人插件和 RPG 数据由私有覆盖层维护。
+- 通用底层由本仓库维护；个人服配置、私人插件和 RPG 数据由独立覆盖层维护。
 
 ## 构建
 
@@ -113,16 +173,19 @@ dotnet publish PGame-TSManager/PGame-TSManager.csproj `
   -o artifacts/manager
 ```
 
-## 自动构建
+## 自动构建与发布
 
-`.github/workflows/build.yml` 在 `main`、Pull Request 和 `v*` 标签触发，生成：
+`.github/workflows/build.yml` 在 `main`、Pull Request、手动运行和 `v*` 标签触发：
 
-- `PGame-TSManager-universal.zip`
-- `PGame-TSManager-template.zip`
-- `PGame-TSManager-source.zip`
+| 事件 | 结果 |
+| --- | --- |
+| `main` 推送 / 手动运行 | 创建 `v<版本>-build.<运行号>` 预发布并上传 ZIP |
+| `v*` 标签 | 创建正式 GitHub Release |
+| Pull Request | 只执行构建与仓库布局检查 |
 
-`main` 推送或手动运行工作流时，会自动创建
-`v<项目版本>-build.<运行号>` 预发布，并把上述三个 ZIP 上传到 GitHub Releases。
-推送 `v*` 标签时进入正式 Release 流程。
+工作流同时检查仓库布局，防止世界、数据库、日志、运行沙箱和私人内容进入通用包。
 
-工作流同时执行仓库布局检查，防止世界、数据库、日志、运行沙箱和私人内容进入通用包。
+## 致谢
+
+- 感谢 [cc004/TSManager](https://github.com/cc004/TSManager) 提供旧版 TS 管理器思路。
+- 感谢 [Pryaxis/TShock](https://github.com/Pryaxis/TShock) 及其贡献者维护 TShock 上游。
