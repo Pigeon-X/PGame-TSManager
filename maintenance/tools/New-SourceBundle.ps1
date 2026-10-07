@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory = $true)][string]$OutputPath
 )
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 $root = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 $OutputPath = if ([IO.Path]::IsPathRooted($OutputPath)) { [IO.Path]::GetFullPath($OutputPath) } else { [IO.Path]::GetFullPath((Join-Path (Get-Location).Path $OutputPath)) }
 $parent = Split-Path -Parent $OutputPath

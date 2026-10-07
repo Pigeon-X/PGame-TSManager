@@ -5,20 +5,28 @@ param(
     [Parameter(Mandatory = $true)][string]$OutputPath
 )
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 $root = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 $publish = (Resolve-Path -LiteralPath $PublishDirectory).Path
 $OutputPath = if ([IO.Path]::IsPathRooted($OutputPath)) { [IO.Path]::GetFullPath($OutputPath) } else { [IO.Path]::GetFullPath((Join-Path (Get-Location).Path $OutputPath)) }
 $stage = Join-Path ([IO.Path]::GetTempPath()) ('PGame-TSManager-release-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+function Copy-DirectoryContents([string]$Source, [string]$Destination) {
+    New-Item -ItemType Directory -Force -Path $Destination | Out-Null
+    foreach ($item in Get-ChildItem -LiteralPath $Source -Force) {
+        Copy-Item -LiteralPath $item.FullName -Destination $Destination -Recurse -Force
+    }
+}
+
 try {
-    Copy-Item -LiteralPath (Join-Path $publish '*') -Destination $stage -Recurse -Force
+    Copy-DirectoryContents $publish $stage
     foreach ($relative in @('maintenance', 'README.md')) {
         $source = Join-Path $root $relative
         if (Test-Path -LiteralPath $source) {
             $destination = Join-Path $stage $relative
             if ((Get-Item -LiteralPath $source).PSIsContainer) {
-                New-Item -ItemType Directory -Force -Path $destination | Out-Null
-                Copy-Item -LiteralPath (Join-Path $source '*') -Destination $destination -Recurse -Force
+                Copy-DirectoryContents $source $destination
             } else {
                 Copy-Item -LiteralPath $source -Destination $destination -Force
             }

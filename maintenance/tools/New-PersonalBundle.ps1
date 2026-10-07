@@ -7,14 +7,22 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 $root = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 $publish = (Resolve-Path -LiteralPath $PublishDirectory).Path
 $overlay = (Resolve-Path -LiteralPath $OverlayRoot).Path
 $stage = Join-Path ([IO.Path]::GetTempPath()) ('PGame-TSManager-personal-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
+function Copy-DirectoryContents([string]$Source, [string]$Destination) {
+    New-Item -ItemType Directory -Force -Path $Destination | Out-Null
+    foreach ($item in Get-ChildItem -LiteralPath $Source -Force) {
+        Copy-Item -LiteralPath $item.FullName -Destination $Destination -Recurse -Force
+    }
+}
+
 try {
-    Copy-Item -LiteralPath (Join-Path $publish '*') -Destination $stage -Recurse -Force
+    Copy-DirectoryContents $publish $stage
     & (Join-Path $root 'maintenance\tools\Apply-PersonalOverlay.ps1') `
         -CoreRoot $stage -OverlayRoot $overlay -AllowManagerConfigOverwrite
     $parent = Split-Path -Parent $OutputPath

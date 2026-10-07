@@ -17,7 +17,7 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
 $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $mappings = @{
     plugins = 'Plugins'
-    pluginDependencies = 'bin'
+    bin = 'bin'
     data = 'Data'
     servers = '1.PigeonServers'
     rpgConfigs = 'RPGConfigs'
@@ -25,12 +25,18 @@ $mappings = @{
     tools = 'Tools'
 }
 
+function Copy-DirectoryContents([string]$Source, [string]$Destination) {
+    New-Item -ItemType Directory -Force -Path $Destination | Out-Null
+    foreach ($item in Get-ChildItem -LiteralPath $Source -Force) {
+        Copy-Item -LiteralPath $item.FullName -Destination $Destination -Recurse -Force
+    }
+}
+
 foreach ($key in $mappings.Keys) {
     $source = Join-Path $overlay $key
     if (-not (Test-Path -LiteralPath $source -PathType Container)) { continue }
     $destination = Join-Path $core $mappings[$key]
-    New-Item -ItemType Directory -Force -Path $destination | Out-Null
-    Copy-Item -LiteralPath (Join-Path $source '*') -Destination $destination -Recurse -Force
+    Copy-DirectoryContents $source $destination
     Write-Host "Overlay: $key -> $destination" -ForegroundColor DarkCyan
 }
 
