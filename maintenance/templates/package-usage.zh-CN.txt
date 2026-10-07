@@ -1,0 +1,61 @@
+PGame-TSManager 使用说明
+========================
+
+版本：{{VERSION}}
+提交：{{COMMIT}}
+构建号：{{RUN_NUMBER}}
+
+一、运行要求
+------------
+1. Windows 10 或 Windows 11。
+2. TShock 6.2.x。
+3. 自包含发布包不需要额外安装 .NET。
+
+二、快速开始
+------------
+1. 解压部署包到固定目录，不要放在临时目录。
+2. 打开 config.json，确认 serverProfiles 指向正确的服务端目录。
+3. 双击 PGame-TSManager.exe 启动管理器。
+4. 在服务器列表选择目标服务器，使用“启动本服”或“全部启动”。
+5. 首次部署后运行 PGame-TSManager.exe --selfcheck 检查目录和配置。
+
+三、常用命令
+------------
+PGame-TSManager.exe --startall
+    启动管理器并顺序启动全部服务器。
+
+PGame-TSManager.exe --syncplugins
+    只同步插件，不启动服务器。
+
+PGame-TSManager.exe --selfcheck
+    无界面自检，结果写入 selfcheck.txt。
+
+PGame-TSManager.exe --nowindow
+    强制无界面运行。
+
+四、目录说明
+------------
+config.json          服务器列表和运行策略
+1.PigeonServers      各服务器独立目录
+Plugins              插件统一维护目录
+bin                  TShock 与插件依赖库
+Data                 中文物品名等通用数据
+Backups              配置备份
+_runtime             运行沙箱和控制台日志
+maintenance          更新、校验和维护工具
+
+五、注意事项
+------------
+1. 管理器只读取配置并启动服务器，不会自动改写服务器自身配置。
+2. 每台服务器加载哪些插件，以该服 config.json 的插件清单为准。
+3. 不在插件清单中的插件会移入停用目录，不直接删除。
+4. 世界文件、数据库、玩家数据和日志不应上传到源码仓库。
+5. TShock 更新使用 maintenance/tshock-update 的独立流程。
+6. SSC 保持英文；/help 保持原逻辑。
+
+六、项目地址
+------------
+公开维护：https://github.com/Pigeon-X/PGame-TSManager
+构建下载：https://github.com/Pigeon-X/PGame-TSManager/releases
+旧版 TSManager 原作者：https://github.com/cc004/TSManager
+TShock 官方项目：https://github.com/Pryaxis/TShock

@@ -21,6 +21,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Read project version
         id: version
@@ -52,6 +55,16 @@ jobs:
           -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
           -p:DebugType=None -o artifacts/manager
 
+      - name: Generate package usage and update notes
+        shell: pwsh
+        run: |
+          ./maintenance/tools/New-PackageExtras.ps1 `
+            -OutputDirectory (Join-Path $env:GITHUB_WORKSPACE 'artifacts/package-extras') `
+            -Version '${{ steps.version.outputs.version }}' `
+            -Commit '${{ github.sha }}' `
+            -RunNumber '${{ github.run_number }}' `
+            -Repository '${{ github.repository }}'
+
       - name: Package source-only maintenance bundle
         shell: pwsh
         run: |
@@ -74,6 +87,20 @@ jobs:
             -RepositoryRoot $env:GITHUB_WORKSPACE `
             -PublishDirectory (Join-Path $env:GITHUB_WORKSPACE 'artifacts/manager') `
             -OutputPath (Join-Path $env:GITHUB_WORKSPACE 'artifacts/PGame-TSManager-universal.zip')
+
+      - name: Add usage and update notes to packages
+        shell: pwsh
+        run: |
+          $archives = @(
+            (Join-Path $env:GITHUB_WORKSPACE 'artifacts/PGame-TSManager-source.zip')
+            (Join-Path $env:GITHUB_WORKSPACE 'artifacts/PGame-TSManager-template.zip')
+            (Join-Path $env:GITHUB_WORKSPACE 'artifacts/PGame-TSManager-universal.zip')
+          )
+          $extras = @(
+            Get-ChildItem -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'artifacts/package-extras') -Filter '*.txt' |
+              ForEach-Object { $_.FullName }
+          )
+          ./maintenance/tools/Add-ZipEntries.ps1 -ArchivePath $archives -FilePath $extras
 
       - name: Self-check repository packaging rules
         shell: pwsh
@@ -103,8 +130,10 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
-          files: artifacts/*.zip
+          body_path: artifacts/package-extras/release-body.md
+          files: |
+            artifacts/*.zip
+            artifacts/package-extras/*.txt
 
   publish-build:
     if: >-
@@ -128,7 +157,9 @@ jobs:
           tag_name: v${{ needs.build.outputs.version }}-build.${{ github.run_number }}
           name: PGame-TSManager v${{ needs.build.outputs.version }} build ${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          generate_release_notes: true
+          body_path: artifacts/package-extras/release-body.md
           prerelease: true
           make_latest: false
-          files: artifacts/*.zip
+          files: |
+            artifacts/*.zip
+            artifacts/package-extras/*.txt

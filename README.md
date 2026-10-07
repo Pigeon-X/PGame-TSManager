@@ -76,6 +76,7 @@ PGame-TSManager 用一个 Windows 管理器统一维护多个 TShock 服务端�
 | `PGame-TSManager-template.zip` | 自包含管理器与空配置模板 |
 | `PGame-TSManager-source.zip` | 源码与维护脚本 |
 
+每个 ZIP 内附带 `使用说明.txt` 和 `更新内容.txt`，Releases 页面也会提供这两个文件。
 每次 `main` 构建会生成 `v<版本>-build.<运行号>` 预发布并附带上述 ZIP。推送 `v*` 标签时进入正式 Release 流程。
 
 ## 常用命令
