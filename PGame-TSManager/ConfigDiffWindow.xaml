@@ -1,8 +1,10 @@
 <Window x:Class="PGameTSManager.ConfigDiffWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:PGameTSManager"
         Title="配置变更预览" Height="620" Width="820" MinHeight="460" MinWidth="680"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="CanResize"
+        local:WindowChromeHelper.PreventIndependentMinimize="True"
         Background="{DynamicResource AppBackdrop}" FontFamily="Microsoft YaHei UI" UseLayoutRounding="True">
     <Window.Resources>
         <Style TargetType="TabItem">

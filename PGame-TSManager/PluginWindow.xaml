@@ -1,8 +1,10 @@
 <Window x:Class="PGameTSManager.PluginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:PGameTSManager"
         Title="插件开关" Height="560" Width="540" MinHeight="420" MinWidth="460"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="CanResize"
+        local:WindowChromeHelper.PreventIndependentMinimize="True"
         Background="{DynamicResource AppBackdrop}" FontFamily="Microsoft YaHei UI" UseLayoutRounding="True">
 
     <Grid>

@@ -1,8 +1,10 @@
 <Window x:Class="PGameTSManager.ScheduleWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:PGameTSManager"
         Title="计划任务" Height="600" Width="760" MinHeight="460" MinWidth="640"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="CanResize"
+        local:WindowChromeHelper.PreventIndependentMinimize="True"
         Background="{DynamicResource AppBackdrop}" FontFamily="Microsoft YaHei UI" UseLayoutRounding="True">
     <Grid>
         <Border Margin="6" CornerRadius="14" Background="{DynamicResource GlassBg}"

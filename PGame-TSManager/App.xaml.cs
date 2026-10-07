@@ -441,6 +441,7 @@ namespace PGameTSManager
             // 原生外框跟随主题：深色标题栏 + 紫色描边（Win11 上还会变圆角）
             window.SourceInitialized += (_, _) =>
             {
+                if (window.WindowStyle == WindowStyle.None) return;
                 var isLight = IsLightTheme();
                 WindowChromeHelper.Apply(window, !isLight,
                     WindowChromeHelper.Bgr(isLight ? "#EDE9FE" : "#1B1533"),

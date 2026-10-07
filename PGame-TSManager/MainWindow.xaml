@@ -4,14 +4,22 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PGameTSManager"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:Linq="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json" x:Class="PGameTSManager.MainWindow"
         mc:Ignorable="d"
         DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
         Title="PGame-TSManager" Height="760" Width="1120" MinHeight="620" MinWidth="960"
         Name="Window" Loaded="Window_Loaded" Icon="PGame-TSManager.ico"
-        WindowState="Normal" ShowInTaskbar="True" UseLayoutRounding="True" SnapsToDevicePixels="True"
+        WindowState="Normal" WindowStyle="None" ResizeMode="CanResize"
+        ShowInTaskbar="True" UseLayoutRounding="True" SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Display"
         Background="{DynamicResource AppBackdrop}" FontFamily="Microsoft YaHei UI">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="38" ResizeBorderThickness="6"
+                            CornerRadius="0" GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
 
     <Window.Resources>
         <!-- 窗口底色：极光渐变（不是系统模糊，Win10/11 表现一致，RDP 里也不会掉效果） -->
@@ -257,6 +265,50 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- 自定义标题栏按钮 -->
+        <Style TargetType="Button" x:Key="TitleBarButton">
+            <Setter Property="Foreground" Value="#F5F3FF"/>
+            <Setter Property="Background" Value="#22FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Margin" Value="0,0,5,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="#44FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="#66FFFFFF"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="Tag" Value="Close"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="b" Property="Background" Value="#CCEF4444"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Button" x:Key="TitleBarCloseButton" BasedOn="{StaticResource TitleBarButton}">
+            <Setter Property="Background" Value="#22FFFFFF"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#CCEF4444"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -282,10 +334,54 @@
         <Border Margin="8" CornerRadius="16" Background="{DynamicResource GlassBg}"
                 BorderBrush="{DynamicResource GlassBorder}" BorderThickness="1">
             <Grid>
-                <!-- 顶部高光条 -->
-                <Border Height="1" VerticalAlignment="Top" Margin="16,1,16,0" Background="{DynamicResource GlassHi}"/>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="38"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                <Grid Margin="12,8,12,8">
+                <!-- 流光维度自定义标题栏 -->
+                <Border Grid.Row="0" CornerRadius="15,15,0,0">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#FF211238" Offset="0"/>
+                            <GradientStop Color="#FF4B2A78" Offset="0.55"/>
+                            <GradientStop Color="#FF31154F" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Grid Margin="12,0,7,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Width="26" Height="26" CornerRadius="8" Background="#35FFFFFF"
+                                    BorderBrush="#44FFFFFF" BorderThickness="1">
+                                <Image Source="PGame-TSManager.ico" Width="19" Height="19"/>
+                            </Border>
+                            <TextBlock Text="流光维度" Foreground="#FFF8F5FF" FontSize="13.5"
+                                       FontWeight="SemiBold" VerticalAlignment="Center" Margin="9,0,0,0"/>
+                            <TextBlock Text="PGame-TSManager" Foreground="#99FFFFFF" FontSize="10.5"
+                                       VerticalAlignment="Center" Margin="9,1,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                            <Button Style="{StaticResource TitleBarButton}"
+                                    Click="TitleBarMinimize_Click" ToolTip="最小化">
+                                <Path Data="M 3 9 L 13 9" Stroke="#FFF8F5FF" StrokeThickness="1.6"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                            </Button>
+                            <Button Style="{StaticResource TitleBarCloseButton}" Tag="Close"
+                                    Click="TitleBarClose_Click" ToolTip="关闭">
+                                <Path Data="M 3 3 L 12 12 M 12 3 L 3 12" Stroke="#FFF8F5FF"
+                                      StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 顶部高光条 -->
+                <Border Grid.Row="0" Height="1" VerticalAlignment="Bottom"
+                        Margin="12,0,12,0" Background="#38FFFFFF"/>
+
+                <Grid Grid.Row="1" Margin="12,8,12,8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>

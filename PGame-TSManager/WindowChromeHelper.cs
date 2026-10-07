@@ -17,9 +17,43 @@ namespace PGameTSManager
         private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
         private const int DWMWA_BORDER_COLOR = 34;
         private const int DWMWA_CAPTION_COLOR = 35;
+        private const int GWL_STYLE = -16;
+        private const int WS_MINIMIZEBOX = 0x00020000;
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_FRAMECHANGED = 0x0020;
+
+        public static readonly DependencyProperty PreventIndependentMinimizeProperty =
+            DependencyProperty.RegisterAttached(
+                "PreventIndependentMinimize",
+                typeof(bool),
+                typeof(WindowChromeHelper),
+                new PropertyMetadata(false, OnPreventIndependentMinimizeChanged));
 
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
+
+        public static void SetPreventIndependentMinimize(DependencyObject element, bool value)
+            => element.SetValue(PreventIndependentMinimizeProperty, value);
+
+        public static bool GetPreventIndependentMinimize(DependencyObject element)
+            => (bool)element.GetValue(PreventIndependentMinimizeProperty);
+
+        private static void OnPreventIndependentMinimizeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is Window window && e.NewValue is true)
+                PreventIndependentMinimize(window);
+        }
 
         public static void Apply(Window window, bool dark, int captionBgr = -1, int borderBgr = -1)
         {
@@ -58,5 +92,46 @@ namespace PGameTSManager
             catch { return -1; }
         }
 
+        /// <summary>
+        /// 二级窗口保持可缩放，但隐藏最小化按钮；若通过快捷键最小化，则立即恢复。
+        /// </summary>
+        public static void PreventIndependentMinimize(Window window)
+        {
+            try
+            {
+                window.StateChanged += (_, _) =>
+                {
+                    try
+                    {
+                        if (window.WindowState != WindowState.Minimized) return;
+                        window.WindowState = WindowState.Normal;
+                        window.Activate();
+                    }
+                    catch { }
+                };
+
+                void RemoveMinimizeButton(object? sender, EventArgs args)
+                {
+                    try
+                    {
+                        var hwnd = new WindowInteropHelper(window).Handle;
+                        if (hwnd == IntPtr.Zero) return;
+
+                        var style = GetWindowLong(hwnd, GWL_STYLE);
+                        if ((style & WS_MINIMIZEBOX) == 0) return;
+
+                        SetWindowLong(hwnd, GWL_STYLE, style & ~WS_MINIMIZEBOX);
+                        SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+                    }
+                    catch { }
+                }
+
+                window.SourceInitialized += RemoveMinimizeButton;
+                window.Loaded += RemoveMinimizeButton;
+                window.ContentRendered += RemoveMinimizeButton;
+            }
+            catch { }
+        }
     }
 }

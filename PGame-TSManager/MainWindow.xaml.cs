@@ -562,5 +562,15 @@ namespace PGameTSManager
 
         private void QuickSave_Click(object _, RoutedEventArgs e) => SendQuickCommand("/save");
 
+        private void TitleBarMinimize_Click(object _, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Minimized;
+        }
+
+        private void TitleBarClose_Click(object _, RoutedEventArgs e)
+        {
+            Close();
+        }
+
     }
 }
