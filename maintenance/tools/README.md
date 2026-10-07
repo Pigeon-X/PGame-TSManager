@@ -18,6 +18,8 @@ Tools/      维护脚本
 | `1.生存` | 7777 | 7878 |
 | `2.生存2` | 7778 | 7879 |
 
+两套模板默认必需启用 `TShockAPI.dll` 和 `HotReload.dll`。
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Add-TShockTemplates.ps1 `
   -ManagerDir "D:\PGame-TSManager"
@@ -65,6 +67,7 @@ powershell -ExecutionPolicy Bypass -File .\Test-TShockConfig.ps1 `
 | `Add-TShockTemplates.ps1` | 写入 `生存`、`生存2` 两套模板 |
 | `Migrate-ManagerLayout.ps1` | 迁移旧目录到 `Core / Servers / Plugins / Tools` |
 | `Invoke-TShockUpdate.ps1` | 独立 TShock 更新流程 |
+| `Prepare-TShockRuntime.ps1` | 下载 TShock 运行时并覆盖汉化 `TShockAPI.dll`、`HotReload.dll` |
 
 ## 重要规则
 

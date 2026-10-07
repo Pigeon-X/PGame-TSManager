@@ -43,9 +43,11 @@
 - 中文 TShock `tshock\config.json`
 - SQLite 默认数据库配置
 - REST API 默认配置
+- 默认必需插件：`TShockAPI.dll`、`HotReload.dll`
+- GitHub 构建时自动下载官方 TShock Windows x64 运行时并注入 `Core`
 - 公共占位令牌，不包含私人令牌、MySQL 密码或玩家数据
 
-模板不包含 TShock 运行时和世界文件。使用者需要把官方 TShock 运行时放入 `Core`，把世界文件放入 `Servers\Worlds`。
+通用包不包含世界文件。使用者只需要把世界文件放入 `Servers\Worlds`。
 
 ## 项目定位
 
@@ -104,7 +106,7 @@ PGame-TSManager/
 
 1. 从 [Releases](https://github.com/Pigeon-X/PGame-TSManager/releases) 下载通用包。
 2. 解压到目标目录。
-3. 将 TShock 运行文件放入 `Core`：
+3. 通用包已经准备好 `Core` TShock 运行时，不需要手动复制：
 
 ```text
 Core/
@@ -199,6 +201,7 @@ PGame-TSManager.exe --selfcheck
 - 每台服务器加载哪些插件，由该服 `config.json` 的 `插件` 清单决定。
 - 未列出的第三方插件会被移动到停用目录，不会直接删除。
 - `TShockAPI.*` 由 TShock 自身保留，不参与插件同步和停用。
+- `TShockAPI.dll` 和 `HotReload.dll` 默认必需，插件开关不能取消。
 - 插件依赖 DLL 放入 `Core\bin`，不要混入 `Plugins`。
 
 ## TShock 维护规则

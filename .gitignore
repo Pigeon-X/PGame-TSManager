@@ -4,6 +4,7 @@ obj/
 *.user
 *.suo
 *.dll
+!maintenance/runtime/*.dll
 *.pdb
 *.exe
 *.zip

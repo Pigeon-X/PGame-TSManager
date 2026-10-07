@@ -55,6 +55,12 @@ jobs:
           -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
           -p:DebugType=None -o artifacts/manager
 
+      - name: Prepare TShock runtime
+        shell: pwsh
+        run: |
+          ./maintenance/tools/Prepare-TShockRuntime.ps1 `
+            -OutputDirectory (Join-Path $env:GITHUB_WORKSPACE 'artifacts/manager/Core')
+
       - name: Generate package usage and update notes
         shell: pwsh
         run: |
@@ -78,6 +84,7 @@ jobs:
           ./maintenance/tools/New-ReleaseBundle.ps1 `
             -RepositoryRoot $env:GITHUB_WORKSPACE `
             -PublishDirectory (Join-Path $env:GITHUB_WORKSPACE 'artifacts/manager') `
+            -RuntimeDirectory (Join-Path $env:GITHUB_WORKSPACE 'artifacts/manager/Core') `
             -OutputPath (Join-Path $env:GITHUB_WORKSPACE 'artifacts/PGame-TSManager-template.zip')
 
       - name: Package universal manager bundle
@@ -86,6 +93,7 @@ jobs:
           ./maintenance/tools/New-UniversalBundle.ps1 `
             -RepositoryRoot $env:GITHUB_WORKSPACE `
             -PublishDirectory (Join-Path $env:GITHUB_WORKSPACE 'artifacts/manager') `
+            -RuntimeDirectory (Join-Path $env:GITHUB_WORKSPACE 'artifacts/manager/Core') `
             -OutputPath (Join-Path $env:GITHUB_WORKSPACE 'artifacts/PGame-TSManager-universal.zip')
 
       - name: Add usage and update notes to packages

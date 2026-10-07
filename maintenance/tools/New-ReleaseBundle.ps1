@@ -2,7 +2,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$RepositoryRoot,
     [Parameter(Mandatory = $true)][string]$PublishDirectory,
-    [Parameter(Mandatory = $true)][string]$OutputPath
+    [Parameter(Mandatory = $true)][string]$OutputPath,
+    [string]$RuntimeDirectory
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -21,6 +22,10 @@ function Copy-DirectoryContents([string]$Source, [string]$Destination) {
 
 try {
     Copy-DirectoryContents $publish $stage
+    if (-not [string]::IsNullOrWhiteSpace($RuntimeDirectory) -and
+        (Test-Path -LiteralPath $RuntimeDirectory -PathType Container)) {
+        Copy-DirectoryContents $RuntimeDirectory (Join-Path $stage 'Core')
+    }
     foreach ($relative in @('maintenance\tools', 'maintenance\templates', 'README.md')) {
         $source = Join-Path $root $relative
         if (Test-Path -LiteralPath $source) {
@@ -61,7 +66,9 @@ PGame-TSManager release template
 This package contains the manager, maintenance tools and two TShock templates:
   1.生存  : game 7777 / REST 7878
   2.生存2 : game 7778 / REST 7879
-Place TShock.Server.exe, bin, i18n, runtimes and GeoIP.dat in Core, then add your world files.
+Both templates require TShockAPI.dll and HotReload.dll by default.
+The Core TShock runtime is prepared automatically during GitHub builds.
+Place your world files in Servers\Worlds, then start PGame-TSManager.exe.
 Running servers, worlds, databases, logs, _runtime and personal plugins are excluded from GitHub bundles.
 '@ | Set-Content -LiteralPath $readme -Encoding UTF8
     & (Join-Path $root 'maintenance\tools\Migrate-ManagerLayout.ps1') `

@@ -101,7 +101,7 @@ namespace PGameTSManager
 
             Header.Text = "插件开关 — " + serverName;
             SubHeader.Text = "勾选 = 这台服加载的插件（对应 config.json 的「插件」清单）。" +
-                             "TShockAPI.dll 必选。启用了 HotReload.dll 时，可用「热重载应用」立即加载/卸载变更；其他情况保存后需要重启该服。";
+                             "TShockAPI.dll、HotReload.dll 为默认必需，不能取消。可用「热重载应用」立即加载/卸载其他插件变更。";
             List.ItemsSource = Items;
             LoadItems();
         }
@@ -130,9 +130,10 @@ namespace PGameTSManager
             }
             catch { }
 
-            // 顺序：TShockAPI 永远第一，其余按名字；清单里有但总库没有的显示「总库缺失」
+            // 顺序：TShockAPI、HotReload 永远在最前；清单里有但总库没有的显示「总库缺失」
             var all = pool.Union(enabled, StringComparer.OrdinalIgnoreCase)
-                          .OrderBy(n => string.Equals(n, "TShockAPI.dll", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                          .OrderBy(n => string.Equals(n, "TShockAPI.dll", StringComparison.OrdinalIgnoreCase) ? 0 :
+                                        string.Equals(n, "HotReload.dll", StringComparison.OrdinalIgnoreCase) ? 1 : 2)
                           .ThenBy(n => n, StringComparer.OrdinalIgnoreCase);
 
             foreach (var name in all)
@@ -142,8 +143,9 @@ namespace PGameTSManager
                 {
                     Name = name,
                     Description = Describe(name),
-                    Status = inPool ? "" : "（总库缺失）",
-                    Enabled = enabled.Any(e => string.Equals(e, name, StringComparison.OrdinalIgnoreCase))
+                    Status = ProtectedPlugins.Contains(name) ? "（必需）" : inPool ? "" : "（总库缺失）",
+                    Enabled = ProtectedPlugins.Contains(name) ||
+                              enabled.Any(e => string.Equals(e, name, StringComparison.OrdinalIgnoreCase))
                 });
             }
 
@@ -160,17 +162,21 @@ namespace PGameTSManager
         {
             try
             {
-                if (Items.Any(i => string.Equals(i.Name, "TShockAPI.dll", StringComparison.OrdinalIgnoreCase) && !i.Enabled))
+                var missingRequired = Items.FirstOrDefault(i => ProtectedPlugins.Contains(i.Name) && !i.Enabled);
+                if (missingRequired != null)
                 {
-                    MessageBox.Show(this, "TShockAPI.dll 是必须加载的，不能取消。", "插件开关",
+                    MessageBox.Show(this, missingRequired.Name + " 是默认必需插件，不能取消。", "插件开关",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return false;
                 }
 
-                var chosen = Items.Where(i => i.Enabled).Select(i => i.Name).ToList();
-                // TShockAPI 放最前，读起来清楚
+                var chosen = Items.Where(i => i.Enabled).Select(i => i.Name)
+                    .Union(ProtectedPlugins, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                // 必需插件固定放最前，读起来清楚
                 var ordered = chosen
-                    .OrderBy(n => string.Equals(n, "TShockAPI.dll", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                    .OrderBy(n => string.Equals(n, "TShockAPI.dll", StringComparison.OrdinalIgnoreCase) ? 0 :
+                                  string.Equals(n, "HotReload.dll", StringComparison.OrdinalIgnoreCase) ? 1 : 2)
                     .ThenBy(n => n, StringComparer.OrdinalIgnoreCase)
                     .ToList();
 

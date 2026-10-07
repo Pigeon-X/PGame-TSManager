@@ -19,6 +19,16 @@ foreach ($dir in @($profilesDir, $worldsDir, $pluginsDir, $coreDir, $toolsDir)) 
     [IO.Directory]::CreateDirectory($dir) | Out-Null
 }
 
+$runtimeDir = Join-Path (Split-Path -Parent $PSScriptRoot) 'runtime'
+$defaultPlugins = @('TShockAPI.dll', 'HotReload.dll')
+foreach ($pluginName in $defaultPlugins) {
+    $source = Join-Path $runtimeDir $pluginName
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+        throw "通用模板缺少运行时插件：$source"
+    }
+    Copy-Item -LiteralPath $source -Destination (Join-Path $pluginsDir $pluginName) -Force
+}
+
 function Set-Property([object]$Object, [string]$Name, [object]$Value) {
     if ($null -ne $Object.PSObject.Properties[$Name]) {
         $Object.$Name = $Value
@@ -56,7 +66,7 @@ foreach ($definition in @(
         'IP' = '0.0.0.0'
         '密码' = ''
         '启动参数' = ''
-        '插件' = @()
+        '插件' = @($defaultPlugins)
         '插件总库' = 'Plugins'
         '覆盖插件目录' = $true
         '备注' = "通用模板 $($definition.Port) / REST $($definition.RestPort)"
@@ -73,7 +83,7 @@ foreach ($definition in @(
         arguments = ''
         enabled = $true
         remark = "通用模板 $($definition.Port) / REST $($definition.RestPort)"
-        plugins = @()
+        plugins = @($defaultPlugins)
         pluginLibrary = ''
     }
 }

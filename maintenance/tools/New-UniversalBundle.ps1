@@ -2,7 +2,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$RepositoryRoot,
     [Parameter(Mandatory = $true)][string]$PublishDirectory,
-    [Parameter(Mandatory = $true)][string]$OutputPath
+    [Parameter(Mandatory = $true)][string]$OutputPath,
+    [string]$RuntimeDirectory
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,6 +22,10 @@ function Copy-DirectoryContents([string]$Source, [string]$Destination) {
 
 try {
     Copy-DirectoryContents $publish $stage
+    if (-not [string]::IsNullOrWhiteSpace($RuntimeDirectory) -and
+        (Test-Path -LiteralPath $RuntimeDirectory -PathType Container)) {
+        Copy-DirectoryContents $RuntimeDirectory (Join-Path $stage 'Core')
+    }
     foreach ($relative in @('maintenance\tools', 'maintenance\templates', 'README.md')) {
         $source = Join-Path $root $relative
         if (-not (Test-Path -LiteralPath $source)) { continue }
