@@ -87,3 +87,4 @@ $releaseBody = @(
 Set-Content -LiteralPath (Join-Path $output 'release-body.md') -Value $releaseBody -Encoding UTF8
 
 Write-Host "Package extras created: $output" -ForegroundColor Green
+$global:LASTEXITCODE = 0
