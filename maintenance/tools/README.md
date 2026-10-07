@@ -68,6 +68,7 @@ powershell -ExecutionPolicy Bypass -File .\Test-TShockConfig.ps1 `
 | `Migrate-ManagerLayout.ps1` | 迁移旧目录到 `Core / Servers / Plugins / Tools` |
 | `Invoke-TShockUpdate.ps1` | 独立 TShock 更新流程 |
 | `Prepare-TShockRuntime.ps1` | 下载 TShock 运行时并覆盖汉化 `TShockAPI.dll`、`HotReload.dll` |
+| `Prune-GitHubReleases.ps1` | 只保留最新 10 条 Release，并删除旧 tag |
 
 ## 重要规则
 

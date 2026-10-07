@@ -237,6 +237,7 @@ dotnet publish PGame-TSManager/PGame-TSManager.csproj `
 | `PGame-TSManager-source.zip` | 源码、工作流和维护脚本 |
 
 每次 `main` 推送会生成测试 Release；推送 `v*` 标签会生成正式 Release。
+仓库只保留最新 10 条 Release，更早的 Release 和对应 tag 会在构建后自动清理。
 
 ## 通用版与个人版
 

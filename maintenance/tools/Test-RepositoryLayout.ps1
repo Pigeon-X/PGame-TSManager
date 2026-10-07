@@ -4,8 +4,13 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 $bad = @()
 $tracked = @(& git -C $root ls-files)
+$allowedRuntimeAssets = @(
+    'maintenance\runtime\HotReload.dll',
+    'maintenance\runtime\TShockAPI.dll'
+)
 foreach ($path in $tracked) {
     $normalized = $path.Replace('/', '\')
+    if ($allowedRuntimeAssets -contains $normalized) { continue }
     if ($normalized -match '^(1\.PigeonServers|_runtime|Worlds|Plugins|ServerPlugins|Backups|Logs)\\' -or
         $normalized -match '\.(exe|dll|pdb|wld|db|sqlite|zip)$' -or
         $normalized -match '(^|\\)(crash\.log|selfcheck\.txt|syncplugins\.txt)$') {

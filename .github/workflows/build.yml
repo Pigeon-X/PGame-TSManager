@@ -145,6 +145,17 @@ jobs:
             artifacts/package-extras/package-usage.zh-CN.txt
             artifacts/package-extras/update-notes.txt
 
+      - name: Prune old releases
+        if: always()
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./maintenance/tools/Prune-GitHubReleases.ps1 `
+            -Repository '${{ github.repository }}' `
+            -Token $env:GH_TOKEN `
+            -Keep 10
+
   publish-build:
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -174,3 +185,14 @@ jobs:
             artifacts/*.zip
             artifacts/package-extras/package-usage.zh-CN.txt
             artifacts/package-extras/update-notes.txt
+
+      - name: Prune old releases
+        if: always()
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./maintenance/tools/Prune-GitHubReleases.ps1 `
+            -Repository '${{ github.repository }}' `
+            -Token $env:GH_TOKEN `
+            -Keep 10
