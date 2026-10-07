@@ -43,6 +43,8 @@ namespace PGameTSManager
         private int _restartCount;                             // 连续自动重启次数
         private DateTime _startedAt = DateTime.UtcNow;
         private DateTime _lastLogAlertUtc = DateTime.MinValue;
+        private DateTime _idleSinceUtc = DateTime.MinValue;
+        private DateTime _lastIdleTrimUtc = DateTime.MinValue;
 
         /// <summary>告警事件：(服, 标题, 详情)。由主窗口转给 Alerter。</summary>
         public event Action<ServerContainer, string, string>? OnAlert;
@@ -183,6 +185,53 @@ namespace PGameTSManager
             {
                 // 服务器可能正在加载世界 / 已停止：忽略即可
                 if (PlayerCount != -1) PlayerCount = -1;
+            }
+        }
+
+        /// <summary>
+        /// 空服内存压缩：只在确认在线人数为 0 时执行，端口和进程保持运行。
+        /// 玩家第一次进入不会遇到连接拒绝，最多由系统按需把页换回内存。
+        /// </summary>
+        public void TickIdleMemory()
+        {
+            if (!_managerConfig.idleMemoryTrimEnabled) return;
+            if (!IsRunning || PlayerCount != 0)
+            {
+                _idleSinceUtc = DateTime.MinValue;
+                return;
+            }
+
+            var now = DateTime.UtcNow;
+            if (_idleSinceUtc == DateTime.MinValue)
+            {
+                _idleSinceUtc = now;
+                return;
+            }
+
+            var idleMinutes = Math.Max(1, _managerConfig.idleMemoryTrimMinutes);
+            if ((now - _idleSinceUtc).TotalMinutes < idleMinutes) return;
+
+            var cooldownMinutes = Math.Max(1, _managerConfig.idleMemoryTrimCooldownMinutes);
+            if (_lastIdleTrimUtc != DateTime.MinValue &&
+                (now - _lastIdleTrimUtc).TotalMinutes < cooldownMinutes) return;
+
+            var process = _process;
+            if (process == null) return;
+
+            try
+            {
+                var minBytes = Math.Max(32, _managerConfig.idleMemoryTrimMinWorkingSetMB) * 1024L * 1024L;
+                if (process.WorkingSet64 < minBytes) return;
+
+                var before = process.WorkingSet64 / 1024L / 1024L;
+                if (!IdleMemoryTrim.TryTrim(process)) return;
+                _lastIdleTrimUtc = now;
+                var after = process.WorkingSet64 / 1024L / 1024L;
+                AddText($"[内存压缩] 空服 {Name}：{before} MB → {after} MB（端口保持监听）\n");
+            }
+            catch
+            {
+                // 进程可能刚好退出或正在保存世界，忽略本轮。
             }
         }
 
@@ -616,6 +665,8 @@ namespace PGameTSManager
 
             AddText($"[启动] {Name}  (共享 ServerPlugins，无窗口)\n");
             _startedAt = DateTime.UtcNow;
+            _idleSinceUtc = DateTime.MinValue;
+            _lastIdleTrimUtc = DateTime.MinValue;
             _userStopRequested = false;
             _process.Start();
             try { _process.BeginOutputReadLine(); _process.BeginErrorReadLine(); } catch { }

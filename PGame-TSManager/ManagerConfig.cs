@@ -124,6 +124,16 @@ namespace PGameTSManager
         /// <summary>true = 每台服务器另开独立可见控制台窗口；false（默认）= 在管理器内运行。</summary>
         public bool showServerWindow = false;
 
+        // —— 空服内存压缩：不关端口，只压缩工作集，玩家首次进入不受影响 ——
+        /// <summary>是否在服务器无人时自动压缩工作集。</summary>
+        public bool idleMemoryTrimEnabled = true;
+        /// <summary>连续无人多少分钟后执行第一次压缩。</summary>
+        public int idleMemoryTrimMinutes = 15;
+        /// <summary>两次压缩之间的最小间隔分钟数。</summary>
+        public int idleMemoryTrimCooldownMinutes = 30;
+        /// <summary>工作集低于该值时不再压缩，避免无意义操作。</summary>
+        public int idleMemoryTrimMinWorkingSetMB = 256;
+
         /// <summary>
         /// 「全部启动」是否按顺序逐台启动：上一台真正就绪（端口在监听）后再起下一台。
         /// 三台同时读世界会互相抢 CPU / 磁盘，表现就是界面卡很久才起来。

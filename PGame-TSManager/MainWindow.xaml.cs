@@ -134,7 +134,12 @@ namespace PGameTSManager
             {
                 foreach (var c in Containers)
                 {
-                    try { await c.RefreshStatusAsync(); } catch { }
+                    try
+                    {
+                        await c.RefreshStatusAsync();
+                        c.TickIdleMemory();
+                    }
+                    catch { }
                 }
                 UpdateTrayTip();
                 UpdateActionStates();

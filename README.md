@@ -153,6 +153,18 @@ PGame-TSManager/
 - 世界文件、数据库、日志和玩家数据不进入 Git 仓库。
 - 自检和配置校验默认只读，不修改服务器文件。
 
+## 空闲内存压缩
+
+服务器在线人数为 0 且持续达到 `idleMemoryTrimMinutes` 后，管理器会调用
+`EmptyWorkingSet` 压缩 TShock 工作集：
+
+- 不关闭进程，不关闭游戏端口。
+- 玩家第一次进入不会遇到连接被拒绝。
+- 被换出的内存会在玩家进入时由系统按需换回。
+- `idleMemoryTrimEnabled` 控制总开关。
+- `idleMemoryTrimCooldownMinutes` 控制两次压缩的最小间隔。
+- `idleMemoryTrimMinWorkingSetMB` 控制最低压缩阈值。
+
 ## 维护边界
 
 - TShock 更新使用 `maintenance/tshock-update` 的独立流程。
