@@ -208,7 +208,6 @@
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
                                 <Grid Margin="0,0,0,6">
@@ -223,7 +222,20 @@
                                                VerticalAlignment="Center" FontSize="11"
                                                Foreground="{DynamicResource TextDim}"/>
                                 </Grid>
-                                <Border Grid.Row="1" Margin="0,0,0,6" Padding="8,6" CornerRadius="8"
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl x:Name="SscList"
+                                                  ItemTemplate="{StaticResource SettingRowTemplate}"/>
+                                </ScrollViewer>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem Header="初始物品">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Border Margin="0,0,0,6" Padding="8,6" CornerRadius="8"
                                         Background="{DynamicResource GlassPanel}" BorderBrush="{DynamicResource GlassBorder}"
                                         BorderThickness="1">
                                     <StackPanel>
@@ -234,16 +246,15 @@
                                                     Style="{StaticResource DlgBtn}" Height="26" FontSize="11"
                                                     MinWidth="66" Padding="7,0" Margin="8,0,0,0"/>
                                         </DockPanel>
-                                        <TextBlock Text="SSC 原生物品字段：netID / stack / prefix / favorited。后缀字段当前格式不支持，避免写坏配置；这里只写入原生前缀和数量。"
+                                        <TextBlock Text="每行可直接选择中文物品、数量、前缀和收藏；列表过高时使用右侧上下滚动条。"
                                                    Foreground="{DynamicResource TextDim}" FontSize="10.5"
-                                                   TextWrapping="Wrap" Margin="0,3,0,4"/>
-                                        <ItemsControl x:Name="InventoryList"
-                                                      ItemTemplate="{StaticResource InventoryItemTemplate}"/>
+                                                   TextWrapping="Wrap" Margin="0,3,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                                    <ItemsControl x:Name="SscList"
-                                                  ItemTemplate="{StaticResource SettingRowTemplate}"/>
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled" Padding="0,0,2,0">
+                                    <ItemsControl x:Name="InventoryList"
+                                                  ItemTemplate="{StaticResource InventoryItemTemplate}"/>
                                 </ScrollViewer>
                             </Grid>
                         </TabItem>
