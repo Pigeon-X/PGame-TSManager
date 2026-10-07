@@ -355,7 +355,7 @@
                                     BorderBrush="#44FFFFFF" BorderThickness="1"
                                     RenderOptions.BitmapScalingMode="HighQuality">
                                 <Border.Background>
-                                    <ImageBrush ImageSource="PGame-TSManager.ico"
+                                    <ImageBrush ImageSource="PGame-TSManager-logo.png"
                                                 Stretch="UniformToFill"
                                                 AlignmentX="Center" AlignmentY="Center"/>
                                 </Border.Background>
