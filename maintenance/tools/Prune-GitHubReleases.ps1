@@ -39,12 +39,18 @@ foreach ($release in $remove) {
         continue
     }
 
-    Invoke-RestMethod `
-        -Method Delete `
-        -Uri "https://api.github.com/repos/$Repository/releases/$($release.id)" `
-        -Headers $headers `
-        -TimeoutSec 60 | Out-Null
-    Write-Host "已删除 Release：$tag" -ForegroundColor DarkGray
+    try {
+        Invoke-RestMethod `
+            -Method Delete `
+            -Uri "https://api.github.com/repos/$Repository/releases/$($release.id)" `
+            -Headers $headers `
+            -TimeoutSec 60 | Out-Null
+        Write-Host "已删除 Release：$tag" -ForegroundColor DarkGray
+    }
+    catch {
+        Write-Warning "删除 Release 失败：$tag / $($_.Exception.Message)"
+        continue
+    }
 
     if (-not [string]::IsNullOrWhiteSpace($tag)) {
         try {
