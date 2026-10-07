@@ -539,6 +539,16 @@ namespace PGameTSManager
 
         private void SaveRestart_Click(object _, RoutedEventArgs e)
         {
+            var confirm = new ChoiceDialog(
+                "确认保存并重启",
+                $"将保存 {_serverName} 当前所有配置页，并重启该服务器。\n确定继续吗？",
+                "保存并重启",
+                "",
+                "取消",
+                primaryDanger: true) { Owner = this };
+            confirm.ShowDialog();
+            if (confirm.Result != ChoiceDialogResult.Primary) return;
+
             if (!SaveAll()) return;
             RestartRequested = true;
             DialogResult = true;
