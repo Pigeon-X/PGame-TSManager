@@ -71,24 +71,17 @@ foreach ($release in $remove) {
 }
 
 # 删除已经没有 Release 的旧构建 tag，避免 Release 页面继续显示历史测试版。
-$tagRefs = @()
-for ($page = 1; $page -le 100; $page++) {
-    $batch = @(Invoke-RestMethod `
-        -Uri "https://api.github.com/repos/$Repository/git/matching-refs/tags/?per_page=100&page=$page" `
-        -Headers $headers `
-        -TimeoutSec 60)
-    if ($batch.Count -eq 0) { break }
-    $tagRefs += $batch
-    if ($batch.Count -lt 100) { break }
-}
+$tagRefs = @(& git ls-remote --tags "https://github.com/$Repository.git" |
+    ForEach-Object { ($_ -split '\s+')[1] } |
+    Where-Object { $_ -match '^refs/tags/' -and $_ -notmatch '\^\{\}$' })
 
 $oldBuildTags = @($tagRefs | Where-Object {
-    $tag = [string]$_.ref -replace '^refs/tags/', ''
+    $tag = [string]$_ -replace '^refs/tags/', ''
     $tag -match '-build\.\d+$' -and $keptTags -notcontains $tag
 })
 Write-Host "旧构建 tag 清理数：$($oldBuildTags.Count)" -ForegroundColor Cyan
 foreach ($tagRef in $oldBuildTags) {
-    $tag = [string]$tagRef.ref -replace '^refs/tags/', ''
+    $tag = [string]$tagRef -replace '^refs/tags/', ''
     if ($DryRun) {
         Write-Host "[预览] 删除构建 Tag：$tag" -ForegroundColor DarkYellow
         continue
