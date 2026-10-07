@@ -233,6 +233,60 @@ namespace PGameTSManager
             get { try { return _profile.LoadManifest()?.RestPort ?? 0; } catch { return 0; } }
         }
 
+        public int ProcessId
+        {
+            get { try { return _process?.Id ?? 0; } catch { return 0; } }
+        }
+
+        public long MemoryBytes
+        {
+            get { try { return _process?.WorkingSet64 ?? 0; } catch { return 0; } }
+        }
+
+        public string TodayLogPath => Path.Combine(
+            ManagerConfig.Resolve(""),
+            "Logs",
+            SanitizeFileName(Name) + "-" + DateTime.Now.ToString("yyyyMMdd") + ".log");
+
+        public string WorldPath
+        {
+            get
+            {
+                try
+                {
+                    var manifest = _profile.LoadManifest();
+                    var world = manifest?.World ?? "";
+                    if (string.IsNullOrWhiteSpace(world)) return "";
+                    return Path.IsPathRooted(world)
+                        ? world
+                        : Path.Combine(ManagerConfig.Resolve(_managerConfig.worldDir), world);
+                }
+                catch { return ""; }
+            }
+        }
+
+        public long WorldSizeBytes
+        {
+            get
+            {
+                try { return File.Exists(WorldPath) ? new FileInfo(WorldPath).Length : 0; }
+                catch { return 0; }
+            }
+        }
+
+        public int PluginCount
+        {
+            get
+            {
+                try
+                {
+                    var dir = Path.Combine(RuntimeDirectory, "ServerPlugins");
+                    return Directory.Exists(dir) ? Directory.GetFiles(dir, "*.dll").Length : 0;
+                }
+                catch { return 0; }
+            }
+        }
+
         /// <summary>往本服自己的日志面板写一行（顺序启动等外部流程用）。</summary>
         public void Log(string text) => AddText(text);
 

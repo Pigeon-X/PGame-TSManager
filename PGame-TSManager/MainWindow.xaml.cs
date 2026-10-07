@@ -295,6 +295,17 @@ namespace PGameTSManager
             new PlayerManagerWindow(current) { Owner = this }.ShowDialog();
         }
 
+        private void OperationsCenter_Click(object _, RoutedEventArgs e)
+        {
+            var current = Current;
+            if (current == null)
+            {
+                AppendLine("[运维中心] 当前没有选中的服务器");
+                return;
+            }
+            new OperationsCenterWindow(current, Containers) { Owner = this }.ShowDialog();
+        }
+
         private void PluginCheck_Click(object _, RoutedEventArgs e)
         {
             var pluginDir = ManagerConfig.Resolve(_cfg.pluginDir);

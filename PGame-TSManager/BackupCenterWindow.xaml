@@ -85,6 +85,9 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Content="刷新" Style="{StaticResource DlgBtn}" Click="Refresh_Click"/>
                             <Button Content="打开目录" Style="{StaticResource DlgBtn}" Click="OpenFolder_Click"/>
+                            <Button x:Name="RestoreManagerButton" Content="恢复管理器" Style="{StaticResource DlgBtn}"
+                                    Background="{DynamicResource Err}" Foreground="{DynamicResource BtnText}"
+                                    Click="RestoreManager_Click"/>
                             <Button x:Name="RestoreButton" Content="恢复选中" Style="{StaticResource DlgBtn}"
                                     Background="{DynamicResource Err}" Foreground="{DynamicResource BtnText}"
                                     Click="Restore_Click"/>

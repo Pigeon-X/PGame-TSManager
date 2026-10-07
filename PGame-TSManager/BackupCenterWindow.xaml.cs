@@ -113,6 +113,9 @@ namespace PGameTSManager
         {
             if (RestoreButton == null || Tabs == null) return;
             RestoreButton.IsEnabled = Tabs.SelectedIndex == 0 && SelectedServer != null;
+            if (RestoreManagerButton != null)
+                RestoreManagerButton.IsEnabled = Tabs.SelectedIndex == 1 && SelectedManager != null &&
+                    SelectedManager.Name.StartsWith("manager-update-", StringComparison.OrdinalIgnoreCase);
         }
 
         private void Refresh_Click(object _, RoutedEventArgs e) => Refresh();
@@ -160,6 +163,48 @@ namespace PGameTSManager
             catch (Exception ex)
             {
                 MessageBox.Show(this, "恢复失败：\n" + ex.Message, "回滚中心",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void RestoreManager_Click(object _, RoutedEventArgs e)
+        {
+            var entry = SelectedManager;
+            if (entry == null || !entry.Name.StartsWith("manager-update-", StringComparison.OrdinalIgnoreCase))
+                return;
+            var confirm = new ChoiceDialog(
+                "确认恢复管理器",
+                $"将用备份 {entry.Name} 覆盖管理器 DLL/启动文件，然后关闭当前管理器并自动重启。\n确定继续吗？",
+                "恢复并重启",
+                "",
+                "取消",
+                primaryDanger: true) { Owner = this };
+            confirm.ShowDialog();
+            if (confirm.Result != ChoiceDialogResult.Primary) return;
+
+            try
+            {
+                var root = ManagerConfig.BaseDir.TrimEnd('\\');
+                var backup = entry.Path.TrimEnd('\\');
+                var script = "$ErrorActionPreference='Stop'; Start-Sleep -Seconds 4; " +
+                             "Get-Process PGame-TSManager -ErrorAction SilentlyContinue|Stop-Process -Force; " +
+                             "Start-Sleep -Seconds 3; Get-Process TShock.Server -ErrorAction SilentlyContinue|Stop-Process -Force; " +
+                             "Start-Sleep -Seconds 3; Copy-Item -Path '" + backup.Replace("'", "''") + "\\*' -Destination '" +
+                             root.Replace("'", "''") + "' -Recurse -Force; " +
+                             "& schtasks.exe /Run /TN 'PGameTSManager_Start'";
+                var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script));
+                Process.Start(new ProcessStartInfo("powershell.exe",
+                    "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand " + encoded)
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                DialogResult = true;
+                App.ExitFromTray();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "启动管理器恢复失败：\n" + ex.Message, "回滚中心",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }

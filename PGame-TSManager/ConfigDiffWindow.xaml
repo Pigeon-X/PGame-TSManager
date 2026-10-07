@@ -68,6 +68,16 @@
                                    Foreground="{DynamicResource Text}"/>
                         <TextBlock Text="按分类显示本次保存会新增、删除或修改的配置行；确认后才写入文件。"
                                    Margin="0,4,0,0" FontSize="11.5" Foreground="{DynamicResource TextDim}"/>
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="DiffSearch" Height="28" FontSize="11.5" Padding="7,0"
+                                     TextChanged="DiffSearch_TextChanged" ToolTip="筛选配置键或值"/>
+                            <Button Grid.Column="1" Content="导出差异" Style="{StaticResource DlgBtn}"
+                                    Click="Export_Click" Margin="6,0,0,0"/>
+                        </Grid>
                     </StackPanel>
                     <TabControl Grid.Row="1" x:Name="Tabs" Margin="0,10,0,0"
                                 Background="Transparent" BorderThickness="0"/>
