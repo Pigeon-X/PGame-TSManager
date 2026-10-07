@@ -51,6 +51,8 @@ namespace PGameTSManager
         private int _healthFailureCount;
         private int _lastKnownPlayerCount = -1;
         private bool _deadServerRestartRequested;
+        private DateTime _lastHealthyUtc = DateTime.MinValue;
+        private DateTime _watchdogSuppressUntilUtc = DateTime.MinValue;
         private int _severeLogCount;
         private DateTime _severeLogWindowStartUtc = DateTime.MinValue;
         private DateTime _lastHealthAlertUtc = DateTime.MinValue;
@@ -192,6 +194,7 @@ namespace PGameTSManager
                 if (up != null) Uptime = up.ToString();
                 _lastKnownPlayerCount = PlayerCount;
                 _restProbeOk = true;
+                _lastHealthyUtc = DateTime.UtcNow;
                 _serverReady = true;
                 _healthFailureCount = 0;
             }
@@ -263,6 +266,12 @@ namespace PGameTSManager
             }
 
             var now = DateTime.UtcNow;
+            if (now < _watchdogSuppressUntilUtc)
+            {
+                _healthFailureCount = 0;
+                _lastHealthyUtc = now;
+                return;
+            }
             var uptime = now - _startedAt;
             var grace = Math.Max(10, _managerConfig.watchdogStartupGraceSeconds);
             if (!_serverReady && uptime.TotalSeconds < grace) return;
@@ -272,27 +281,41 @@ namespace PGameTSManager
             if (gamePortOk && restOk)
             {
                 _healthFailureCount = 0;
+                _lastHealthyUtc = now;
                 _serverReady = true;
                 return;
             }
 
             _healthFailureCount++;
             var threshold = Math.Max(1, _managerConfig.watchdogHealthFailureThreshold);
-            if (_healthFailureCount < threshold) return;
+            var unhealthySeconds = Math.Max(120, _managerConfig.watchdogUnhealthySeconds);
+            if (_healthFailureCount < threshold ||
+                (now - _lastHealthyUtc).TotalSeconds < unhealthySeconds) return;
 
             var detail = $"游戏端口={GamePort}:{(gamePortOk ? "正常" : "失效")}，" +
                          $"REST={( _restProbeConfigured ? (_restProbeOk ? "正常" : "失效") : "未配置")}，" +
                          $"最近在线={Math.Max(0, _lastKnownPlayerCount)}";
 
-            // REST 单独失效且最近确认有玩家时不强杀，避免网络瞬时抖动误伤在线玩家。
-            if (gamePortOk && _restProbeConfigured && _lastKnownPlayerCount > 0)
+            // 端口仍在监听时，REST 失败通常只是接口暂时不可用，绝不当死服重启。
+            if (gamePortOk)
             {
                 if ((now - _lastHealthAlertUtc).TotalSeconds >= 60)
                 {
                     _lastHealthAlertUtc = now;
-                    RaiseAlert($"服务器健康检查异常：{Name}", detail + "；因最近确认有玩家，暂不自动重启。");
+                    RaiseAlert($"服务器健康检查异常：{Name}", detail + "；游戏端口仍正常，暂不重启。");
                 }
                 _healthFailureCount = 0;
+                return;
+            }
+
+            // REST 仍活着说明进程还在工作，换图/热重载期间只告警不杀进程。
+            if (_restProbeConfigured && _restProbeOk)
+            {
+                if ((now - _lastHealthAlertUtc).TotalSeconds >= 60)
+                {
+                    _lastHealthAlertUtc = now;
+                    RaiseAlert($"服务器健康检查异常：{Name}", detail + "；REST 仍正常，暂不重启。");
+                }
                 return;
             }
 
@@ -302,6 +325,7 @@ namespace PGameTSManager
         private void RequestDeadServerRestart(string title, string detail)
         {
             if (_deadServerRestartRequested || _userStopRequested || !IsRunning) return;
+            if (DateTime.UtcNow < _watchdogSuppressUntilUtc) return;
             _deadServerRestartRequested = true;
             _serverReady = false;
             AddText($"[看门狗] {title}：{detail}\n");
@@ -723,6 +747,7 @@ namespace PGameTSManager
             var exeName = string.IsNullOrWhiteSpace(_profile.executable) ? _managerConfig.serverExecutable : _profile.executable;
             var executable = Path.Combine(runtimeDirectory, exeName);
             if (!File.Exists(executable)) throw new FileNotFoundException($"找不到服务端可执行文件：{executable}");
+            KillResidualServerProcess(executable);
 
             var info = new ProcessStartInfo
             {
@@ -747,6 +772,7 @@ namespace PGameTSManager
             {
                 var code = _process != null && _process.HasExited ? _process.ExitCode : -999;
                 var wasUserStop = _userStopRequested;
+                var wasMaintenanceExit = DateTime.UtcNow < _watchdogSuppressUntilUtc;
                 var uptime = DateTime.UtcNow - _startedAt;
 
                 AddText($"---服务器已退出（退出码 {code}）---\n");
@@ -757,10 +783,21 @@ namespace PGameTSManager
                 OnPropertyChanged(nameof(StatusBrush));
                 OnPropertyChanged(nameof(StatusText));
 
-                if (wasUserStop)
+                if (wasUserStop || wasMaintenanceExit)
                 {
                     _restartCount = 0;
-                    AddText("[看门狗] 这是手动停止，不自动重启\n");
+                    AddText(wasUserStop
+                        ? "[看门狗] 这是手动停止，不自动重启\n"
+                        : "[看门狗] 这是维护/换图操作期间退出，不自动重启\n");
+                    return;
+                }
+
+                // TShock 的 /off、/exit、正常停机通常返回 0。
+                // 即使日志没有被识别到，也不能把正常退出当成崩溃拉起。
+                if (code == 0 && !_watchdogRestarting)
+                {
+                    _restartCount = 0;
+                    AddText("[看门狗] 服务器正常退出（退出码 0），不自动重启\n");
                     return;
                 }
 
@@ -817,6 +854,8 @@ namespace PGameTSManager
 
             AddText($"[启动] {Name}  (共享 ServerPlugins，无窗口)\n");
             _startedAt = DateTime.UtcNow;
+            _lastHealthyUtc = _startedAt;
+            _watchdogSuppressUntilUtc = DateTime.MinValue;
             _idleSinceUtc = DateTime.MinValue;
             _lastIdleTrimUtc = DateTime.MinValue;
             _serverReady = false;
@@ -919,7 +958,7 @@ namespace PGameTSManager
             var cmd = (msg ?? "").Trim();
             if (cmd.Length == 0) return;
             if (cmd[0] != '/') cmd = "/" + cmd;          // TShock 要求前导斜杠
-            if (IsManualStopCommand(cmd)) _userStopRequested = true;
+            ArmWatchdogSuppression(cmd);
 
             var restErr = TrySendViaRest(cmd);
             if (restErr == null) return;
@@ -949,7 +988,7 @@ namespace PGameTSManager
         public string? SendCommandViaRest(string cmd, out string output)
         {
             output = "";
-            if (IsManualStopCommand(cmd)) _userStopRequested = true;
+            ArmWatchdogSuppression(cmd);
             var manifest = _profile.LoadManifest();
             var port = manifest?.RestPort ?? 0;
             if (port <= 0) return "该服未配置 REST 端口（config.json 的 REST端口）";
@@ -985,6 +1024,32 @@ namespace PGameTSManager
                    string.Equals(name, "stop-nosave", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(name, "exit-nosave", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(name, "off-nosave", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsWatchdogMaintenanceCommand(string? command)
+        {
+            var name = (command ?? "").Trim().TrimStart('/').Split(' ', 2)[0];
+            return string.Equals(name, "hr", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "reload", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "world", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "save", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void ArmWatchdogSuppression(string? command)
+        {
+            if (IsManualStopCommand(command))
+            {
+                _userStopRequested = true;
+                _watchdogSuppressUntilUtc = DateTime.UtcNow.AddSeconds(120);
+                return;
+            }
+
+            if (!IsWatchdogMaintenanceCommand(command)) return;
+            _healthFailureCount = 0;
+            _lastHealthyUtc = DateTime.UtcNow;
+            var seconds = Math.Max(120, _managerConfig.watchdogMaintenanceSuppressSeconds);
+            _watchdogSuppressUntilUtc = DateTime.UtcNow.AddSeconds(seconds);
+            AddText($"[看门狗] 检测到维护命令，暂停健康检查 {seconds} 秒\n");
         }
 
         /// <summary>读取该服 TShock REST JSON 接口。成功返回 null，body 为响应文本。</summary>
@@ -1182,6 +1247,18 @@ namespace PGameTSManager
                 {
                     if (raw.Length == 0) continue;
                     AppendLine(raw, isError);
+                    if (IsWatchdogManualStopLine(raw))
+                    {
+                        _userStopRequested = true;
+                        _watchdogSuppressUntilUtc = DateTime.UtcNow.AddSeconds(120);
+                    }
+                    if (IsWatchdogMaintenanceLine(raw))
+                    {
+                        _healthFailureCount = 0;
+                        _lastHealthyUtc = DateTime.UtcNow;
+                        var seconds = Math.Max(120, _managerConfig.watchdogMaintenanceSuppressSeconds);
+                        _watchdogSuppressUntilUtc = DateTime.UtcNow.AddSeconds(seconds);
+                    }
                     if (IsSevereLine(raw)) RaiseAlert($"服务器日志出现严重异常：{Name}", raw.Trim());
                     RecordWatchdogLogError(raw);
                 }
@@ -1195,6 +1272,83 @@ namespace PGameTSManager
                 OnTextChanged?.Invoke(this);
             }
             catch { }
+        }
+
+        private static bool IsWatchdogMaintenanceLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return false;
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                       line,
+                       @"执行(?:了)?\s*(?:指令|命令)?\s*/(?:hr|reload|world|save)\b",
+                       System.Text.RegularExpressions.RegexOptions.IgnoreCase) ||
+                   line.Contains("热重载", StringComparison.OrdinalIgnoreCase) ||
+                   line.Contains("重载世界", StringComparison.OrdinalIgnoreCase) ||
+                   line.Contains("热重置地图", StringComparison.OrdinalIgnoreCase) ||
+                   line.Contains("reloading world", StringComparison.OrdinalIgnoreCase) ||
+                   line.Contains("重新加载世界", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsWatchdogManualStopLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return false;
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                line,
+                @"执行(?:了)?\s*(?:指令|命令)?\s*/(?:stop|exit|off)(?:-nosave)?\b",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+
+        /// <summary>
+        /// 看门狗重启前清理同一运行沙箱遗留的 TShock 进程，避免 ServerLog.txt / 世界文件句柄
+        /// 还没释放就启动新进程，导致“重启后立刻启动失败”的二次故障。
+        /// 只匹配当前沙箱路径，不会误杀其他服务器。
+        /// </summary>
+        private void KillResidualServerProcess(string executable)
+        {
+            try
+            {
+                var wanted = Path.GetFullPath(executable);
+                var processName = Path.GetFileNameWithoutExtension(wanted);
+                var killed = false;
+
+                foreach (var process in Process.GetProcessesByName(processName))
+                {
+                    try
+                    {
+                        if (process.Id == Environment.ProcessId) continue;
+                        var actual = TryGetProcessExecutable(process);
+                        if (actual == null) continue;
+                        if (!string.Equals(Path.GetFullPath(actual), wanted, StringComparison.OrdinalIgnoreCase)) continue;
+
+                        if (!process.HasExited)
+                        {
+                            AddText($"[看门狗] 发现同沙箱残留进程 PID {process.Id}，正在清理\n");
+                            try { process.Kill(true); }
+                            catch { try { process.Kill(); } catch { } }
+                            if (!process.WaitForExit(10000))
+                            {
+                                try { process.Kill(); } catch { }
+                                process.WaitForExit(5000);
+                            }
+                            killed = true;
+                        }
+                    }
+                    catch { }
+                    finally { try { process.Dispose(); } catch { } }
+                }
+
+                if (killed)
+                {
+                    AddText("[看门狗] 已清理残留服务端，等待文件句柄释放\n");
+                    System.Threading.Thread.Sleep(2000);
+                }
+            }
+            catch { }
+        }
+
+        private static string? TryGetProcessExecutable(Process process)
+        {
+            try { return process.MainModule?.FileName; }
+            catch { return null; }
         }
 
         public override string ToString() => Name;

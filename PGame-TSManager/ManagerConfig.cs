@@ -156,6 +156,10 @@ namespace PGameTSManager
         public int watchdogHealthFailureThreshold = 3;
         /// <summary>启动后的看门狗保护期，避免世界加载期间误判。</summary>
         public int watchdogStartupGraceSeconds = 30;
+        /// <summary>端口持续异常多少秒后才允许判定死服，避免热重载或换图时短暂断流误判。</summary>
+        public int watchdogUnhealthySeconds = 120;
+        /// <summary>执行 /hr、/reload、/world 等维护命令后，暂停健康检查的秒数。</summary>
+        public int watchdogMaintenanceSuppressSeconds = 180;
         /// <summary>是否把连续致命日志异常作为死服重启依据。</summary>
         public bool watchdogLogErrorRestartEnabled = true;
         /// <summary>窗口期内出现多少条致命日志后触发重启。</summary>
