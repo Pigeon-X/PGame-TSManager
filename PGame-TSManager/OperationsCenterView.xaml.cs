@@ -141,70 +141,6 @@ namespace PGameTSManager
             try { if (dir != null) Process.Start(new ProcessStartInfo("explorer.exe", "\"" + dir + "\"") { UseShellExecute = true }); } catch { }
         }
 
-        private void OpenSettings_Click(object _, RoutedEventArgs e)
-        {
-            if (_current == null) return;
-            var owner = Window.GetWindow(this);
-            var dlg = new ServerSettingsWindow(_current.Name, _current.ProfileDirectory, SendCommand);
-            if (owner != null) dlg.Owner = owner;
-            dlg.ShowDialog();
-        }
-
-        private void OpenPluginToggle_Click(object _, RoutedEventArgs e)
-        {
-            if (_current == null) return;
-            var owner = Window.GetWindow(this);
-            var dlg = new PluginWindow(_current.Name, _current.ProfileDirectory,
-                ManagerConfig.Resolve(ManagerConfig.Instance.pluginDir), SendCommand);
-            if (owner != null) dlg.Owner = owner;
-            dlg.ShowDialog();
-        }
-
-        private void OpenPlayers_Click(object _, RoutedEventArgs e)
-        {
-            if (_current == null) return;
-            var owner = Window.GetWindow(this);
-            var dlg = new PlayerManagerWindow(_current);
-            if (owner != null) dlg.Owner = owner;
-            dlg.ShowDialog();
-        }
-
-        private void OpenPlugins_Click(object _, RoutedEventArgs e)
-        {
-            var owner = Window.GetWindow(this);
-            var dlg = new PluginCheckWindow(ManagerConfig.Resolve(ManagerConfig.Instance.pluginDir),
-                Path.Combine(ManagerConfig.BaseDir, "bin"));
-            if (owner != null) dlg.Owner = owner;
-            dlg.ShowDialog();
-        }
-
-        private void OpenSchedule_Click(object _, RoutedEventArgs e)
-        {
-            var owner = Window.GetWindow(this);
-            var dlg = new ScheduleWindow(_containers.Select(c => c.Name));
-            if (owner != null) dlg.Owner = owner;
-            dlg.ShowDialog();
-        }
-
-        private void OpenRollback_Click(object _, RoutedEventArgs e)
-        {
-            if (_current == null) return;
-            var owner = Window.GetWindow(this);
-            var dlg = new BackupCenterWindow(_current.Name, Path.Combine(_current.ProfileDirectory, "tshock", "config.json"),
-                ManagerConfig.Resolve(ManagerConfig.Instance.backupDir));
-            if (owner != null) dlg.Owner = owner;
-            dlg.ShowDialog();
-        }
-
-        private void OpenDiff_Click(object _, RoutedEventArgs e)
-        {
-            if (_current == null) return;
-            var owner = Window.GetWindow(this);
-            var dlg = new ServerSettingsWindow(_current.Name, _current.ProfileDirectory, SendCommand);
-            if (owner != null) dlg.Owner = owner;
-            dlg.ShowDialog();
-        }
-
         private void AutoFindEditor_Click(object _, RoutedEventArgs e)
         {
             var found = FindEditor();
@@ -289,11 +225,5 @@ namespace PGameTSManager
             return candidates.FirstOrDefault(File.Exists);
         }
 
-        private string? SendCommand(string command)
-        {
-            if (_current == null) return "当前没有选中的服务器";
-            string output;
-            return _current.SendCommandViaRest(command, out output);
-        }
     }
 }

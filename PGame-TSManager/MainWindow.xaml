@@ -75,23 +75,31 @@
         <Style TargetType="RadioButton" x:Key="WorkspaceTabButton">
             <Setter Property="Foreground" Value="{DynamicResource TextDim}"/>
             <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Padding" Value="12,4"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
                         <Border x:Name="TabBorder" Background="Transparent" CornerRadius="8"
+                                BorderBrush="Transparent" BorderThickness="1"
                                 Padding="{TemplateBinding Padding}" Margin="0,0,5,0">
                             <ContentPresenter ContentSource="Content"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter Property="Foreground" Value="{DynamicResource Accent2}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource AccentText}"/>
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource Accent}"/>
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource Accent2}"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsChecked" Value="False"/>
+                                </MultiTrigger.Conditions>
                                 <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource GlassPanelHi}"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource GlassPanel}"/>
-                            </Trigger>
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource Accent2}"/>
+                            </MultiTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
