@@ -354,10 +354,8 @@
                                     BorderBrush="#44FFFFFF" BorderThickness="1">
                                 <Image Source="PGame-TSManager.ico" Width="19" Height="19"/>
                             </Border>
-                            <TextBlock Text="流光维度" Foreground="#FFF8F5FF" FontSize="13.5"
+                            <TextBlock Text="PGame-TSManager" Foreground="#FFF8F5FF" FontSize="13.5"
                                        FontWeight="SemiBold" VerticalAlignment="Center" Margin="9,0,0,0"/>
-                            <TextBlock Text="PGame-TSManager" Foreground="#99FFFFFF" FontSize="10.5"
-                                       VerticalAlignment="Center" Margin="9,1,0,0"/>
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
