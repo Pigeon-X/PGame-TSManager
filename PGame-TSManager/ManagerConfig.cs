@@ -145,8 +145,10 @@ namespace PGameTSManager
         public bool alertEnabled = true;
         /// <summary>上报脚本路径；留空 = 自动找桌面 AI维护文件\12-机器人\机器人上报测试群.ps1。</summary>
         public string alertScript = "";
-        /// <summary>上报到的群号。</summary>
+        /// <summary>兼容旧配置：单个上报群号。</summary>
         public long alertGroupId = 1125570228;
+        /// <summary>上报到的群号列表；未配置时回退到 alertGroupId。</summary>
+        public List<long> alertGroupIds = new() { 1125570228, 561150136 };
         /// <summary>同类告警最小间隔秒数（防刷屏）。</summary>
         public int alertMinIntervalSeconds = 60;
         /// <summary>顺序启动时，单台服务器等待「就绪」的最长秒数（超时就跳过，继续下一台）。</summary>

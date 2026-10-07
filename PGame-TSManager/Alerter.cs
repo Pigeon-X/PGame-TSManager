@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -21,6 +23,7 @@ namespace PGameTSManager
         public static bool Enabled { get; set; }
         public static string ScriptPath { get; set; } = "";
         public static long GroupId { get; set; } = 1125570228;
+        public static List<long> GroupIds { get; set; } = new() { 1125570228, 561150136 };
         public static int MinIntervalSeconds { get; set; } = 60;
 
         /// <summary>最近一次发送结果（给界面显示用）。</summary>
@@ -34,6 +37,9 @@ namespace PGameTSManager
                 Enabled = cfg.alertEnabled;
                 MinIntervalSeconds = Math.Max(5, cfg.alertMinIntervalSeconds);
                 GroupId = cfg.alertGroupId;
+                GroupIds = (cfg.alertGroupIds != null && cfg.alertGroupIds.Count > 0)
+                    ? cfg.alertGroupIds.Where(x => x > 0).Distinct().ToList()
+                    : new List<long> { GroupId };
 
                 var configured = cfg.alertScript;
                 if (!string.IsNullOrWhiteSpace(configured))
@@ -85,7 +91,7 @@ namespace PGameTSManager
                 });
 
                 var script = ScriptPath;
-                var group = GroupId;
+                var groups = GroupIds.Count > 0 ? GroupIds.ToList() : new List<long> { GroupId };
                 Task.Run(() =>
                 {
                     try
@@ -95,22 +101,35 @@ namespace PGameTSManager
                         File.WriteAllText(tmp, text, new UTF8Encoding(false));
                         try
                         {
-                            var args = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" + script +
-                                       "\" -Text \"" + text.Replace("\"", "'").Replace("\r", "").Replace("\n", "  |  ") +
-                                       "\" -GroupId " + group;
-                            var psi = new ProcessStartInfo("powershell.exe", args)
+                            var okCount = 0;
+                            var errors = new List<string>();
+                            foreach (var group in groups)
                             {
-                                UseShellExecute = false,
-                                CreateNoWindow = true,
-                                RedirectStandardOutput = true,
-                                RedirectStandardError = true
-                            };
-                            using var p = Process.Start(psi);
-                            if (p != null)
-                            {
-                                p.WaitForExit(40000);
-                                LastResult = "已发送（退出码 " + p.ExitCode + "）";
+                                try
+                                {
+                                    var args = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" + script +
+                                               "\" -Text \"" + text.Replace("\"", "'").Replace("\r", "").Replace("\n", "  |  ") +
+                                               "\" -GroupId " + group;
+                                    var psi = new ProcessStartInfo("powershell.exe", args)
+                                    {
+                                        UseShellExecute = false,
+                                        CreateNoWindow = true,
+                                        RedirectStandardOutput = true,
+                                        RedirectStandardError = true
+                                    };
+                                    using var p = Process.Start(psi);
+                                    if (p != null)
+                                    {
+                                        p.WaitForExit(40000);
+                                        if (p.ExitCode == 0) okCount++;
+                                        else errors.Add(group + ":exit " + p.ExitCode);
+                                    }
+                                }
+                                catch (Exception ex) { errors.Add(group + ":" + ex.Message); }
                             }
+                            LastResult = errors.Count == 0
+                                ? "已发送到 " + okCount + " 个群"
+                                : "部分发送失败：" + string.Join("；", errors);
                         }
                         finally { try { File.Delete(tmp); } catch { } }
                     }
