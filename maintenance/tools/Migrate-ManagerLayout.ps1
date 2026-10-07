@@ -44,6 +44,23 @@ function Move-Into([string]$Source, [string]$DestinationParent) {
     Write-Host "Moved: $Source -> $destination"
 }
 
+function Move-DirectoryContents-Into([string]$SourceDirectory, [string]$DestinationDirectory) {
+    if (-not (Test-Path -LiteralPath $SourceDirectory)) { return }
+
+    Ensure-Directory $DestinationDirectory
+    foreach ($child in @(Get-ChildItem -LiteralPath $SourceDirectory -Force)) {
+        Move-Into $child.FullName $DestinationDirectory
+    }
+
+    if (-not $DryRun) {
+        $remaining = @(Get-ChildItem -LiteralPath $SourceDirectory -Force)
+        if ($remaining.Count -eq 0) {
+            Remove-Item -LiteralPath $SourceDirectory -Recurse -Force
+            Write-Host "Removed empty legacy directory: $SourceDirectory"
+        }
+    }
+}
+
 function Set-Property([object]$Object, [string]$Name, [object]$Value) {
     if ($null -ne $Object.PSObject.Properties[$Name]) {
         $Object.$Name = $Value
@@ -78,7 +95,16 @@ foreach ($name in @(
 }
 
 Ensure-Directory (Join-Path $servers 'Profiles')
-Move-Into (Join-Path $root '1.PigeonServers') (Join-Path $servers 'Profiles')
+$profiles = Join-Path $servers 'Profiles'
+
+# Legacy layout: 1.PigeonServers\<server>. The profile directories belong directly
+# under Servers\Profiles, not inside another 1.PigeonServers directory.
+Move-DirectoryContents-Into (Join-Path $root '1.PigeonServers') $profiles
+
+# Repair packages produced by the earlier migration script, which nested the
+# legacy container as Servers\Profiles\1.PigeonServers.
+Move-DirectoryContents-Into (Join-Path $profiles '1.PigeonServers') $profiles
+
 Move-Into (Join-Path $root 'Worlds') $servers
 
 Move-Into (Join-Path $root 'maintenance') $tools
