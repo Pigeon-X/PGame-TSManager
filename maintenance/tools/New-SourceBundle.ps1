@@ -42,7 +42,7 @@ try {
     }
     $archiveFiles = @(Get-ChildItem -LiteralPath $stage -Recurse -File)
     if ($archiveFiles.Count -eq 0) { throw 'No source files selected for the bundle.' }
-    Compress-Archive -LiteralPath $archiveFiles.FullName -DestinationPath $OutputPath -CompressionLevel Optimal
+    [IO.Compression.ZipFile]::CreateFromDirectory($stage, $OutputPath, [IO.Compression.CompressionLevel]::Optimal, $false)
     if (-not (Test-Path -LiteralPath $OutputPath -PathType Leaf)) { throw "Archive was not created: $OutputPath" }
 }
 finally { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue }

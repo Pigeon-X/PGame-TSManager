@@ -22,7 +22,7 @@ try {
     if (Test-Path -LiteralPath $OutputPath) { Remove-Item -LiteralPath $OutputPath -Force }
     $files = @(Get-ChildItem -LiteralPath $stage -Recurse -File)
     if ($files.Count -eq 0) { throw 'No personal package files selected.' }
-    Compress-Archive -LiteralPath $files.FullName -DestinationPath $OutputPath -CompressionLevel Optimal
+    [IO.Compression.ZipFile]::CreateFromDirectory($stage, $OutputPath, [IO.Compression.CompressionLevel]::Optimal, $false)
     Write-Host "Personal bundle created: $OutputPath" -ForegroundColor Green
 }
 finally {

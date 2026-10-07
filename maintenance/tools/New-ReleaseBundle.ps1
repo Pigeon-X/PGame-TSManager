@@ -51,7 +51,7 @@ Running servers, worlds, databases, logs, _runtime, Plugins and ServerPlugins ar
     if (Test-Path -LiteralPath $OutputPath) { Remove-Item -LiteralPath $OutputPath -Force }
     $archiveFiles = @(Get-ChildItem -LiteralPath $stage -Recurse -File)
     if ($archiveFiles.Count -eq 0) { throw 'No release files selected for the bundle.' }
-    Compress-Archive -LiteralPath $archiveFiles.FullName -DestinationPath $OutputPath -CompressionLevel Optimal
+    [IO.Compression.ZipFile]::CreateFromDirectory($stage, $OutputPath, [IO.Compression.CompressionLevel]::Optimal, $false)
     if (-not (Test-Path -LiteralPath $OutputPath -PathType Leaf)) { throw "Archive was not created: $OutputPath" }
     Write-Host "Release template created: $OutputPath"
 }
