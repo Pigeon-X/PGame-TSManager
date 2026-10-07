@@ -267,6 +267,9 @@
                             <MenuItem Header="管理">
                                 <MenuItem Header="插件开关…" Click="PluginButton_Click"/>
                                 <MenuItem Header="服务器设置…" Click="ServerSettingsButton_Click"/>
+                                <MenuItem Header="玩家管理…" Click="PlayerManager_Click"/>
+                                <MenuItem Header="插件检查…" Click="PluginCheck_Click"/>
+                                <MenuItem Header="计划任务…" Click="Schedule_Click"/>
                                 <MenuItem Header="新建服务器" Click="NewServerButton_Click"/>
                                 <MenuItem Header="刷新服务器列表" Click="RefreshButton_Click"/>
                             </MenuItem>

@@ -49,6 +49,7 @@ namespace PGameTSManager
             }
 
             StartStatusTimer();
+            StartScheduleTimer();
             BuildTrayMenu();
 
             if (StartAllOnLoad)
@@ -105,7 +106,26 @@ namespace PGameTSManager
 
         // ---------- 在线人数：定时轮询 REST ----------
         private DispatcherTimer? _statusTimer;
+        private DispatcherTimer? _scheduleTimer;
         private string _lastAlertResult = "";
+
+        private void StartScheduleTimer()
+        {
+            _scheduleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+            _scheduleTimer.Tick += async (_, _) =>
+            {
+                try
+                {
+                    await ScheduleService.TickAsync(Containers, AppendLine,
+                        c => RestartOneAsync(c, "计划任务"));
+                }
+                catch (Exception ex)
+                {
+                    AppendLine("[计划任务] 异常：" + ex.Message);
+                }
+            };
+            _scheduleTimer.Start();
+        }
 
         private void StartStatusTimer()
         {
@@ -262,6 +282,29 @@ namespace PGameTSManager
                 AppendLine($"[服务器设置] 正在重启 {current.Name} …");
                 _ = RestartOneAsync(current, "服务器设置");
             }
+        }
+
+        private void PlayerManager_Click(object _, RoutedEventArgs e)
+        {
+            var current = Current;
+            if (current == null)
+            {
+                AppendLine("[玩家管理] 当前没有选中的服务器");
+                return;
+            }
+            new PlayerManagerWindow(current) { Owner = this }.ShowDialog();
+        }
+
+        private void PluginCheck_Click(object _, RoutedEventArgs e)
+        {
+            var pluginDir = ManagerConfig.Resolve(_cfg.pluginDir);
+            var binDir = Path.Combine(ManagerConfig.BaseDir, "bin");
+            new PluginCheckWindow(pluginDir, binDir) { Owner = this }.ShowDialog();
+        }
+
+        private void Schedule_Click(object _, RoutedEventArgs e)
+        {
+            new ScheduleWindow(Containers.Select(c => c.Name)) { Owner = this }.ShowDialog();
         }
 
         private void NewServerButton_Click(object _, RoutedEventArgs e)

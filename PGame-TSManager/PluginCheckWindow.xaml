@@ -1,0 +1,60 @@
+<Window x:Class="PGameTSManager.PluginCheckWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="插件依赖检查" Height="620" Width="860" MinHeight="460" MinWidth="720"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource AppBackdrop}" FontFamily="Microsoft YaHei UI" UseLayoutRounding="True">
+    <Grid>
+        <Border Margin="6" CornerRadius="14" Background="{DynamicResource GlassBg}"
+                BorderBrush="{DynamicResource GlassBorder}" BorderThickness="1">
+            <Grid>
+                <Border Height="1" VerticalAlignment="Top" Margin="16,1,16,0" Background="{DynamicResource GlassHi}"/>
+                <Grid Margin="16,14,16,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="插件依赖与版本检查" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
+                        <TextBlock Text="只读取 DLL 元数据，不加载插件；检查版本、AssemblyRef 和缺失依赖。"
+                                   Margin="0,4,0,0" FontSize="11.5" Foreground="{DynamicResource TextDim}"/>
+                    </StackPanel>
+                    <ListBox Grid.Row="1" x:Name="PluginList" Margin="0,10,0,0"
+                             Background="{DynamicResource ConsoleBg}" BorderBrush="{DynamicResource AccentBorder}"
+                             BorderThickness="1">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,2" Padding="8,5" CornerRadius="7" Background="{DynamicResource GlassPanel}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="230"/>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Name}" FontSize="12.5" Foreground="{DynamicResource Text}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding Path}" FontSize="10.5" Foreground="{DynamicResource TextDim}" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding Version}" FontSize="11.5" Foreground="{DynamicResource Accent2}"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding DependencyText}" FontSize="11"
+                                                   Foreground="{DynamicResource Warn}" TextWrapping="Wrap"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <Grid Grid.Row="2" Margin="0,10,0,0">
+                        <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextDim}"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="刷新" Style="{StaticResource DlgBtn}" Click="Refresh_Click"/>
+                            <Button Content="打开插件库" Style="{StaticResource DlgBtn}" Click="OpenPlugin_Click"/>
+                            <Button Content="打开依赖库" Style="{StaticResource DlgBtn}" Click="OpenBin_Click"/>
+                            <Button Content="关闭" Style="{StaticResource DlgBtn}" Click="Close_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

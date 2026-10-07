@@ -1,0 +1,76 @@
+<Window x:Class="PGameTSManager.ScheduleWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="计划任务" Height="600" Width="760" MinHeight="460" MinWidth="640"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource AppBackdrop}" FontFamily="Microsoft YaHei UI" UseLayoutRounding="True">
+    <Grid>
+        <Border Margin="6" CornerRadius="14" Background="{DynamicResource GlassBg}"
+                BorderBrush="{DynamicResource GlassBorder}" BorderThickness="1">
+            <Grid>
+                <Border Height="1" VerticalAlignment="Top" Margin="16,1,16,0" Background="{DynamicResource GlassHi}"/>
+                <Grid Margin="16,14,16,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="计划任务" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource Text}"/>
+                        <TextBlock Text="每天按 HH:mm 执行；支持保存世界、广播、重启当前服。主窗口每 30 秒检查一次。"
+                                   Margin="0,4,0,0" FontSize="11.5" Foreground="{DynamicResource TextDim}"/>
+                    </StackPanel>
+                    <Grid Grid.Row="1" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="260"/>
+                        </Grid.ColumnDefinitions>
+                        <ListBox x:Name="TaskList" Background="{DynamicResource ConsoleBg}"
+                                 BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1"
+                                 SelectionChanged="TaskList_SelectionChanged">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="6,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="80"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Time}" FontSize="12" Foreground="{DynamicResource Accent2}"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource Text}"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding EnabledText}" FontSize="11" Foreground="{DynamicResource TextDim}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                            <TextBlock Text="服务器" FontSize="11.5" Foreground="{DynamicResource TextDim}"/>
+                            <ComboBox x:Name="ServerBox" Height="28" FontSize="11.5" Margin="0,3,0,7"/>
+                            <TextBlock Text="动作" FontSize="11.5" Foreground="{DynamicResource TextDim}"/>
+                            <ComboBox x:Name="ActionBox" Height="28" FontSize="11.5" Margin="0,3,0,7">
+                                <ComboBoxItem Content="保存世界" Tag="save"/>
+                                <ComboBoxItem Content="广播" Tag="broadcast"/>
+                                <ComboBoxItem Content="重启当前服" Tag="restart"/>
+                            </ComboBox>
+                            <TextBlock Text="时间 HH:mm" FontSize="11.5" Foreground="{DynamicResource TextDim}"/>
+                            <TextBox x:Name="TimeBox" Height="28" FontSize="11.5" Margin="0,3,0,7" Text="04:00"/>
+                            <TextBlock Text="广播内容" FontSize="11.5" Foreground="{DynamicResource TextDim}"/>
+                            <TextBox x:Name="MessageBox" Height="28" FontSize="11.5" Margin="0,3,0,7"/>
+                            <CheckBox x:Name="EnabledCheck" Content="启用" Foreground="{DynamicResource Text}" IsChecked="True"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <Button Content="新增" Style="{StaticResource DlgBtn}" Click="Add_Click"/>
+                                <Button Content="更新" Style="{StaticResource DlgBtn}" Click="Update_Click"/>
+                                <Button Content="删除" Style="{StaticResource DlgBtn}" Background="{DynamicResource Err}"
+                                        Foreground="{DynamicResource BtnText}" Click="Delete_Click"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                    <Grid Grid.Row="2" Margin="0,10,0,0">
+                        <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource TextDim}"/>
+                        <Button Content="关闭" Style="{StaticResource DlgBtn}" HorizontalAlignment="Right" Click="Close_Click"/>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

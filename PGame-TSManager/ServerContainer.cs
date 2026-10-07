@@ -709,6 +709,27 @@ namespace PGameTSManager
             return lastErr ?? "未知错误";
         }
 
+        /// <summary>读取该服 TShock REST JSON 接口。成功返回 null，body 为响应文本。</summary>
+        public string? GetRestJson(string relativePath, out string body)
+        {
+            body = "";
+            var manifest = _profile.LoadManifest();
+            var port = manifest?.RestPort ?? 0;
+            if (port <= 0) return "该服未配置 REST 端口";
+            var token = ReadRestToken();
+            if (string.IsNullOrEmpty(token)) return "该服没有 REST 令牌";
+            try
+            {
+                var path = (relativePath ?? "").TrimStart('/');
+                var separator = path.Contains('?') ? "&" : "?";
+                var url = $"http://127.0.0.1:{port}/{path}{separator}token={Uri.EscapeDataString(token)}";
+                using var resp = Http.GetAsync(url).GetAwaiter().GetResult();
+                body = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                return resp.IsSuccessStatusCode ? null : $"HTTP {(int)resp.StatusCode}";
+            }
+            catch (Exception ex) { return ex.Message; }
+        }
+
         /// <summary>REST 返回 JSON 里的 response 可能是字符串或字符串数组，统一成可读文本。</summary>
         private static string FormatRestResponse(string body)
         {
