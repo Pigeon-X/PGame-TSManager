@@ -18,7 +18,23 @@ function Move-Into([string]$Source, [string]$DestinationParent) {
     Ensure-Directory $DestinationParent
     $destination = Join-Path $DestinationParent (Split-Path -Leaf $Source)
     if (Test-Path -LiteralPath $destination) {
-        throw "迁移目标已存在：$destination"
+        $sourceItem = Get-Item -LiteralPath $Source -Force
+        if ($sourceItem.PSIsContainer) {
+            foreach ($child in Get-ChildItem -LiteralPath $Source -Force) {
+                Move-Into $child.FullName $destination
+            }
+            if (-not $DryRun) {
+                $remaining = @(Get-ChildItem -LiteralPath $Source -Force)
+                if ($remaining.Count -eq 0) { Remove-Item -LiteralPath $Source -Recurse -Force }
+            }
+        } else {
+            if ($DryRun) {
+                Write-Host "[dry-run] keep existing file and remove old copy: $destination"
+            } else {
+                Remove-Item -LiteralPath $Source -Force
+            }
+        }
+        return
     }
     if ($DryRun) {
         Write-Host "[dry-run] $Source -> $destination"
