@@ -77,6 +77,33 @@
                        FontSize="12" VerticalAlignment="Center"/>
         </DataTemplate>
 
+        <DataTemplate x:Key="InventoryItemTemplate">
+            <Border Margin="0,1" Padding="4,2" CornerRadius="6" Background="{DynamicResource GlassPanel}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250"/>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Content="{Binding DisplayName}" Tag="{Binding}" Click="PickInventoryItem_Click"
+                            Style="{StaticResource DlgBtn}" Height="26" MinWidth="0" Padding="7,0"
+                            HorizontalAlignment="Left" ToolTip="{Binding Detail}"/>
+                    <TextBox Grid.Column="1" Text="{Binding StackText, UpdateSourceTrigger=PropertyChanged}"
+                             Height="26" FontSize="11.5" Padding="6,0" ToolTip="数量"/>
+                    <ComboBox Grid.Column="2" ItemsSource="{Binding PrefixOptions}" DisplayMemberPath="Display"
+                              SelectedValuePath="Id" SelectedValue="{Binding PrefixId, Mode=TwoWay}"
+                              Height="26" FontSize="11.5" Margin="5,0,0,0" ToolTip="物品前缀"/>
+                    <CheckBox Grid.Column="3" IsChecked="{Binding Favorited, Mode=TwoWay}" Content="收藏"
+                              Foreground="{DynamicResource Text}" FontSize="11.5" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                    <Button Grid.Column="4" Content="删除" Tag="{Binding}" Click="RemoveInventoryItem_Click"
+                            Style="{StaticResource DlgBtn}" Height="26" MinWidth="48" Padding="6,0"
+                            FontSize="11" Margin="5,0,0,0"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
         <DataTemplate x:Key="SettingRowTemplate">
             <Border Margin="0,1" Padding="5,3" CornerRadius="6" Background="{DynamicResource GlassPanel}">
                 <Grid>
@@ -87,7 +114,7 @@
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="{Binding DisplayName}" Foreground="{DynamicResource Text}"
                                    FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
-                        <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextDim}"
+                        <TextBlock Text="{Binding PathText}" Foreground="{DynamicResource TextDim}"
                                    FontSize="10.5" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                     <ContentControl x:Name="EditorHost" Grid.Column="1" Content="{Binding}"
@@ -157,6 +184,7 @@
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
                                 <Grid Margin="0,0,0,6">
@@ -171,7 +199,25 @@
                                                VerticalAlignment="Center" FontSize="11"
                                                Foreground="{DynamicResource TextDim}"/>
                                 </Grid>
-                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <Border Grid.Row="1" Margin="0,0,0,6" Padding="8,6" CornerRadius="8"
+                                        Background="{DynamicResource GlassPanel}" BorderBrush="{DynamicResource GlassBorder}"
+                                        BorderThickness="1">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <TextBlock Text="初始物品（StartingInventory）" Foreground="{DynamicResource Text}"
+                                                       FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                            <Button DockPanel.Dock="Right" Content="添加物品" Click="AddInventoryItem_Click"
+                                                    Style="{StaticResource DlgBtn}" Height="26" FontSize="11"
+                                                    MinWidth="66" Padding="7,0" Margin="8,0,0,0"/>
+                                        </DockPanel>
+                                        <TextBlock Text="SSC 原生物品字段：netID / stack / prefix / favorited。后缀字段当前格式不支持，避免写坏配置；这里只写入原生前缀和数量。"
+                                                   Foreground="{DynamicResource TextDim}" FontSize="10.5"
+                                                   TextWrapping="Wrap" Margin="0,3,0,4"/>
+                                        <ItemsControl x:Name="InventoryList"
+                                                      ItemTemplate="{StaticResource InventoryItemTemplate}"/>
+                                    </StackPanel>
+                                </Border>
+                                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                                     <ItemsControl x:Name="SscList"
                                                   ItemTemplate="{StaticResource SettingRowTemplate}"/>
                                 </ScrollViewer>

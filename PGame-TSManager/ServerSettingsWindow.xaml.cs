@@ -38,6 +38,56 @@ namespace PGameTSManager
         public event PropertyChangedEventHandler? PropertyChanged;
     }
 
+    public class SscInventoryItem : INotifyPropertyChanged
+    {
+        private int _netId;
+        private string _stackText = "1";
+        private bool _favorited;
+
+        public int NetId
+        {
+            get => _netId;
+            set
+            {
+                if (_netId == value) return;
+                _netId = value;
+                Raise(nameof(NetId));
+                Raise(nameof(DisplayName));
+                Raise(nameof(Detail));
+            }
+        }
+
+        public string StackText
+        {
+            get => _stackText;
+            set { if (_stackText != value) { _stackText = value; Raise(nameof(StackText)); } }
+        }
+
+        public int PrefixId { get; set; }
+
+        public bool Favorited
+        {
+            get => _favorited;
+            set { if (_favorited != value) { _favorited = value; Raise(nameof(Favorited)); } }
+        }
+
+        public string DisplayName => ItemCatalog.NameOf(NetId);
+        public string Detail => "netID " + NetId;
+        public IReadOnlyList<PrefixOption> PrefixOptions => ItemCatalog.CommonPrefixes;
+
+        public void SetItem(ItemNameEntry item)
+        {
+            NetId = item.Id;
+            Raise(nameof(DisplayName));
+            Raise(nameof(Detail));
+        }
+
+        private void Raise(string name) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+    }
+
     public partial class ServerSettingsWindow : Window
     {
         private sealed class ConfigDocument
@@ -48,7 +98,20 @@ namespace PGameTSManager
 
         private readonly ConfigDocument _config = new();
         private readonly ConfigDocument _ssc = new();
+        private readonly ObservableCollection<SscInventoryItem> _inventoryItems = new();
         private readonly string _serverName;
+
+        private static readonly Dictionary<string, string> SscNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Enabled"] = "启用 SSC（服务端角色）",
+            ["ServerSideCharacterSave"] = "服务端角色保存间隔",
+            ["LogonDiscardThreshold"] = "登录丢弃阈值",
+            ["StartingHealth"] = "初始生命值",
+            ["StartingMana"] = "初始法力值",
+            ["WarnPlayersAboutBypassPermission"] = "绕过权限时警告玩家",
+            ["KeepPlayerAppearance"] = "保留玩家外观",
+            ["StartingInventory"] = "初始物品"
+        };
 
         public bool RestartRequested { get; private set; }
 
@@ -69,15 +132,18 @@ namespace PGameTSManager
 
             var tshockDir = Path.Combine(serverDirectory, "tshock");
             LoadDocument(_config, Path.Combine(tshockDir, "config.json"), "config.json");
-            LoadDocument(_ssc, Path.Combine(tshockDir, "sscconfig.json"), "sscconfig.json");
+            var sscPath = Path.Combine(tshockDir, "sscconfig.json");
+            LoadDocument(_ssc, sscPath, "sscconfig.json", skipStartingInventory: true);
+            LoadInventory(sscPath);
 
             ConfigList.ItemsSource = _config.Items;
             SscList.ItemsSource = _ssc.Items;
+            InventoryList.ItemsSource = _inventoryItems;
             UpdateCount(ConfigList, ConfigSearch, ConfigCount, _config);
             UpdateCount(SscList, SscSearch, SscCount, _ssc);
         }
 
-        private static void LoadDocument(ConfigDocument doc, string filePath, string fileName)
+        private static void LoadDocument(ConfigDocument doc, string filePath, string fileName, bool skipStartingInventory = false)
         {
             doc.FilePath = filePath;
             if (!File.Exists(filePath))
@@ -95,7 +161,7 @@ namespace PGameTSManager
             try
             {
                 var root = JObject.Parse(File.ReadAllText(filePath, System.Text.Encoding.UTF8));
-                Flatten(root, new List<string>(), doc.Items);
+                Flatten(root, new List<string>(), doc.Items, skipStartingInventory);
             }
             catch (Exception ex)
             {
@@ -109,14 +175,18 @@ namespace PGameTSManager
             }
         }
 
-        private static void Flatten(JToken token, IList<string> path, ObservableCollection<ConfigSetting> items)
+        private static void Flatten(JToken token, IList<string> path, ObservableCollection<ConfigSetting> items,
+            bool skipStartingInventory = false)
         {
             if (token is JObject obj)
             {
                 foreach (var property in obj.Properties())
                 {
+                    if (skipStartingInventory && path.Count == 1 && path[0] == "Settings" &&
+                        string.Equals(property.Name, "StartingInventory", StringComparison.OrdinalIgnoreCase))
+                        continue;
                     path.Add(property.Name);
-                    Flatten(property.Value, path, items);
+                    Flatten(property.Value, path, items, skipStartingInventory);
                     path.RemoveAt(path.Count - 1);
                 }
                 return;
@@ -128,6 +198,12 @@ namespace PGameTSManager
                 Path = string.Join(".", path),
                 DisplayName = path.Count > 0 ? path[^1] : "(root)"
             };
+            if (skipStartingInventory && path.Count == 2 && path[0] == "Settings" &&
+                SscNames.TryGetValue(path[1], out var localizedName))
+            {
+                setting.DisplayName = localizedName;
+                setting.PathText = "SSC · " + localizedName;
+            }
 
             if (token is JArray array)
             {
@@ -177,6 +253,30 @@ namespace PGameTSManager
             items.Add(setting);
         }
 
+        private void LoadInventory(string filePath)
+        {
+            _inventoryItems.Clear();
+            if (!File.Exists(filePath)) return;
+            try
+            {
+                var root = JObject.Parse(File.ReadAllText(filePath, System.Text.Encoding.UTF8));
+                if (root["Settings"]?["StartingInventory"] is not JArray array) return;
+                foreach (var token in array.OfType<JObject>())
+                {
+                    var netId = token.Value<int?>("netID") ?? 0;
+                    if (netId <= 0) continue;
+                    _inventoryItems.Add(new SscInventoryItem
+                    {
+                        NetId = netId,
+                        StackText = (token.Value<int?>("stack") ?? 1).ToString(),
+                        PrefixId = token.Value<int?>("prefix") ?? 0,
+                        Favorited = token.Value<bool?>("favorited") ?? false
+                    });
+                }
+            }
+            catch { }
+        }
+
         private static bool SetByPath(JObject root, string path, JToken value)
         {
             var parts = path.Split('.', StringSplitOptions.RemoveEmptyEntries);
@@ -196,7 +296,7 @@ namespace PGameTSManager
             return false;
         }
 
-        private static bool SaveDocument(ConfigDocument doc, out string message)
+        private static bool SaveDocument(ConfigDocument doc, JArray? inventory, out string message)
         {
             message = "";
             if (!File.Exists(doc.FilePath)) return true;
@@ -240,6 +340,8 @@ namespace PGameTSManager
                     if (!SetByPath(root, setting.Path, value))
                         throw new InvalidOperationException($"找不到配置项：{setting.Path}");
                 }
+                if (inventory != null && !SetByPath(root, "Settings.StartingInventory", inventory))
+                    throw new InvalidOperationException("找不到配置项：Settings.StartingInventory");
 
                 try { File.WriteAllText(doc.FilePath + ".bak", File.ReadAllText(doc.FilePath, System.Text.Encoding.UTF8), new System.Text.UTF8Encoding(false)); } catch { }
                 File.WriteAllText(doc.FilePath, root.ToString(Formatting.Indented), new System.Text.UTF8Encoding(false));
@@ -254,19 +356,56 @@ namespace PGameTSManager
 
         private bool SaveAll()
         {
-            if (!SaveDocument(_config, out var configError))
+            if (!TryBuildInventory(out var inventory, out var inventoryError))
+            {
+                MessageBox.Show(this, "初始物品保存失败：\n" + inventoryError, "服务器设置",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+
+            if (!SaveDocument(_config, null, out var configError))
             {
                 MessageBox.Show(this, "TShock 配置保存失败：\n" + configError, "服务器设置",
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
-            if (!SaveDocument(_ssc, out var sscError))
+            if (!SaveDocument(_ssc, inventory, out var sscError))
             {
                 MessageBox.Show(this, "SSC 配置保存失败：\n" + sscError, "服务器设置",
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
             return true;
+        }
+
+        private bool TryBuildInventory(out JArray inventory, out string error)
+        {
+            inventory = new JArray();
+            error = "";
+            try
+            {
+                foreach (var item in _inventoryItems)
+                {
+                    if (item.NetId <= 0) throw new FormatException("物品 netID 必须大于 0。");
+                    if (!int.TryParse(item.StackText.Trim(), out var stack) || stack < 1)
+                        throw new FormatException(ItemCatalog.NameOf(item.NetId) + " 的数量必须大于 0。");
+
+                    inventory.Add(new JObject
+                    {
+                        ["netID"] = item.NetId,
+                        ["prefix"] = item.PrefixId,
+                        ["stack"] = stack,
+                        ["favorited"] = item.Favorited
+                    });
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                inventory = new JArray();
+                return false;
+            }
         }
 
         private static void UpdateCount(ItemsControl list, TextBox search, TextBlock label, ConfigDocument doc)
@@ -292,6 +431,32 @@ namespace PGameTSManager
         {
             DialogResult = false;
             Close();
+        }
+
+        private void AddInventoryItem_Click(object _, RoutedEventArgs e)
+        {
+            var picker = new ItemPickerDialog { Owner = this };
+            if (picker.ShowDialog() != true || picker.SelectedItem == null) return;
+            _inventoryItems.Add(new SscInventoryItem
+            {
+                NetId = picker.SelectedItem.Id,
+                StackText = "1",
+                PrefixId = 0
+            });
+        }
+
+        private void PickInventoryItem_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.Tag is not SscInventoryItem row) return;
+            var picker = new ItemPickerDialog { Owner = this };
+            if (picker.ShowDialog() != true || picker.SelectedItem == null) return;
+            row.SetItem(picker.SelectedItem);
+        }
+
+        private void RemoveInventoryItem_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.Tag is SscInventoryItem row)
+                _inventoryItems.Remove(row);
         }
 
         private void Save_Click(object _, RoutedEventArgs e)

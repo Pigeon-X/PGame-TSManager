@@ -22,6 +22,9 @@
 
   <ItemGroup>
     <Resource Include="PGame-TSManager.ico" />
+        <None Update="Data\*">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
     <None Update="Plugins\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
