@@ -10,10 +10,10 @@
   只读校验，绝不修改任何文件。
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File .\Test-TShockConfig.ps1 -ServerPath 'D:\59934\Desktop\流光服\1.流光城'
+powershell -ExecutionPolicy Bypass -File .\Test-TShockConfig.ps1 -ServerPath 'D:\PGame-TSManager\Servers\Profiles\1.生存'
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File .\Test-TShockConfig.ps1 -ServerPath 'D:\59934\Desktop\流光服\2.RPG\1.泰拉大陆' -AsJson
+powershell -ExecutionPolicy Bypass -File .\Test-TShockConfig.ps1 -ServerPath 'D:\PGame-TSManager\Servers\Profiles\2.生存2' -AsJson
 #>
 [CmdletBinding()]
 param(

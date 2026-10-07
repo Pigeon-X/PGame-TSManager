@@ -5,13 +5,13 @@
   管理器启动时会自动发现这些目录（只要 config.json 里写了端口），不需要再改管理器配置。
 
   示例：
-    .\New-PigeonServer.ps1 -Root "D:\59934\Desktop\PGame-TSManager" -Name "生存服" -Port 2025 -RestPort 7881
-    .\New-PigeonServer.ps1 -Root "D:\59934\Desktop\PGame-TSManager" -Name "活动服" -Port 2026 -RestPort 7882 -Template "3.流光神域" -PluginsFromTemplate
+    .\New-PigeonServer.ps1 -Root "D:\PGame-TSManager" -Name "生存" -Port 7777 -RestPort 7878
+    .\New-PigeonServer.ps1 -Root "D:\PGame-TSManager" -Name "生存2" -Port 7778 -RestPort 7879 -Template "1.生存"
 
   参数：
     -Root               PGame-TSManager 根目录（默认 D:\59934\Desktop\PGame-TSManager）
     -Name               服务器名（不要带序号，脚本自己加）
-    -World              世界文件名（相对 Worlds\，可不带 .wld；不填用 <名字>.wld）
+    -World              世界文件名（相对 Servers\Worlds\，可不带 .wld；不填用 <名字>.wld）
     -Port               游戏端口（必填）
     -RestPort           REST 端口（必填）
     -Template           模板服目录名（复制它的 tshock\ 配置；不填用第一台）
@@ -31,7 +31,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 
-$serversDir = Join-Path $Root '1.PigeonServers'
+$serversDir = Join-Path $Root 'Servers\Profiles'
 if (-not (Test-Path -LiteralPath $serversDir)) { throw "找不到服务器目录：$serversDir" }
 
 function Get-Ordinal([string]$text) {
@@ -111,7 +111,7 @@ $json = $manifest | ConvertTo-Json -Depth 6
 Write-Host ''
 Write-Host "已创建：$target"
 Write-Host "  序号    : $next"
-Write-Host "  世界    : $worldName  （把 .wld 放到 Worlds\ 下）"
+Write-Host "  世界    : $worldName  （把 .wld 放到 Servers\Worlds\ 下）"
 Write-Host "  端口    : $Port     REST: $RestPort"
 Write-Host "  插件清单: $($plugins.Count) 个"
 Write-Host ''
@@ -120,5 +120,5 @@ Write-Host "  1) 打开 $target\tshock\config.json，把："
 Write-Host "     - 'Rest的端口'     改成 $RestPort"
 Write-Host "     - 'Mysql的数据库名称' / 连接信息 按这台服要用的库改"
 Write-Host "     - 'Rest外部应用令牌字典' 里令牌的 用户名/用户组 保持 superadmin"
-Write-Host "  2) 把世界文件放到 $Root\Worlds\"
+Write-Host "  2) 把世界文件放到 $Root\Servers\Worlds\"
 Write-Host '  3) 重启 PGame-TSManager —— 启动时会自动发现这个目录（不用改管理器 config.json）'

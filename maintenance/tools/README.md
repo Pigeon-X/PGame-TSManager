@@ -10,7 +10,7 @@
 
 ```powershell
 # 人读
-powershell -ExecutionPolicy Bypass -File .\Test-TShockConfig.ps1 -ServerPath 'D:\59934\Desktop\流光服\1.流光城'
+powershell -ExecutionPolicy Bypass -File .\Test-TShockConfig.ps1 -ServerPath 'D:\PGame-TSManager\Servers\Profiles\1.生存'
 
 # 机器读（JSON）
 powershell -ExecutionPolicy Bypass -File .\Test-TShockConfig.ps1 -ServerPath '<服务端目录>' -AsJson

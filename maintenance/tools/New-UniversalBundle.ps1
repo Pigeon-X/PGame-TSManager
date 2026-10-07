@@ -21,7 +21,7 @@ function Copy-DirectoryContents([string]$Source, [string]$Destination) {
 
 try {
     Copy-DirectoryContents $publish $stage
-    foreach ($relative in @('maintenance', 'README.md')) {
+    foreach ($relative in @('maintenance\tools', 'maintenance\templates', 'README.md')) {
         $source = Join-Path $root $relative
         if (-not (Test-Path -LiteralPath $source)) { continue }
         $destination = Join-Path $stage $relative
@@ -31,8 +31,14 @@ try {
             Copy-Item -LiteralPath $source -Destination $destination -Force
         }
     }
+    $privateMigrationTool = Join-Path $stage 'maintenance\tools\New-PigeonServersLayout.ps1'
+    if (Test-Path -LiteralPath $privateMigrationTool) {
+        Remove-Item -LiteralPath $privateMigrationTool -Force
+    }
     & (Join-Path $root 'maintenance\tools\Migrate-ManagerLayout.ps1') `
         -ManagerDir $stage -IncludeSourceDirectories
+    & (Join-Path $root 'maintenance\tools\Add-TShockTemplates.ps1') `
+        -ManagerDir $stage
     $parent = Split-Path -Parent $OutputPath
     New-Item -ItemType Directory -Force -Path $parent | Out-Null
     if (Test-Path -LiteralPath $OutputPath) { Remove-Item -LiteralPath $OutputPath -Force }
