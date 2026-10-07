@@ -304,8 +304,28 @@ namespace PGameTSManager
 
         private void ShowOperationsPage_Click(object _, RoutedEventArgs e)
         {
-            WorkspaceTabs.SelectedIndex = 1;
-            OperationsView.RefreshAll();
+            OperationsPageButton.IsChecked = true;
+        }
+
+        private void WorkspacePage_Checked(object _, RoutedEventArgs e)
+        {
+            var showOperations = OperationsPageButton?.IsChecked == true;
+            if (ConsolePage != null) ConsolePage.Visibility = showOperations ? Visibility.Collapsed : Visibility.Visible;
+            if (OperationsView != null) OperationsView.Visibility = showOperations ? Visibility.Visible : Visibility.Collapsed;
+            if (CommandBar != null) CommandBar.Visibility = showOperations ? Visibility.Collapsed : Visibility.Visible;
+            if (showOperations) OperationsView?.RefreshAll();
+        }
+
+        private void RollbackFromMenu_Click(object _, RoutedEventArgs e)
+        {
+            var current = Current;
+            if (current == null)
+            {
+                AppendLine("[回滚中心] 当前没有选中的服务器");
+                return;
+            }
+            new BackupCenterWindow(current.Name, Path.Combine(current.ProfileDirectory, "tshock", "config.json"),
+                ManagerConfig.Resolve(_cfg.backupDir)) { Owner = this }.ShowDialog();
         }
 
         private void PluginCheck_Click(object _, RoutedEventArgs e)

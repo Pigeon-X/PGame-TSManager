@@ -72,19 +72,20 @@
             <Setter Property="Foreground" Value="{DynamicResource Text}"/>
         </Style>
 
-        <Style TargetType="TabItem" x:Key="MainTabItem">
+        <Style TargetType="RadioButton" x:Key="WorkspaceTabButton">
             <Setter Property="Foreground" Value="{DynamicResource TextDim}"/>
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="TabItem">
+                    <ControlTemplate TargetType="RadioButton">
                         <Border x:Name="TabBorder" Background="Transparent" CornerRadius="8"
                                 Padding="{TemplateBinding Padding}" Margin="0,0,5,0">
-                            <ContentPresenter ContentSource="Header"/>
+                            <ContentPresenter ContentSource="Content"/>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
+                            <Trigger Property="IsChecked" Value="True">
                                 <Setter Property="Foreground" Value="{DynamicResource Accent2}"/>
                                 <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource GlassPanelHi}"/>
                             </Trigger>
@@ -290,7 +291,13 @@
                                           Click="StopAllButton_Click"/>
                             </MenuItem>
                             <MenuItem Header="管理">
-                                <MenuItem Header="运维中心" Click="ShowOperationsPage_Click"/>
+                                <MenuItem Header="服务器设置" Click="ServerSettingsButton_Click"/>
+                                <MenuItem Header="插件开关" Click="PluginButton_Click"/>
+                                <MenuItem Header="玩家管理" Click="PlayerManager_Click"/>
+                                <MenuItem Header="插件检查" Click="PluginCheck_Click"/>
+                                <MenuItem Header="计划任务" Click="Schedule_Click"/>
+                                <MenuItem Header="回滚中心" Click="RollbackFromMenu_Click"/>
+                                <Separator/>
                                 <MenuItem Header="新建服务器" Click="NewServerButton_Click"/>
                                 <MenuItem Header="刷新服务器列表" Click="RefreshButton_Click"/>
                             </MenuItem>
@@ -314,6 +321,16 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
 
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Left"
+                                    VerticalAlignment="Center" Margin="18,0,0,0">
+                            <RadioButton x:Name="ConsolePageButton" Content="控制台" GroupName="WorkspacePage"
+                                         Style="{StaticResource WorkspaceTabButton}" IsChecked="True"
+                                         Checked="WorkspacePage_Checked"/>
+                            <RadioButton x:Name="OperationsPageButton" Content="运维中心" GroupName="WorkspacePage"
+                                         Style="{StaticResource WorkspaceTabButton}"
+                                         Checked="WorkspacePage_Checked"/>
+                        </StackPanel>
+
                         <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button x:Name="StartButton" Content="启动本服" Style="{StaticResource StartBtn}" Click="StartButton_Click"
                                 DataContext="{Binding SelectedItem, ElementName=ComboBox, Converter={StaticResource ToContainerConverter}}"
@@ -327,25 +344,20 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- 主内容页：控制台 / 运维中心 -->
-                    <TabControl x:Name="WorkspaceTabs" Grid.Row="1" Margin="0,4,0,0"
-                                Background="Transparent" BorderThickness="0">
-                        <TabItem Header="控制台" Style="{StaticResource MainTabItem}">
-                            <Border Margin="0" CornerRadius="12" Background="{DynamicResource ConsoleBg}"
-                                    BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1">
-                                <RichTextBox x:Name="CliTextBox" Background="Transparent" Foreground="{DynamicResource LogNormal}"
-                                             BorderThickness="0" FontFamily="Consolas, Microsoft YaHei UI" FontSize="12.5" IsReadOnly="True"
-                                             Padding="9" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
-                                             ToolTip="服务器控制台输出（可上下滚动）"/>
-                            </Border>
-                        </TabItem>
-                        <TabItem Header="运维中心" Style="{StaticResource MainTabItem}">
-                            <local:OperationsCenterView x:Name="OperationsView"/>
-                        </TabItem>
-                    </TabControl>
+                    <!-- 主内容页：第一行页签切换 -->
+                    <Grid Grid.Row="1" Margin="0,4,0,0">
+                        <Border x:Name="ConsolePage" CornerRadius="12" Background="{DynamicResource ConsoleBg}"
+                                BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1">
+                            <RichTextBox x:Name="CliTextBox" Background="Transparent" Foreground="{DynamicResource LogNormal}"
+                                         BorderThickness="0" FontFamily="Consolas, Microsoft YaHei UI" FontSize="12.5" IsReadOnly="True"
+                                         Padding="9" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
+                                         ToolTip="服务器控制台输出（可上下滚动）"/>
+                        </Border>
+                        <local:OperationsCenterView x:Name="OperationsView" Visibility="Collapsed"/>
+                    </Grid>
 
                     <!-- 最底部：只保留一行指令输入 -->
-                    <Grid Grid.Row="2" Margin="0,4,0,0">
+                    <Grid x:Name="CommandBar" Grid.Row="2" Margin="0,4,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
