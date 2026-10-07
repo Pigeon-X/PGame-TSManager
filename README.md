@@ -4,6 +4,15 @@ Multi-server manager for TShock（鸽子服 TShock 多开管理器）。
 
 Pigeon-X 维护版，汇总 TShock 更新、配置中文映射、REST 修复和插件维护。
 
+## Core 与 Personal
+
+本仓库只维护通用 Core；个人服配置、RPG 插件、PGameAPI、PigeonBot 强耦合插件不进入公共包。
+
+- `PGame-TSManager-universal.zip`：公共通用版，包含管理器、TShock 兼容、通用 UI 和维护工具。
+- `PGame-TSManager-personal.zip`：个人版，由私有 overlay 从同一 Core tag 叠加构建。
+- `personal-overlay/`：个人叠加层模板；真实个人内容放在私有仓库或私有发行包。
+- 两个版本共用 Core 版本号；`build-personal.yml` 只做叠加构建，不反向污染通用包。
+
 ## 目录
 
 - PGame-TSManager/：管理器源码（构建产物为 PGame-TSManager.exe）。

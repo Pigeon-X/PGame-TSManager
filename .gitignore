@@ -18,3 +18,11 @@ _runtime/
 ServerPlugins/
 PGame-TSManager/Plugins/*
 !PGame-TSManager/Plugins/.gitkeep
+personal-overlay/private/
+personal-overlay/plugins/
+personal-overlay/bin/
+personal-overlay/data/
+personal-overlay/servers/
+personal-overlay/rpgConfigs/
+personal-overlay/botIntegration/
+personal-overlay/config/

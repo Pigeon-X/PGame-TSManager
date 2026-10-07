@@ -1,0 +1,23 @@
+{
+  "name": "Pigeon Personal Overlay",
+  "coreVersion": "compatible-with-core-tag",
+  "description": "Private personal content. Never publish this directory as-is.",
+  "directories": {
+    "plugins": "Plugins",
+    "pluginDependencies": "bin",
+    "data": "Data",
+    "servers": "1.PigeonServers",
+    "rpgConfigs": "RPGConfigs",
+    "botIntegration": "PigeonBot"
+  },
+  "managerConfig": "config\\manager.json",
+  "excludedFromUniversal": [
+    "PigeonRPG.*.dll",
+    "PGameAPI.dll",
+    "PigeonMiniGamesAPI.dll",
+    "PChrome.*.dll",
+    "Chrome.*.dll",
+    "CustomPlayer.dll",
+    "PlayerReward.dll"
+  ]
+}

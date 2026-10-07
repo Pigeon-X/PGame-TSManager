@@ -1,0 +1,64 @@
+name: Build PGame-TSManager Personal
+
+on:
+  workflow_dispatch:
+    inputs:
+      core_ref:
+        description: Core tag/commit to build
+        required: true
+        default: main
+  repository_dispatch:
+    types: [core-built]
+
+permissions:
+  contents: read
+
+jobs:
+  build-personal:
+    runs-on: windows-latest
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - name: Checkout core
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.core_ref || 'main' }}
+          path: core
+
+      - name: Checkout private personal overlay
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.PERSONAL_OVERLAY_REPOSITORY }}
+          token: ${{ secrets.PERSONAL_OVERLAY_TOKEN }}
+          path: overlay
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Build core manager
+        shell: pwsh
+        run: |
+          dotnet restore core/PGame-TSManager.sln
+          dotnet publish core/PGame-TSManager/PGame-TSManager.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:DebugType=None -o artifacts/core
+
+      - name: Apply personal overlay and package
+        shell: pwsh
+        run: |
+          ./core/maintenance/tools/New-PersonalBundle.ps1 `
+            -RepositoryRoot ./core `
+            -PublishDirectory ./artifacts/core `
+            -OverlayRoot ./overlay `
+            -OutputPath ./artifacts/PGame-TSManager-personal.zip
+
+      - name: Upload personal artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PGame-TSManager-Personal-${{ github.sha }}
+          path: artifacts/PGame-TSManager-personal.zip
+          if-no-files-found: error

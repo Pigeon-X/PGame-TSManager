@@ -53,6 +53,14 @@ jobs:
             -PublishDirectory (Join-Path $env:GITHUB_WORKSPACE 'artifacts/manager') `
             -OutputPath (Join-Path $env:GITHUB_WORKSPACE 'artifacts/PGame-TSManager-template.zip')
 
+      - name: Package universal manager bundle
+        shell: pwsh
+        run: |
+          ./maintenance/tools/New-UniversalBundle.ps1 `
+            -RepositoryRoot $env:GITHUB_WORKSPACE `
+            -PublishDirectory (Join-Path $env:GITHUB_WORKSPACE 'artifacts/manager') `
+            -OutputPath (Join-Path $env:GITHUB_WORKSPACE 'artifacts/PGame-TSManager-universal.zip')
+
       - name: Self-check repository packaging rules
         shell: pwsh
         run: ./maintenance/tools/Test-RepositoryLayout.ps1 -RepositoryRoot $env:GITHUB_WORKSPACE
