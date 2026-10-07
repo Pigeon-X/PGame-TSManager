@@ -22,6 +22,7 @@ $mappings = @{
     servers = '1.PigeonServers'
     rpgConfigs = 'RPGConfigs'
     botIntegration = 'PigeonBot'
+    tools = 'Tools'
 }
 
 foreach ($key in $mappings.Keys) {
