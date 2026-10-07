@@ -364,13 +364,24 @@
                                     shell:WindowChrome.IsHitTestVisibleInChrome="True">
                             <Button Style="{StaticResource TitleBarButton}"
                                     Click="TitleBarMinimize_Click" ToolTip="最小化">
-                                <Path Data="M 3 9 L 13 9" Stroke="#FFF8F5FF" StrokeThickness="1.6"
-                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                <Border Width="12" Height="2" CornerRadius="1" Background="#FFF8F5FF"/>
                             </Button>
                             <Button Style="{StaticResource TitleBarCloseButton}" Tag="Close"
                                     Click="TitleBarClose_Click" ToolTip="关闭">
-                                <Path Data="M 3 3 L 12 12 M 12 3 L 3 12" Stroke="#FFF8F5FF"
-                                      StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                <Grid Width="12" Height="12">
+                                    <Border Width="12" Height="2" CornerRadius="1" Background="#FFF8F5FF"
+                                            RenderTransformOrigin="0.5,0.5">
+                                        <Border.RenderTransform>
+                                            <RotateTransform Angle="45"/>
+                                        </Border.RenderTransform>
+                                    </Border>
+                                    <Border Width="12" Height="2" CornerRadius="1" Background="#FFF8F5FF"
+                                            RenderTransformOrigin="0.5,0.5">
+                                        <Border.RenderTransform>
+                                            <RotateTransform Angle="-45"/>
+                                        </Border.RenderTransform>
+                                    </Border>
+                                </Grid>
                             </Button>
                         </StackPanel>
                     </Grid>
