@@ -205,11 +205,11 @@ namespace PGameTSManager
             {
                 try { current.IsRunning = false; } catch { }
                 AppendLine($"[插件开关] 正在重启 {current.Name} …");
-                _ = RestartOneAsync(current);
+                _ = RestartOneAsync(current, "插件开关");
             }
         }
 
-        private async Task RestartOneAsync(ServerContainer c)
+        private async Task RestartOneAsync(ServerContainer c, string source = "插件开关")
         {
             try
             {
@@ -217,9 +217,30 @@ namespace PGameTSManager
                 await c.WaitForStoppedAsync(TimeSpan.FromSeconds(30));
                 c.IsRunning = true;
                 var ok = await c.WaitUntilReadyAsync(TimeSpan.FromSeconds(Math.Max(30, _cfg.startReadyTimeoutSeconds)));
-                AppendLine(ok ? $"[插件开关] {c.Name} 已重启并就绪 ✓" : $"[插件开关] {c.Name} 重启后等待就绪超时");
+                AppendLine(ok ? $"[{source}] {c.Name} 已重启并就绪 ✓" : $"[{source}] {c.Name} 重启后等待就绪超时");
             }
-            catch (Exception ex) { AppendLine($"[插件开关] {c.Name} 重启失败：{ex.Message}"); }
+            catch (Exception ex) { AppendLine($"[{source}] {c.Name} 重启失败：{ex.Message}"); }
+        }
+
+        private void ServerSettingsButton_Click(object _, RoutedEventArgs e)
+        {
+            var current = Current;
+            if (current == null)
+            {
+                AppendLine("[服务器设置] 当前没有选中的服务器");
+                return;
+            }
+
+            var dlg = new ServerSettingsWindow(current.Name, current.ProfileDirectory) { Owner = this };
+            if (dlg.ShowDialog() != true) return;
+
+            AppendLine($"[服务器设置] {current.Name} 的配置已保存");
+            if (dlg.RestartRequested && current.IsRunning)
+            {
+                try { current.IsRunning = false; } catch { }
+                AppendLine($"[服务器设置] 正在重启 {current.Name} …");
+                _ = RestartOneAsync(current, "服务器设置");
+            }
         }
 
         private void NewServerButton_Click(object _, RoutedEventArgs e)

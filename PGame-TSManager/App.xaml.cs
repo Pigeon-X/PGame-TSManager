@@ -243,18 +243,15 @@ namespace PGameTSManager
             e.Cancel = true;   // 一律先拦下，由我们决定
             try
             {
-                var choice = System.Windows.MessageBox.Show(
-                    window,
-                    "点 × 了：要缩小到托盘，还是关闭 PGame-TSManager？\n\n" +
-                    "【是】= 缩小到托盘（后台继续管理服务器）\n" +
-                    "【否】= 关闭程序\n" +
-                    "【取消】= 什么都不做",
+                var choice = new ChoiceDialog(
                     "PGame-TSManager",
-                    MessageBoxButton.YesNoCancel,
-                    MessageBoxImage.Question,
-                    MessageBoxResult.Cancel);
+                    "点 × 了：要缩小到托盘，还是关闭程序？\n缩小到托盘后，服务器会继续在后台运行。",
+                    "缩小到托盘",
+                    "关闭程序",
+                    "取消") { Owner = window };
+                choice.ShowDialog();
 
-                if (choice == MessageBoxResult.Yes)
+                if (choice.Result == ChoiceDialogResult.Primary)
                 {
                     if (_tray != null)
                     {
@@ -265,16 +262,17 @@ namespace PGameTSManager
                     return;
                 }
 
-                if (choice == MessageBoxResult.No)
+                if (choice.Result == ChoiceDialogResult.Secondary)
                 {
-                    var confirm = System.Windows.MessageBox.Show(
-                        window,
-                        "确定要关闭 PGame-TSManager 吗？\n\n正在运行的服务器会一起被关闭。",
+                    var confirm = new ChoiceDialog(
                         "确认关闭",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Warning,
-                        MessageBoxResult.No);
-                    if (confirm == MessageBoxResult.Yes)
+                        "确定要关闭 PGame-TSManager 吗？\n正在运行的服务器会一起被关闭。",
+                        "关闭",
+                        "",
+                        "取消",
+                        primaryDanger: true) { Owner = window };
+                    confirm.ShowDialog();
+                    if (confirm.Result == ChoiceDialogResult.Primary)
                     {
                         _exiting = true;
                         if (_tray != null) { _tray.Visible = false; _tray.Dispose(); _tray = null; }

@@ -1,0 +1,46 @@
+<Window x:Class="PGameTSManager.ChoiceDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PGame-TSManager" SizeToContent="Height" Width="520"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize"
+        Background="{DynamicResource AppBackdrop}" FontFamily="Microsoft YaHei UI" UseLayoutRounding="True">
+    <Grid>
+        <Border Margin="6" CornerRadius="14" Background="{DynamicResource GlassBg}"
+                BorderBrush="{DynamicResource GlassBorder}" BorderThickness="1">
+            <Grid>
+                <Border Height="1" VerticalAlignment="Top" Margin="16,1,16,0" Background="{DynamicResource GlassHi}"/>
+                <Grid Margin="18,16,18,14">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Orientation="Horizontal">
+                        <Grid Width="38" Height="38" Margin="0,0,12,0">
+                            <Ellipse Fill="{DynamicResource GlassPanelHi}"/>
+                            <TextBlock Text="?" FontSize="21" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Accent2}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="TitleText" FontSize="13.5" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Text}"/>
+                            <TextBlock x:Name="MessageText" Margin="0,4,0,0" FontSize="12"
+                                       TextWrapping="Wrap" Foreground="{DynamicResource TextDim}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Height="1" Margin="0,14,0,14"
+                            Background="{DynamicResource GlassBorder}"/>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="CancelBtn" Content="取消" Style="{StaticResource DlgBtn}" Click="Cancel_Click"/>
+                        <Button x:Name="SecondaryBtn" Content="关闭程序" Style="{StaticResource DlgBtn}" Click="Secondary_Click"/>
+                        <Button x:Name="PrimaryBtn" Content="缩小到托盘" Style="{StaticResource DlgBtn}" Click="Primary_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

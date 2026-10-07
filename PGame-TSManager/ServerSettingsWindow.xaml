@@ -1,0 +1,205 @@
+<Window x:Class="PGameTSManager.ServerSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="服务器设置" Height="700" Width="980" MinHeight="520" MinWidth="760"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource AppBackdrop}" FontFamily="Microsoft YaHei UI" UseLayoutRounding="True">
+
+    <Window.Resources>
+        <Style TargetType="TabItem">
+            <Setter Property="Foreground" Value="{DynamicResource TextDim}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="TabBorder" Background="Transparent" CornerRadius="7"
+                                Padding="{TemplateBinding Padding}" Margin="0,0,4,0">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource Accent2}"/>
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource GlassPanelHi}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource GlassPanel}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" IsItemsHost="True" Orientation="Horizontal"
+                                        Margin="0,0,0,5"/>
+                            <Border Grid.Row="1" Background="{DynamicResource ConsoleBg}"
+                                    BorderBrush="{DynamicResource AccentBorder}" BorderThickness="1"
+                                    CornerRadius="10" Padding="8">
+                                <ContentPresenter ContentSource="SelectedContent"/>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate x:Key="TextEditor">
+            <TextBox Text="{Binding ValueText, UpdateSourceTrigger=PropertyChanged}" Height="28"
+                     FontSize="12" Padding="7,0"/>
+        </DataTemplate>
+
+        <DataTemplate x:Key="BoolEditor">
+            <CheckBox IsChecked="{Binding BoolValue, Mode=TwoWay}" Content="{Binding BoolDisplay}"
+                      Foreground="{DynamicResource Text}" FontSize="12"/>
+        </DataTemplate>
+
+        <DataTemplate x:Key="ComplexEditor">
+            <TextBox Text="{Binding RawJson, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
+                     MinHeight="40" MaxHeight="120" FontFamily="Consolas, Microsoft YaHei UI"
+                     FontSize="11" Padding="7,4" VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap"/>
+        </DataTemplate>
+
+        <DataTemplate x:Key="InfoEditor">
+            <TextBlock Text="{Binding ValueText}" Foreground="{DynamicResource TextDim}"
+                       FontSize="12" VerticalAlignment="Center"/>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SettingRowTemplate">
+            <Border Margin="0,1" Padding="5,3" CornerRadius="6" Background="{DynamicResource GlassPanel}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Margin="0,0,10,0">
+                        <TextBlock Text="{Binding DisplayName}" Foreground="{DynamicResource Text}"
+                                   FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
+                        <TextBlock Text="{Binding Path}" Foreground="{DynamicResource TextDim}"
+                                   FontSize="10.5" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <ContentControl x:Name="EditorHost" Grid.Column="1" Content="{Binding}"
+                                    ContentTemplate="{StaticResource TextEditor}" VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Kind}" Value="Bool">
+                    <Setter TargetName="EditorHost" Property="ContentTemplate" Value="{StaticResource BoolEditor}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Kind}" Value="Complex">
+                    <Setter TargetName="EditorHost" Property="ContentTemplate" Value="{StaticResource ComplexEditor}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Kind}" Value="Info">
+                    <Setter TargetName="EditorHost" Property="ContentTemplate" Value="{StaticResource InfoEditor}"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <Border Margin="8" CornerRadius="14" Background="{DynamicResource GlassBg}"
+                BorderBrush="{DynamicResource GlassBorder}" BorderThickness="1">
+            <Grid>
+                <Border Height="1" VerticalAlignment="Top" Margin="16,1,16,0" Background="{DynamicResource GlassHi}"/>
+                <Grid Margin="16,14,16,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0">
+                        <TextBlock x:Name="Header" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Text}"/>
+                        <TextBlock x:Name="SubHeader" Margin="0,4,0,0" FontSize="11.5"
+                                   Foreground="{DynamicResource TextDim}"/>
+                    </StackPanel>
+
+                    <TabControl Grid.Row="1" Margin="0,10,0,0">
+                        <TabItem Header="TShock 配置">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="ConfigSearch" Height="28" FontSize="12"
+                                             Padding="8,0" TextChanged="ConfigSearch_TextChanged"
+                                             ToolTip="按配置名、路径或当前值筛选"/>
+                                    <TextBlock x:Name="ConfigCount" Grid.Column="1" Margin="10,0,0,0"
+                                               VerticalAlignment="Center" FontSize="11"
+                                               Foreground="{DynamicResource TextDim}"/>
+                                </Grid>
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl x:Name="ConfigList"
+                                                  ItemTemplate="{StaticResource SettingRowTemplate}"/>
+                                </ScrollViewer>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem Header="SSC 配置">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="SscSearch" Height="28" FontSize="12"
+                                             Padding="8,0" TextChanged="SscSearch_TextChanged"
+                                             ToolTip="按配置名、路径或当前值筛选"/>
+                                    <TextBlock x:Name="SscCount" Grid.Column="1" Margin="10,0,0,0"
+                                               VerticalAlignment="Center" FontSize="11"
+                                               Foreground="{DynamicResource TextDim}"/>
+                                </Grid>
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl x:Name="SscList"
+                                                  ItemTemplate="{StaticResource SettingRowTemplate}"/>
+                                </ScrollViewer>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem Header="更多设置">
+                            <TextBlock Margin="12" FontSize="12" Foreground="{DynamicResource TextDim}"
+                                       TextWrapping="Wrap"
+                                       Text="后续可继续加入世界、备份、数据库、REST、插件数据等配置页。当前版本先提供 TShock config 与 SSC 两个分页，结构与保存逻辑已独立封装。" />
+                        </TabItem>
+                    </TabControl>
+
+                    <Grid Grid.Row="2" Margin="0,10,0,0">
+                        <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="11"
+                                   Foreground="{DynamicResource TextDim}"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="取消" Style="{StaticResource DlgBtn}" Click="Cancel_Click"/>
+                            <Button Content="保存" Style="{StaticResource DlgBtn}"
+                                    Background="{DynamicResource Accent}" Foreground="{DynamicResource AccentText}"
+                                    Click="Save_Click"/>
+                            <Button Content="保存并重启本服" Style="{StaticResource DlgBtn}"
+                                    Background="{DynamicResource Ok}" Foreground="{DynamicResource BtnText}"
+                                    Click="SaveRestart_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
