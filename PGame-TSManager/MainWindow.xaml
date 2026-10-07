@@ -72,6 +72,22 @@
             <Setter Property="Foreground" Value="{DynamicResource Text}"/>
         </Style>
 
+        <Style TargetType="Button" BasedOn="{StaticResource BaseBtn}" x:Key="TopActionBtn">
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="MinWidth" Value="48"/>
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="Margin" Value="3,0,0,0"/>
+        </Style>
+        <Style TargetType="Button" BasedOn="{StaticResource TopActionBtn}" x:Key="TopStartBtn">
+            <Setter Property="Background" Value="{DynamicResource Ok}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BtnText}"/>
+        </Style>
+        <Style TargetType="Button" BasedOn="{StaticResource TopActionBtn}" x:Key="TopStopBtn">
+            <Setter Property="Background" Value="{DynamicResource Err}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BtnText}"/>
+        </Style>
+
         <Style TargetType="RadioButton" x:Key="WorkspaceTabButton">
             <Setter Property="Foreground" Value="{DynamicResource TextDim}"/>
             <Setter Property="FontSize" Value="12"/>
@@ -310,34 +326,33 @@
                                          Checked="WorkspacePage_Checked"/>
                         </StackPanel>
 
-                        <Menu Grid.Column="3" Background="Transparent" Foreground="{DynamicResource Text}"
-                              FontSize="11.5" Padding="0" VerticalAlignment="Center" HorizontalAlignment="Right">
-                            <MenuItem Header="服务器">
-                                <MenuItem x:Name="MenuStartCurrent" Header="启动本服" Foreground="{DynamicResource Ok}"
-                                          Click="StartButton_Click"/>
-                                <MenuItem x:Name="MenuStopCurrent" Header="停止本服" Foreground="{DynamicResource Err}"
-                                          Click="KillButton_Click"/>
-                                <Separator/>
-                                <MenuItem x:Name="MenuStartAll" Header="全部启动" Foreground="{DynamicResource Ok}"
-                                          Click="StartAllButton_Click"/>
-                                <MenuItem x:Name="MenuStopAll" Header="全部停止" Foreground="{DynamicResource Err}"
-                                          Click="StopAllButton_Click"/>
-                            </MenuItem>
-                            <MenuItem Header="管理">
-                                <MenuItem Header="服务器设置" Click="ServerSettingsButton_Click"/>
-                                <MenuItem Header="插件开关" Click="PluginButton_Click"/>
-                                <MenuItem Header="玩家管理" Click="PlayerManager_Click"/>
-                                <MenuItem Header="插件检查" Click="PluginCheck_Click"/>
-                                <MenuItem Header="计划任务" Click="Schedule_Click"/>
-                                <MenuItem Header="回滚中心" Click="RollbackFromMenu_Click"/>
-                                <Separator/>
-                                <MenuItem Header="新建服务器" Click="NewServerButton_Click"/>
-                                <MenuItem Header="刷新服务器列表" Click="RefreshButton_Click"/>
-                            </MenuItem>
-                            <MenuItem Header="工具">
-                                <MenuItem Header="保存世界" Click="QuickSave_Click"/>
-                            </MenuItem>
-                        </Menu>
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Menu Background="Transparent" Foreground="{DynamicResource Text}"
+                                  FontSize="11.5" Padding="0" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                <MenuItem Header="管理">
+                                    <MenuItem Header="服务器设置" Click="ServerSettingsButton_Click"/>
+                                    <MenuItem Header="插件开关" Click="PluginButton_Click"/>
+                                    <MenuItem Header="玩家管理" Click="PlayerManager_Click"/>
+                                    <MenuItem Header="插件检查" Click="PluginCheck_Click"/>
+                                    <MenuItem Header="计划任务" Click="Schedule_Click"/>
+                                    <MenuItem Header="回滚中心" Click="RollbackFromMenu_Click"/>
+                                    <Separator/>
+                                    <MenuItem Header="新建服务器" Click="NewServerButton_Click"/>
+                                    <MenuItem Header="刷新服务器列表" Click="RefreshButton_Click"/>
+                                </MenuItem>
+                                <MenuItem Header="工具">
+                                    <MenuItem Header="保存世界" Click="QuickSave_Click"/>
+                                </MenuItem>
+                            </Menu>
+                            <Button x:Name="StartButton" Content="启动" Style="{StaticResource TopStartBtn}"
+                                    Click="StartButton_Click" ToolTip="启动当前服务器"/>
+                            <Button x:Name="KillButton" Content="停止" Style="{StaticResource TopStopBtn}"
+                                    Click="KillButton_Click" ToolTip="停止当前服务器"/>
+                            <Button x:Name="StartAllButton" Content="全启" Style="{StaticResource TopStartBtn}"
+                                    Click="StartAllButton_Click" ToolTip="顺序启动全部服务器"/>
+                            <Button x:Name="StopAllButton" Content="全停" Style="{StaticResource TopStopBtn}"
+                                    Click="StopAllButton_Click" ToolTip="停止全部服务器"/>
+                        </StackPanel>
                     </Grid>
 
                     <!-- 主内容页：第一行页签切换 -->

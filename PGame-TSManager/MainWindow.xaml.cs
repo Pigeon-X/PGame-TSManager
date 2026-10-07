@@ -302,11 +302,6 @@ namespace PGameTSManager
             new PlayerManagerWindow(current) { Owner = this }.ShowDialog();
         }
 
-        private void ShowOperationsPage_Click(object _, RoutedEventArgs e)
-        {
-            OperationsPageButton.IsChecked = true;
-        }
-
         private void WorkspacePage_Checked(object _, RoutedEventArgs e)
         {
             var showOperations = OperationsPageButton?.IsChecked == true;
@@ -485,10 +480,10 @@ namespace PGameTSManager
             var hasRunning = Containers.Any(c => c.IsRunning);
             var hasStopped = Containers.Any(c => !c.IsRunning);
 
-            if (MenuStartCurrent != null) MenuStartCurrent.IsEnabled = current != null && !current.IsRunning;
-            if (MenuStopCurrent != null) MenuStopCurrent.IsEnabled = current?.IsRunning == true;
-            if (MenuStartAll != null) MenuStartAll.IsEnabled = hasStopped;
-            if (MenuStopAll != null) MenuStopAll.IsEnabled = hasRunning;
+            if (StartButton != null) StartButton.IsEnabled = current != null && !current.IsRunning;
+            if (KillButton != null) KillButton.IsEnabled = current?.IsRunning == true;
+            if (StartAllButton != null) StartAllButton.IsEnabled = hasStopped;
+            if (StopAllButton != null) StopAllButton.IsEnabled = hasRunning;
         }
 
         private void AppendLine(string text)

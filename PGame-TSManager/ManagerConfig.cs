@@ -134,9 +134,6 @@ namespace PGameTSManager
         /// <summary>工作集低于该值时不再压缩，避免无意义操作。</summary>
         public int idleMemoryTrimMinWorkingSetMB = 256;
 
-        /// <summary>外部 TEdit 地图编辑器路径；留空时由地图编辑器页面自动查找。</summary>
-        public string mapEditorPath = "";
-
         /// <summary>
         /// 「全部启动」是否按顺序逐台启动：上一台真正就绪（端口在监听）后再起下一台。
         /// 三台同时读世界会互相抢 CPU / 磁盘，表现就是界面卡很久才起来。

@@ -7,7 +7,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
-using Microsoft.Win32;
 
 namespace PGameTSManager
 {
@@ -48,10 +47,7 @@ namespace PGameTSManager
             _containers = containers.ToList();
             if (_current != null && !_containers.Contains(_current)) _containers.Insert(0, _current);
             LogServerBox.ItemsSource = _containers;
-            MapServerBox.ItemsSource = _containers;
             LogServerBox.SelectedItem = _current;
-            MapServerBox.SelectedItem = _current;
-            MapEditorPath.Text = ManagerConfig.Instance.mapEditorPath;
             RefreshHealth();
             RefreshLogs();
         }
@@ -139,90 +135,6 @@ namespace PGameTSManager
             if (server == null) return;
             var dir = Path.GetDirectoryName(server.TodayLogPath);
             try { if (dir != null) Process.Start(new ProcessStartInfo("explorer.exe", "\"" + dir + "\"") { UseShellExecute = true }); } catch { }
-        }
-
-        private void AutoFindEditor_Click(object _, RoutedEventArgs e)
-        {
-            var found = FindEditor();
-            if (found == null)
-            {
-                MapEditorStatus.Text = "未找到 TEdit.exe，请手动选择。";
-                return;
-            }
-            MapEditorPath.Text = found;
-            ManagerConfig.Instance.mapEditorPath = found;
-            ManagerConfig.Instance.Save();
-            MapEditorStatus.Text = "已找到：" + found;
-        }
-
-        private void BrowseEditor_Click(object _, RoutedEventArgs e)
-        {
-            var dlg = new OpenFileDialog
-            {
-                Title = "选择 TEdit.exe",
-                Filter = "TEdit|TEdit.exe|可执行文件|*.exe",
-                CheckFileExists = true
-            };
-            if (dlg.ShowDialog() == true)
-            {
-                MapEditorPath.Text = dlg.FileName;
-                ManagerConfig.Instance.mapEditorPath = dlg.FileName;
-                ManagerConfig.Instance.Save();
-                MapEditorStatus.Text = "已保存编辑器路径。";
-            }
-        }
-
-        private void OpenMap_Click(object _, RoutedEventArgs e)
-        {
-            var server = MapServerBox.SelectedItem as ServerContainer ?? _current;
-            if (server == null)
-            {
-                MapEditorStatus.Text = "请先选择服务器。";
-                return;
-            }
-            if (server.IsRunning)
-            {
-                MapEditorStatus.Text = "请先停止该服务器，再编辑世界文件。";
-                return;
-            }
-            var editor = MapEditorPath.Text.Trim();
-            if (string.IsNullOrWhiteSpace(editor) || !File.Exists(editor))
-            {
-                MapEditorStatus.Text = "TEdit.exe 路径无效，请重新选择。";
-                return;
-            }
-            var world = server.WorldPath;
-            if (string.IsNullOrWhiteSpace(world) || !File.Exists(world))
-            {
-                MapEditorStatus.Text = "找不到该服世界文件。";
-                return;
-            }
-            try
-            {
-                Process.Start(new ProcessStartInfo(editor, "\"" + world + "\"") { UseShellExecute = true });
-                MapEditorStatus.Text = "已打开：" + Path.GetFileName(world);
-            }
-            catch (Exception ex) { MapEditorStatus.Text = "打开失败：" + ex.Message; }
-        }
-
-        private static string? FindEditor()
-        {
-            var candidates = new List<string>();
-            void AddDir(string? dir)
-            {
-                if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)) return;
-                try
-                {
-                    candidates.AddRange(Directory.GetFiles(dir, "TEdit.exe", SearchOption.AllDirectories));
-                }
-                catch { }
-            }
-
-            AddDir(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
-            AddDir(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles));
-            AddDir(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86));
-            AddDir("D:\\");
-            return candidates.FirstOrDefault(File.Exists);
         }
 
     }
