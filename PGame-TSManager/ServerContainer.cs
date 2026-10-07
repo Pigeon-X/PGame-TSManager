@@ -373,6 +373,50 @@ namespace PGameTSManager
             while (DateTime.UtcNow < deadline && IsRunning)
                 await Task.Delay(250);
         }
+
+        /// <summary>
+        /// 退出 TSM 时的同步停服：先请求 TShock /stop，超时后强杀整棵进程树，确保不残留服务器进程。
+        /// </summary>
+        public void StopForExit(TimeSpan gracefulTimeout)
+        {
+            var process = _process;
+            if (process == null) return;
+
+            _userStopRequested = true;
+            try
+            {
+                var stopTask = Task.Run(() =>
+                {
+                    string output;
+                    return SendCommandViaRest("/stop", out output);
+                });
+                stopTask.Wait(TimeSpan.FromSeconds(3));
+            }
+            catch { }
+
+            try
+            {
+                if (!process.WaitForExit((int)Math.Max(1000, gracefulTimeout.TotalMilliseconds)))
+                {
+                    try { process.Kill(true); } catch { try { process.Kill(); } catch { } }
+                    process.WaitForExit(5000);
+                }
+            }
+            catch
+            {
+                try { process.Kill(true); } catch { try { process.Kill(); } catch { } }
+            }
+            finally
+            {
+                try { _stdin?.Dispose(); } catch { }
+                _stdin = null;
+                try { process.Dispose(); } catch { }
+                _process = null;
+                OnPropertyChanged(nameof(IsRunning));
+                OnPropertyChanged(nameof(StatusBrush));
+                OnPropertyChanged(nameof(StatusText));
+            }
+        }
         /// <summary>日志里出现「会要命」的字眼就告警（每服 5 分钟最多一次，避免刷屏）。</summary>
         private bool IsSevereLine(string line)
         {

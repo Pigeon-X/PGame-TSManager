@@ -223,14 +223,35 @@ namespace PGameTSManager
         /// <summary>托盘菜单里「退出」用。</summary>
         public static void ExitFromTray()
         {
+            ShutdownApplication("TrayExit");
+        }
+
+        private static void StopManagedServers()
+        {
+            if (_window is not MainWindow mainWindow) return;
+            foreach (var container in mainWindow.Containers.ToList())
+            {
+                try { container.StopForExit(TimeSpan.FromSeconds(8)); }
+                catch { }
+            }
+        }
+
+        /// <summary>
+        /// 统一退出：先停掉所有受管 TShock 子进程，再释放托盘，最后确保 TSM 进程退出。
+        /// </summary>
+        private static void ShutdownApplication(string source)
+        {
+            if (_exiting) return;
+            _exiting = true;
             try
             {
-                _exiting = true;
+                StopManagedServers();
                 if (_tray != null) { _tray.Visible = false; _tray.Dispose(); _tray = null; }
-                LogCrash("TrayExit", null);
-                Current.Shutdown();
+                LogCrash(source, null);
             }
             catch { }
+            try { Current.Shutdown(); } catch { }
+            try { Environment.Exit(0); } catch { }
         }
 
         /// <summary>
@@ -274,11 +295,8 @@ namespace PGameTSManager
                     confirm.ShowDialog();
                     if (confirm.Result == ChoiceDialogResult.Primary)
                     {
-                        _exiting = true;
-                        if (_tray != null) { _tray.Visible = false; _tray.Dispose(); _tray = null; }
-                        LogCrash("MainWindowClosing", null);
                         e.Cancel = false;
-                        Current.Shutdown();
+                        ShutdownApplication("MainWindowClosing");
                     }
                 }
             }
