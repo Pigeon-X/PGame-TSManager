@@ -27,10 +27,14 @@ internal sealed class ExternalProcessRuntime
     {
         var process = FindProcess();
         var logActive = LogActive();
-        var http = deep ? ProbeHttp() : (bool?)null;
-        var running = _profile.healthMode.Equals("process-log", StringComparison.OrdinalIgnoreCase)
-            ? process != null || logActive
-            : process != null && (!http.HasValue || http.Value);
+        var http = _profile.healthMode.Equals("http", StringComparison.OrdinalIgnoreCase)
+            ? ProbeHttp()
+            : (bool?)null;
+        var running = _profile.healthMode.Equals("http", StringComparison.OrdinalIgnoreCase)
+            ? process != null || http == true
+            : _profile.healthMode.Equals("process-log", StringComparison.OrdinalIgnoreCase)
+                ? process != null || logActive
+                : process != null;
         return new
         {
             id = _profile.id,
@@ -41,6 +45,7 @@ internal sealed class ExternalProcessRuntime
             pid = process?.Id,
             processName = _profile.processName,
             healthMode = _profile.healthMode,
+            healthOk = http,
             healthUrl = _profile.healthUrl,
             healthPorts = _profile.healthPorts,
             logDir = _profile.logDir,
