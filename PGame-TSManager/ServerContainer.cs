@@ -1195,6 +1195,10 @@ namespace PGameTSManager
         private static readonly System.Text.RegularExpressions.Regex ColorTagRx =
             new(@"\[c/([0-9A-Fa-f]{6}):(.*?)\]", System.Text.RegularExpressions.RegexOptions.Compiled);
 
+        /// <summary>控制台 ANSI 颜色标记：\x1b[38;2;R;G;Bm / \x1b[0m</summary>
+        private static readonly System.Text.RegularExpressions.Regex AnsiColorRx =
+            new(@"\x1B\[([0-9;]*)m", System.Text.RegularExpressions.RegexOptions.Compiled);
+
         private static readonly Dictionary<string, Brush> ColorBrushCache = new();
 
         private static Brush BrushOfRgb(string hex, Brush fallback)
@@ -1219,6 +1223,12 @@ namespace PGameTSManager
         /// <summary>把一行渲染进面板：带 [c/RRGGBB:...] 的按真实颜色拆成多段，否则按关键字着色。</summary>
         private void AppendLine(string raw, bool isError = false)
         {
+            if (AnsiColorRx.IsMatch(raw))
+            {
+                AppendAnsiLine(raw, isError);
+                return;
+            }
+
             if (!ColorTagRx.IsMatch(raw))
             {
                 _para.Inlines.Add(new Run(raw + "\n") { Foreground = isError ? ClrError : ColorFor(raw) });
@@ -1237,6 +1247,80 @@ namespace PGameTSManager
             if (idx < raw.Length)
                 _para.Inlines.Add(new Run(raw.Substring(idx)) { Foreground = fallback });
             _para.Inlines.Add(new Run("\n") { Foreground = fallback });
+        }
+
+        /// <summary>解析插件写出的 ANSI 真彩色，避免 TSM 控制台直接显示 [38;2;...m 这种乱码。</summary>
+        private void AppendAnsiLine(string raw, bool isError)
+        {
+            var plain = AnsiColorRx.Replace(raw, "");
+            var fallback = isError ? ClrError : ColorFor(plain);
+            var current = fallback;
+            var idx = 0;
+
+            foreach (System.Text.RegularExpressions.Match m in AnsiColorRx.Matches(raw))
+            {
+                if (m.Index > idx)
+                {
+                    _para.Inlines.Add(new Run(raw.Substring(idx, m.Index - idx)) { Foreground = current });
+                }
+
+                current = BrushOfAnsiCode(m.Groups[1].Value, fallback);
+                idx = m.Index + m.Length;
+            }
+
+            if (idx < raw.Length)
+            {
+                _para.Inlines.Add(new Run(raw.Substring(idx)) { Foreground = current });
+            }
+
+            _para.Inlines.Add(new Run("\n") { Foreground = current });
+        }
+
+        private static Brush BrushOfAnsiCode(string code, Brush fallback)
+        {
+            if (string.IsNullOrWhiteSpace(code) || code == "0") return fallback;
+
+            var parts = code.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length > 1 && parts[0] == "0")
+            {
+                parts = parts.Skip(1).ToArray();
+            }
+
+            if (parts.Length >= 5 && parts[0] == "38" && parts[1] == "2")
+            {
+                try
+                {
+                    var r = Convert.ToByte(parts[2]);
+                    var g = Convert.ToByte(parts[3]);
+                    var b = Convert.ToByte(parts[4]);
+                    var hex = $"{r:X2}{g:X2}{b:X2}";
+                    return BrushOfRgb(hex, fallback);
+                }
+                catch { return fallback; }
+            }
+
+            var last = parts.LastOrDefault() ?? "";
+            return last switch
+            {
+                "39" => fallback,
+                "30" => BrushOfRgb("000000", fallback),
+                "31" => BrushOfRgb("C00000", fallback),
+                "32" => BrushOfRgb("00A000", fallback),
+                "33" => BrushOfRgb("C0A000", fallback),
+                "34" => BrushOfRgb("0000C0", fallback),
+                "35" => BrushOfRgb("A000A0", fallback),
+                "36" => BrushOfRgb("00A0A0", fallback),
+                "37" => BrushOfRgb("C0C0C0", fallback),
+                "90" => BrushOfRgb("808080", fallback),
+                "91" => BrushOfRgb("FF4040", fallback),
+                "92" => BrushOfRgb("40FF40", fallback),
+                "93" => BrushOfRgb("FFFF40", fallback),
+                "94" => BrushOfRgb("4090FF", fallback),
+                "95" => BrushOfRgb("FF40FF", fallback),
+                "96" => BrushOfRgb("40FFFF", fallback),
+                "97" => BrushOfRgb("FFFFFF", fallback),
+                _ => fallback
+            };
         }
 
         private void AppendText(string text, bool isError = false)
