@@ -60,3 +60,4 @@
 - 2026-10-08：继续修 `Prune-GitHubReleases.ps1`：改为递归展开 GitHub API 返回的 Release 数组并使用 `List[object]` 累积，避免 PowerShell 7 下出现嵌套数组后 `created_at` 排序失败。
 - 2026-10-08：TSM 控制台新增 ANSI 真彩色解析。HelpPlus 等插件给控制台输出 `\x1b[38;2;R;G;Bm` 时，TSM 不再显示 `[38;2;...m` 乱码，而是转成 WPF 颜色片段渲染。
 - 2026-10-08：按 RPG/服务器侧对接口信补 P0/P2：世界 `.wld` 不存在时 TSM 自动从每服 `server.properties` / profile `自动建图` / 启动参数读取 `autocreate` 并补 `-autocreate`；自动建图期间按小/中/大图最低 300/480/600 秒保护看门狗，默认保护 600 秒。
+- 2026-10-08：按维度侧对接要求，通用 TShock 模板和新建服务器脚本固定写入 `127.0.0.1` 本机白名单；维度子服插件产物由维度 inbox 同步到个人版 Plugins 与三服沙箱。

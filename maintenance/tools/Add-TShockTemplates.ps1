@@ -9,6 +9,10 @@ $templatePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'templates\tshock-g
 if (-not (Test-Path -LiteralPath $templatePath -PathType Leaf)) {
     throw "TShock 模板不存在：$templatePath"
 }
+$whitelistTemplatePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'templates\whitelist.txt'
+if (-not (Test-Path -LiteralPath $whitelistTemplatePath -PathType Leaf)) {
+    throw "白名单模板不存在：$whitelistTemplatePath"
+}
 
 $profilesDir = Join-Path $root 'Servers\Profiles'
 $worldsDir = Join-Path $root 'Servers\Worlds'
@@ -54,6 +58,7 @@ foreach ($definition in @(
         (Join-Path $tshockDir 'config.json'),
         ($tshock | ConvertTo-Json -Depth 30),
         [Text.UTF8Encoding]::new($false))
+    Copy-Item -LiteralPath $whitelistTemplatePath -Destination (Join-Path $tshockDir 'whitelist.txt') -Force
 
     $manifest = [ordered]@{
         '服务器名称' = $definition.Name

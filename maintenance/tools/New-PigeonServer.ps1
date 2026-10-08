@@ -45,6 +45,19 @@ function Strip-Ordinal([string]$text) {
     if ($m.Success) { return $m.Groups[1].Value }
     return $text.Trim()
 }
+function Ensure-LocalhostWhitelist([string]$path) {
+    $defaultText = "# Localhost`r`n127.0.0.1`r`n`r`n# Uncomment to allow IPs within private ranges`r`n# 10.0.0.0/8`r`n# 172.16.0.0/12`r`n# 192.168.0.0/16`r`n"
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        [IO.File]::WriteAllText($path, $defaultText, $utf8)
+        return
+    }
+    $lines = [IO.File]::ReadAllLines($path)
+    if ($lines -contains '127.0.0.1') { return }
+    $text = [IO.File]::ReadAllText($path)
+    if (-not $text.EndsWith("`n") -and -not $text.EndsWith("`r")) { $text += "`r`n" }
+    $text += "127.0.0.1`r`n"
+    [IO.File]::WriteAllText($path, $text, $utf8)
+}
 
 $name = Strip-Ordinal $Name
 $dirs = Get-ChildItem -LiteralPath $serversDir -Directory | Sort-Object Name
@@ -89,6 +102,10 @@ if ($templateProfile) {
         Write-Host "[模板] 已从 $($templateProfile.Name) 复制 tshock\ 配置（端口/数据库/REST 见下一步提示）"
     }
 }
+
+$createdTshock = Join-Path $target 'tshock'
+[IO.Directory]::CreateDirectory($createdTshock) | Out-Null
+Ensure-LocalhostWhitelist (Join-Path $createdTshock 'whitelist.txt')
 
 # 写 TSM 清单 config.json
 $manifest = [ordered]@{
