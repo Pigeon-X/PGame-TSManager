@@ -18,6 +18,8 @@ namespace PGameTSManager
 
         /// <summary>世界文件名（相对 Worlds\，可不带 .wld）。</summary>
         [JsonProperty("世界")] public string? World { get; set; }
+        /// <summary>世界不存在时用于 -autocreate 的尺寸；空则读取运行目录 server.properties 的 autocreate。</summary>
+        [JsonProperty("自动建图")] public int? AutoCreate { get; set; }
         [JsonProperty("语言")] public int Language { get; set; } = 7;      // 7 = 中文
         [JsonProperty("端口")] public ushort Port { get; set; }
         [JsonProperty("REST端口")] public int RestPort { get; set; }
@@ -160,6 +162,8 @@ namespace PGameTSManager
         public int watchdogUnhealthySeconds = 120;
         /// <summary>执行 /hr、/reload、/world 等维护命令后，暂停健康检查的秒数。</summary>
         public int watchdogMaintenanceSuppressSeconds = 180;
+        /// <summary>世界缺失触发自动建图时，看门狗保护窗口秒数；小/中/大图另有最低值。</summary>
+        public int watchdogWorldBuildSuppressSeconds = 600;
         /// <summary>是否把连续致命日志异常作为死服重启依据。</summary>
         public bool watchdogLogErrorRestartEnabled = true;
         /// <summary>窗口期内出现多少条致命日志后触发重启。</summary>

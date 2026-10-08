@@ -748,11 +748,12 @@ namespace PGameTSManager
             var executable = Path.Combine(runtimeDirectory, exeName);
             if (!File.Exists(executable)) throw new FileNotFoundException($"找不到服务端可执行文件：{executable}");
             KillResidualServerProcess(executable);
+            var arguments = BuildArguments(tshockDir, manifest, root, out var autoCreateSize);
 
             var info = new ProcessStartInfo
             {
                 FileName = executable,
-                Arguments = BuildArguments(tshockDir, manifest, root),
+                Arguments = arguments,
                 // ★ 工作目录 = 本服沙箱：ServerLog.txt / Logs 各服各的
                 //   插件目录 = exe 所在目录 = 本服沙箱 → 每服只加载自己清单里的插件
                 WorkingDirectory = runtimeDirectory,
@@ -867,6 +868,13 @@ namespace PGameTSManager
             _severeLogCount = 0;
             _severeLogWindowStartUtc = DateTime.MinValue;
             _userStopRequested = false;
+            if (autoCreateSize > 0)
+            {
+                var buildSeconds = WorldBuildSuppressSeconds(autoCreateSize);
+                _lastHealthyUtc = DateTime.UtcNow;
+                _watchdogSuppressUntilUtc = DateTime.UtcNow.AddSeconds(buildSeconds);
+                AddText($"[看门狗] 世界缺失，已启用自动建图保护 {buildSeconds} 秒（autocreate={autoCreateSize}）\n");
+            }
             _process.Start();
             try { _process.BeginOutputReadLine(); _process.BeginErrorReadLine(); } catch { }
             // 直接往服务器进程的 stdin 写指令（和旧版 TSM 一样），不依赖 REST
@@ -878,8 +886,9 @@ namespace PGameTSManager
         }
 
         /// <summary>-config &lt;该服 tshock 目录&gt; -world &lt;共享世界文件&gt; -port .. -lang ..</summary>
-        private string BuildArguments(string tshockDir, ServerManifest manifest, string root)
+        private string BuildArguments(string tshockDir, ServerManifest manifest, string root, out int autoCreateSize)
         {
+            autoCreateSize = 0;
             var parts = new List<string>
             {
                 "-config", Quote(tshockDir),
@@ -888,12 +897,28 @@ namespace PGameTSManager
             };
 
             var world = manifest.World ?? string.Empty;
+            var worldPath = "";
             if (!string.IsNullOrWhiteSpace(world))
             {
                 if (!world.EndsWith(".wld", StringComparison.OrdinalIgnoreCase)) world += ".wld";
-                var worldPath = Path.IsPathRooted(world) ? world : Path.Combine(ManagerConfig.Resolve(_managerConfig.worldDir), world);
+                worldPath = Path.IsPathRooted(world) ? world : Path.Combine(ManagerConfig.Resolve(_managerConfig.worldDir), world);
                 parts.Add("-world");
                 parts.Add(Quote(worldPath));
+            }
+
+            if (!string.IsNullOrWhiteSpace(worldPath) && !File.Exists(worldPath))
+            {
+                var explicitAuto = TryGetAutoCreateFromArguments(_profile.arguments);
+                if (explicitAuto <= 0) explicitAuto = TryGetAutoCreateFromArguments(manifest.Parameters);
+                if (explicitAuto <= 0) explicitAuto = manifest.AutoCreate ?? ReadAutoCreateFromServerProperties(RuntimeDirectory);
+                autoCreateSize = Math.Max(1, explicitAuto);
+
+                if (!HasArgument(_profile.arguments, "autocreate") &&
+                    !HasArgument(manifest.Parameters, "autocreate"))
+                {
+                    parts.Add("-autocreate");
+                    parts.Add(autoCreateSize.ToString(CultureInfo.InvariantCulture));
+                }
             }
 
             if (manifest.MaxPlayers > 0) { parts.Add("-maxplayers"); parts.Add(manifest.MaxPlayers.ToString(CultureInfo.InvariantCulture)); }
@@ -901,6 +926,65 @@ namespace PGameTSManager
             if (!string.IsNullOrWhiteSpace(_profile.arguments)) parts.Add(_profile.arguments!);
             else if (!string.IsNullOrWhiteSpace(manifest.Parameters)) parts.Add(manifest.Parameters!);
             return string.Join(" ", parts);
+        }
+
+        private int WorldBuildSuppressSeconds(int autoCreateSize)
+        {
+            var minimum = autoCreateSize switch
+            {
+                1 => 300,
+                2 => 480,
+                3 => 600,
+                _ => 600
+            };
+            return Math.Max(Math.Max(180, _managerConfig.watchdogWorldBuildSuppressSeconds), minimum);
+        }
+
+        private static int ReadAutoCreateFromServerProperties(string runtimeDirectory)
+        {
+            try
+            {
+                var path = Path.Combine(runtimeDirectory, "server.properties");
+                if (!File.Exists(path)) return 0;
+                foreach (var raw in File.ReadAllLines(path))
+                {
+                    var line = raw.Trim();
+                    if (line.Length == 0 || line.StartsWith("#") || !line.StartsWith("autocreate", StringComparison.OrdinalIgnoreCase)) continue;
+                    var eq = line.IndexOf('=');
+                    if (eq < 0) continue;
+                    if (!line.Substring(0, eq).Trim().Equals("autocreate", StringComparison.OrdinalIgnoreCase)) continue;
+                    return int.TryParse(line[(eq + 1)..].Trim(), out var size) ? size : 0;
+                }
+            }
+            catch { }
+            return 0;
+        }
+
+        private static bool HasArgument(string? arguments, string name)
+        {
+            if (string.IsNullOrWhiteSpace(arguments)) return false;
+            return arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Any(x => x.Equals("-" + name, StringComparison.OrdinalIgnoreCase) ||
+                          x.StartsWith("-" + name + "=", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static int TryGetAutoCreateFromArguments(string? arguments)
+        {
+            if (string.IsNullOrWhiteSpace(arguments)) return 0;
+            var tokens = arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < tokens.Length; i++)
+            {
+                var token = tokens[i].Trim('"');
+                if (token.Equals("-autocreate", StringComparison.OrdinalIgnoreCase) && i + 1 < tokens.Length)
+                {
+                    return int.TryParse(tokens[i + 1].Trim('"'), out var size) ? size : 0;
+                }
+                if (token.StartsWith("-autocreate=", StringComparison.OrdinalIgnoreCase))
+                {
+                    return int.TryParse(token["-autocreate=".Length..].Trim('"'), out var size) ? size : 0;
+                }
+            }
+            return 0;
         }
 
         private static string Quote(string value) => "\"" + value.Replace("\"", "\\\"") + "\"";

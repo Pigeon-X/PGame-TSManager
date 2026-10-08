@@ -93,9 +93,15 @@ TShock 进程的启停只归 TSM（界面 / CLI / 看门狗）。
 | 控制 API | `--send <服> <命令>` / TShock REST `rawcmd` | 外部项目发指令的唯一通道 |
 | overlay 应用 | Personal `scripts\Build-Local.ps1` | 在构建期把 `overlay/` 叠加到 Core 产物上 |
 
+## 5. 启动/换图边界（2026-10-08 增补）
+
+- `.wld` 不存在时，TSM 允许在启动参数中自动补 `-autocreate`：优先读取启动参数，其次读取 profile `自动建图`，最后读取该服运行目录 `server.properties` 的 `autocreate`。
+- TSM 不直接写 `server.properties`；`autocreate` 的唯一业务写入者仍应是 TSM 的世界重建控制入口，FixTools 等插件不得直接改该文件。
+- 自动建图启动会进入看门狗保护窗口：小图至少 300 秒、中图至少 480 秒、大图至少 600 秒，并可由 `watchdogWorldBuildSuppressSeconds` 再拉长。
+
 ---
 
-## 5. 提交前自检
+## 6. 提交前自检
 
 - [ ] Core 代码里没有私人插件名 / 私人服名 / 私人 QQ 群号 / 私人桌面路径
 - [ ] Core 默认配置里没有私人令牌、私人端口、私人数据库
