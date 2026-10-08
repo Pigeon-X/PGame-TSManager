@@ -25,6 +25,9 @@ namespace PGameTSManager
         public ObservableCollection<ServerContainer> Containers { get; } = new();
         public ServerContainer? Current => ComboBox.SelectedItem as ServerContainer;
 
+        public ServerContainer? FindContainer(string id)
+            => Containers.FirstOrDefault(c => string.Equals(c.StableId, id, StringComparison.OrdinalIgnoreCase));
+
         public MainWindow()
         {
             InitializeComponent();

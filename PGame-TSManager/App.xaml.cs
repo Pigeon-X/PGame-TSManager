@@ -20,6 +20,7 @@ namespace PGameTSManager
         private static EventWaitHandle? _showWindowEvent;
         private static RegisteredWaitHandle? _showWindowRegistration;
         private static bool _showWindowRequested;
+        private static ControlApiServer? _controlApi;
 
         public App()
         {
@@ -449,6 +450,8 @@ namespace PGameTSManager
             };
             window.Closing += (_, e) => OnMainWindowClosing(window, e);
             window.Show();
+            _controlApi = new ControlApiServer(ManagerConfig.Instance, () => _window as MainWindow);
+            _controlApi.Start();
             window.WindowState = WindowState.Normal;
             window.ShowInTaskbar = true;
             window.Activate();
@@ -462,6 +465,8 @@ namespace PGameTSManager
 
         protected override void OnExit(ExitEventArgs e)
         {
+            try { _controlApi?.Stop(); } catch { }
+            _controlApi = null;
             DisposeSingleInstance();
             base.OnExit(e);
         }

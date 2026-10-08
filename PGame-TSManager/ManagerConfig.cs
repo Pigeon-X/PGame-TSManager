@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using Newtonsoft.Json;
 
 namespace PGameTSManager
@@ -43,6 +45,8 @@ namespace PGameTSManager
     public class ServerProfile
     {
         public string name = string.Empty;
+        /// <summary>稳定机器标识；外部项目只用 id 映射服务器，不使用中文名。</summary>
+        public string id = string.Empty;
         public string rootPath = string.Empty;
         public string executable = "TShock.Server.exe";
         public string arguments = string.Empty;
@@ -59,6 +63,21 @@ namespace PGameTSManager
         [JsonIgnore]
         public string ResolvedRootPath => Path.GetFullPath(
             Path.IsPathRooted(rootPath) ? rootPath : Path.Combine(ManagerConfig.BaseDir, rootPath));
+
+        [JsonIgnore]
+        public string StableId
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(id)) return id.Trim();
+                var source = (name ?? "").Trim();
+                if (source.Length == 0) source = Path.GetFileName(ResolvedRootPath.TrimEnd('\\', '/'));
+                var ordinal = ManagerConfig.OrdinalOf(source);
+                var hash = SHA256.HashData(Encoding.UTF8.GetBytes(source.ToLowerInvariant()));
+                var suffix = Convert.ToHexString(hash).Substring(0, 8).ToLowerInvariant();
+                return $"server-{ordinal}-{suffix}";
+            }
+        }
 
         public ServerManifest? LoadManifest()
         {
@@ -138,6 +157,13 @@ namespace PGameTSManager
         public int idleMemoryTrimCooldownMinutes = 30;
         /// <summary>工作集低于该值时不再压缩，避免无意义操作。</summary>
         public int idleMemoryTrimMinWorkingSetMB = 256;
+
+        // —— 本地控制 API（默认关闭；个人版 overlay 才开启） ——
+        public bool controlApiEnabled = false;
+        public string controlApiHost = "127.0.0.1";
+        public int controlApiPort = 8765;
+        public string controlApiToken = "";
+        public int controlApiEventBuffer = 512;
 
         /// <summary>
         /// 「全部启动」是否按顺序逐台启动：上一台真正就绪（端口在监听）后再起下一台。

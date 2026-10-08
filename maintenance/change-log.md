@@ -62,3 +62,4 @@
 - 2026-10-08：按 RPG/服务器侧对接口信补 P0/P2：世界 `.wld` 不存在时 TSM 自动从每服 `server.properties` / profile `自动建图` / 启动参数读取 `autocreate` 并补 `-autocreate`；自动建图期间按小/中/大图最低 300/480/600 秒保护看门狗，默认保护 600 秒。
 - 2026-10-08：按维度侧对接要求，通用 TShock 模板和新建服务器脚本固定写入 `127.0.0.1` 本机白名单；维度子服插件产物由维度 inbox 同步到个人版 Plugins 与三服沙箱。
 - 2026-10-08：按服务器/RPG 侧 rebuild 参数映射补充建图计划解析：`autocreate`、`difficulty`、`worldevil`、`worldname`；`seed_*` 按位值表合并，优先级为 flag 组合值 → `seed` 复合串 → 随机；`difficulty` 与复合 seed 只透传并记录日志，不自行换算。
+- 2026-10-08：新增通用本地 Control API（默认关闭）：稳定 `serverId`、`/tsm/status`、`/tsm/servers`、start/stop/restart/command、SSE `/tsm/events`、`/tsm/world/rebuild`，以及 `server.state/ready/crash/restart/giveup` 和 `world.rebuild.*` 事件；个人版 overlay 开启，公共 Core 不写私人项目名。

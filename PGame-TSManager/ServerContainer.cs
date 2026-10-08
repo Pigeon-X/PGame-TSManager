@@ -202,6 +202,7 @@ namespace PGameTSManager
                 var pc = o.playercount;
                 var mp = o.maxplayers;
                 var up = o.uptime;
+                var wasReady = _serverReady;
                 if (pc != null) PlayerCount = Convert.ToInt32(pc.ToString());
                 if (mp != null) MaxPlayers = Convert.ToInt32(mp.ToString());
                 if (up != null) Uptime = up.ToString();
@@ -210,6 +211,11 @@ namespace PGameTSManager
                 _lastHealthyUtc = DateTime.UtcNow;
                 _serverReady = true;
                 _healthFailureCount = 0;
+                if (!wasReady)
+                {
+                    ControlEventHub.Publish("server.state", StableId, new { state = "running", pid = SafeProcessId() });
+                    ControlEventHub.Publish("server.ready", StableId, new { Name, GamePort, RestPort });
+                }
             }
             catch
             {
@@ -373,6 +379,8 @@ namespace PGameTSManager
         public string Name => string.IsNullOrWhiteSpace(_profile.name)
             ? Path.GetFileName(ServerDirectory.TrimEnd(Path.DirectorySeparatorChar))
             : _profile.name;
+        public string StableId => _profile.StableId;
+        public string WorldName => _profile.LoadManifest()?.World ?? "";
 
         public ServerContainer(ManagerConfig config, ServerProfile profile)
         {
@@ -531,6 +539,102 @@ namespace PGameTSManager
                 OnPropertyChanged(nameof(StatusText));
             }
         }
+
+        /// <summary>
+        /// 由本地 Control API 调用的世界重建入口。TSM 是 server.properties / *.wld 的唯一写入者。
+        /// </summary>
+        public async Task RebuildWorldAsync(string requestId, string actor)
+        {
+            var manifest = _profile.LoadManifest()
+                ?? throw new InvalidOperationException("找不到服务器清单 config.json");
+            var worldPath = ResolveWorldPath(manifest);
+            if (string.IsNullOrWhiteSpace(worldPath))
+                throw new InvalidOperationException("该服没有配置世界文件");
+
+            ControlEventHub.Publish("world.rebuild.started", StableId, new { requestId, actor, worldPath });
+
+            if (IsRunning)
+            {
+                _userStopRequested = true;
+                IsRunning = false;
+                await WaitForStoppedAsync(TimeSpan.FromSeconds(60));
+            }
+
+            BackupServerFiles(ServerDirectory);
+            if (File.Exists(worldPath))
+            {
+                var worldBackup = worldPath + ".bak-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                File.Copy(worldPath, worldBackup, true);
+                ControlEventHub.Publish("world.rebuild.backup_created", StableId, new
+                {
+                    requestId,
+                    path = worldBackup,
+                    size = new FileInfo(worldBackup).Length
+                });
+            }
+
+            UpdateServerPropertiesForRebuild(RuntimeDirectory, manifest, worldPath);
+            ControlEventHub.Publish("world.rebuild.generating", StableId, new
+            {
+                requestId,
+                worldPath,
+                autoCreate = manifest.AutoCreate ?? 0
+            });
+
+            if (File.Exists(worldPath)) File.Delete(worldPath);
+            IsRunning = true;
+
+            var ready = await WaitUntilReadyAsync(TimeSpan.FromSeconds(Math.Max(300, _managerConfig.watchdogWorldBuildSuppressSeconds + 120)));
+            ControlEventHub.Publish(ready ? "world.rebuild.ready" : "world.rebuild.failed", StableId, new
+            {
+                requestId,
+                worldPath,
+                ready
+            });
+        }
+
+        public string ResolveWorldPath(ServerManifest manifest)
+        {
+            var world = manifest.World ?? "";
+            if (string.IsNullOrWhiteSpace(world)) return "";
+            if (!world.EndsWith(".wld", StringComparison.OrdinalIgnoreCase)) world += ".wld";
+            return Path.IsPathRooted(world)
+                ? world
+                : Path.Combine(ManagerConfig.Resolve(_managerConfig.worldDir), world);
+        }
+
+        private static void UpdateServerPropertiesForRebuild(string runtimeDirectory, ServerManifest manifest, string worldPath)
+        {
+            var propertiesPath = Path.Combine(runtimeDirectory, "server.properties");
+            if (!File.Exists(propertiesPath)) return;
+
+            var worldName = string.IsNullOrWhiteSpace(manifest.Name) ? Path.GetFileNameWithoutExtension(worldPath) : manifest.Name!;
+            var lines = File.ReadAllLines(propertiesPath).ToList();
+            SetProperty(lines, "world", worldPath);
+            SetProperty(lines, "worldname", worldName);
+
+            if (lines.Count == 0 || !lines[0].StartsWith("# 由 PGame-TSManager 维护", StringComparison.OrdinalIgnoreCase))
+                lines.Insert(0, "# 由 PGame-TSManager 维护");
+            File.WriteAllLines(propertiesPath, lines, new UTF8Encoding(false));
+        }
+
+        private static void SetProperty(List<string> lines, string key, string value)
+        {
+            for (var i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i].Trim();
+                if (line.Length == 0 || line.StartsWith("#")) continue;
+                var eq = line.IndexOf('=');
+                if (eq <= 0) continue;
+                if (line[..eq].Trim().Equals(key, StringComparison.OrdinalIgnoreCase))
+                {
+                    lines[i] = key + "=" + value;
+                    return;
+                }
+            }
+            lines.Add(key + "=" + value);
+        }
+
         /// <summary>日志里出现「会要命」的字眼就告警（每服 5 分钟最多一次，避免刷屏）。</summary>
         private bool IsSevereLine(string line)
         {
@@ -790,6 +894,14 @@ namespace PGameTSManager
                 var uptime = DateTime.UtcNow - _startedAt;
 
                 AddText($"---服务器已退出（退出码 {code}）---\n");
+                ControlEventHub.Publish("server.state", StableId, new { state = "stopped", exitCode = code });
+                if (code != 0)
+                    ControlEventHub.Publish("server.crash", StableId, new
+                    {
+                        exitCode = code,
+                        consecutive = _restartCount,
+                        uptimeMinutes = Math.Round(uptime.TotalMinutes, 1)
+                    });
                 _process?.Dispose();
                 _process = null;
                 _userStopRequested = false;
@@ -829,6 +941,12 @@ namespace PGameTSManager
 
                 if (_restartCount >= max)
                 {
+                    ControlEventHub.Publish("server.giveup", StableId, new
+                    {
+                        attempts = _restartCount,
+                        max,
+                        exitCode = code
+                    });
                     AddText($"[看门狗] 连续自动重启已达上限 {max} 次，停止重启（请人工检查）\n");
                     RaiseAlert($"服务器反复崩溃，已放弃自动重启：{Name}",
                         exitInfo + $"；连续自动重启 {_restartCount} 次达到上限 {max}，已停止自动重启，请人工检查原因。");
@@ -837,6 +955,13 @@ namespace PGameTSManager
 
                 _restartCount++;
                 var delay = Math.Max(0, _managerConfig.watchdogRestartDelaySeconds);
+                ControlEventHub.Publish("server.restart", StableId, new
+                {
+                    attempt = _restartCount,
+                    max,
+                    delaySeconds = delay,
+                    exitCode = code
+                });
                 AddText($"[看门狗] {exitInfo}，{delay} 秒后自动重启（第 {_restartCount}/{max} 次）\n");
                 RaiseAlert($"服务器异常退出，正在自动重启：{Name}",
                     exitInfo + $"；第 {_restartCount}/{max} 次自动重启（{delay} 秒后）。");
@@ -889,6 +1014,7 @@ namespace PGameTSManager
                 AddText($"[看门狗] 世界缺失，已启用自动建图保护 {buildSeconds} 秒（autocreate={autoCreateSize}）\n");
             }
             _process.Start();
+            ControlEventHub.Publish("server.state", StableId, new { state = "starting", pid = _process.Id });
             try { _process.BeginOutputReadLine(); _process.BeginErrorReadLine(); } catch { }
             // 直接往服务器进程的 stdin 写指令（和旧版 TSM 一样），不依赖 REST
             try { _stdin = _process.StandardInput; _stdin.AutoFlush = true; } catch { }
@@ -1079,6 +1205,11 @@ namespace PGameTSManager
         }
 
         private static string Quote(string value) => "\"" + value.Replace("\"", "\\\"") + "\"";
+
+        public int? SafeProcessId()
+        {
+            try { return _process?.Id; } catch { return null; }
+        }
 
         private void BackupServerFiles(string serverDirectory)
         {

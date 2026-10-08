@@ -90,7 +90,7 @@ TShock 进程的启停只归 TSM（界面 / CLI / 看门狗）。
 | 物品名称表 | `Core\Data\item-names.zh-CN.json` | 服务器设置窗口的中文物品检索 |
 | 告警上报 | `config.json` → `alertEnabled` / `alertScript` / `alertGroupId(s)` | 外部脚本契约：`<script> -Text "<正文>" -GroupId <群号>`；三项留空即关闭 |
 | 模板服 | `Servers\Profiles\<模板>` | 新建服务器向导的模板来源 |
-| 控制 API | `--send <服> <命令>` / TShock REST `rawcmd` | 外部项目发指令的唯一通道 |
+| 控制 API | `--send <服> <命令>` / 本地 `ControlApiServer` / TShock REST `rawcmd` | 外部项目发指令和生命周期请求的通道；默认关闭 |
 | overlay 应用 | Personal `scripts\Build-Local.ps1` | 在构建期把 `overlay/` 叠加到 Core 产物上 |
 
 ## 5. 启动/换图边界（2026-10-08 增补）
