@@ -559,6 +559,33 @@ namespace PGameTSManager
         }
 
         /// <summary>
+        /// 立即把插件总库按本服清单同步进**运行沙箱** ServerPlugins（而不是根目录那份）。
+        /// 运行中调用也安全：TShock 用影子加载（Assembly.Load(byte[])），沙箱 DLL 不被锁；
+        /// 同步成功后再配合 `/hr load &lt;插件&gt;` 即可热升级插件，无需重启。
+        /// </summary>
+        public string SyncPluginsNow()
+        {
+            var manifest = _profile.LoadManifest();
+            var runtimeDirectory = RuntimeDirectory;
+            Directory.CreateDirectory(runtimeDirectory);
+            var summary = PluginSync.Apply(
+                runtimeDirectory,
+                ManagerConfig.Resolve(_managerConfig.pluginDir),
+                _profile.ResolvePlugins(manifest),
+                manifest?.PrunePlugins ?? _managerConfig.prunePlugins,
+                _managerConfig.disabledPluginDir,
+                message =>
+                {
+                    foreach (var line in message.Split('\n'))
+                    {
+                        var text = line.Trim();
+                        if (text.Length > 0) AddText(text + "\n");
+                    }
+                });
+            return summary;
+        }
+
+        /// <summary>
         /// 只读世界重建预演：解析清单、世界路径与生成参数，绝不改文件、停服、删图。
         /// 供 Control API 的 dryRun 使用，让外部项目能安全校验 rebuild 参数。
         /// </summary>

@@ -114,6 +114,29 @@ namespace PGameTSManager
             }
             catch (Exception ex) { ok = false; sb.AppendLine("  [失败] " + ex.Message); }
 
+            // 关键：运行中的服务器从各自沙箱 ServerPlugins 加载，必须把总库也同步进沙箱。
+            // 之前只 MirrorShared 到根目录一份，服务器侧看不到新版本 —— 这就是“改了不生效”的根因。
+            foreach (var profile in cfg.serverProfiles)
+            {
+                if (profile == null || string.IsNullOrWhiteSpace(profile.name)) continue;
+                try
+                {
+                    var manifest = profile.LoadManifest();
+                    var runtime = cfg.ResolveRuntimeDir(profile);
+                    Directory.CreateDirectory(runtime);
+                    var summary = PluginSync.Apply(
+                        runtime, pool, profile.ResolvePlugins(manifest),
+                        manifest?.PrunePlugins ?? cfg.prunePlugins, cfg.disabledPluginDir,
+                        msg => sb.AppendLine("    " + msg.TrimEnd()));
+                    sb.AppendLine("  [沙箱] " + profile.name + "： " + summary);
+                }
+                catch (Exception ex)
+                {
+                    ok = false;
+                    sb.AppendLine("  [沙箱失败] " + profile.name + "： " + ex.Message);
+                }
+            }
+
             sb.AppendLine();
             sb.AppendLine(ok ? "结果: 同步完成" : "结果: 有项目未通过");
             return WriteNamed(sb, "syncplugins.txt", ok ? 0 : 1);

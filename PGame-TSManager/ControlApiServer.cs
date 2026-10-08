@@ -255,6 +255,20 @@ internal sealed class ControlApiServer : IDisposable
             await WriteJsonAsync(ctx, 202, new { ok = true, id, state = "restarting" });
             return;
         }
+        if (action == "syncplugins")
+        {
+            // 把插件总库同步进运行沙箱（文件不被锁）；调用方随后可 /hr load 热升级。
+            try
+            {
+                var summary = await window.Dispatcher.InvokeAsync(() => container.SyncPluginsNow()).Task;
+                await WriteJsonAsync(ctx, 200, new { ok = true, id, summary });
+            }
+            catch (Exception ex)
+            {
+                await WriteJsonAsync(ctx, 500, new { ok = false, id, error = ex.Message });
+            }
+            return;
+        }
 
         await WriteJsonAsync(ctx, 404, new { ok = false, error = "unknown_action" });
     }

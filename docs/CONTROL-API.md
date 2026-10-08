@@ -26,6 +26,7 @@ POST /tsm/servers/{id}/start
 POST /tsm/servers/{id}/stop
 POST /tsm/servers/{id}/restart
 POST /tsm/servers/{id}/command
+POST /tsm/servers/{id}/syncplugins
 GET  /tsm/events
 POST /tsm/world/rebuild
 GET  /tsm/external
@@ -129,6 +130,21 @@ TSM 是 `server.properties` 和 `Servers\Worlds\*.wld` 的唯一写入者。
 ```
 
 同时会发布 `world.rebuild.dryrun` 事件。真建（`dryRun` 缺省/false）仍要求 `confirm:true` + `requestId`，否则 `400 serverId_requestId_confirm_required`。
+
+## 插件热升级（Live Plugin Sync）
+
+`POST /tsm/servers/{id}/syncplugins` 把插件总库按该服清单**同步进运行沙箱** `Core\_runtime\<服>\ServerPlugins`（不是根目录那份），运行中调用安全。
+
+```json
+{ "ok": true, "id": "liuguang-city", "summary": "新增 0 / 更新 1 / 停用 0，共 15 个启用插件" }
+```
+
+关键事实（远程实测 2026-10-08）：
+
+- TShock 用**影子加载** `Assembly.Load(byte[], byte[])`（`TerrariaServer.dll::ServerApi.LoadPlugins`、`HotReload.Core::LoadPluginFromDisk`），**运行中的 ServerPlugins DLL 不会被锁**，可随时覆盖。
+- `/hr load <插件>` **会重新读盘**：把沙箱 DLL 换成坏字节 → 报 `Bad IL format`；换回好文件 → 正常加载。
+- 所以插件热升级流程 = `POST .../syncplugins` → `/hr load <插件>`，**无需重启**。
+- `PGame-TSManager.exe --syncplugins` 已同步修正：除根目录镜像外，也把总库同步进每个沙箱。
 
 ## ExternalProcess
 
