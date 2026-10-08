@@ -347,7 +347,10 @@ internal sealed class ControlApiServer : IDisposable
         response.Headers["Connection"] = "keep-alive";
         response.SendChunked = true;
 
-        var lastId = ParseLastEventId(ctx.Request);
+        var lastId = ParseLastEventId(ctx.Request, out var hasExplicitLastId);
+        // 没有 Last-Event-ID/since 时，默认只接收连接后的新事件，避免首次连接灌入整段历史。
+        if (!hasExplicitLastId) lastId = ControlEventHub.LatestSeq;
+        WriteSseComment(response, ": connected\n\n");
         foreach (var ev in ControlEventHub.After(lastId))
             WriteSse(response, ev);
 
@@ -363,10 +366,31 @@ internal sealed class ControlApiServer : IDisposable
         }
     }
 
-    private static long ParseLastEventId(HttpListenerRequest request)
+    private static long ParseLastEventId(HttpListenerRequest request, out bool explicitValue)
     {
-        var raw = request.Headers["Last-Event-ID"] ?? request.QueryString["lastEventId"] ?? "0";
+        explicitValue = false;
+        var raw = request.Headers["Last-Event-ID"];
+        if (!string.IsNullOrWhiteSpace(raw)) explicitValue = true;
+        if (string.IsNullOrWhiteSpace(raw)) raw = request.QueryString["since"];
+        if (!string.IsNullOrWhiteSpace(raw)) explicitValue = true;
+        if (string.IsNullOrWhiteSpace(raw)) raw = request.QueryString["lastEventId"];
+        if (!string.IsNullOrWhiteSpace(raw)) explicitValue = true;
+        raw ??= "0";
         return long.TryParse(raw, out var value) ? value : 0;
+    }
+
+    private void WriteSseComment(HttpListenerResponse response, string text)
+    {
+        try
+        {
+            lock (_sseGate)
+            {
+                var bytes = Encoding.UTF8.GetBytes(text);
+                response.OutputStream.Write(bytes, 0, bytes.Length);
+                response.OutputStream.Flush();
+            }
+        }
+        catch { }
     }
 
     private void WriteSse(HttpListenerResponse response, ControlEvent ev)

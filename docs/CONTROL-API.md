@@ -63,6 +63,8 @@ Authorization: Bearer <token>
 
 `GET /tsm/events` 使用 SSE；客户端可传 `Last-Event-ID` 重放 ring buffer。
 
+SSE 握手响应会先发送并 flush `: connected`。未带 `Last-Event-ID` 时默认只接收连接后的新事件；要在首次连接时回放历史，可显式传 `?since=0`（或 `?since=<seq>`）。
+
 当前事件：
 
 ```text

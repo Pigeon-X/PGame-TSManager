@@ -22,6 +22,10 @@ namespace PGameTSManager
         private static long _seq;
 
         public static int BufferSize { get; set; } = 512;
+        public static long LatestSeq
+        {
+            get { lock (Gate) return _seq; }
+        }
 
         public static ControlEvent Publish(string type, string? serverId, object? payload)
         {

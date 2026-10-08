@@ -894,8 +894,14 @@ namespace PGameTSManager
                 var uptime = DateTime.UtcNow - _startedAt;
 
                 AddText($"---服务器已退出（退出码 {code}）---\n");
-                ControlEventHub.Publish("server.state", StableId, new { state = "stopped", exitCode = code });
-                if (code != 0)
+                ControlEventHub.Publish("server.state", StableId, new
+                {
+                    state = "stopped",
+                    exitCode = code,
+                    manual = wasUserStop,
+                    maintenance = wasMaintenanceExit
+                });
+                if (code != 0 && !wasUserStop && !wasMaintenanceExit)
                     ControlEventHub.Publish("server.crash", StableId, new
                     {
                         exitCode = code,

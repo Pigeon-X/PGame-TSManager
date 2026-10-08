@@ -63,3 +63,4 @@
 - 2026-10-08：按维度侧对接要求，通用 TShock 模板和新建服务器脚本固定写入 `127.0.0.1` 本机白名单；维度子服插件产物由维度 inbox 同步到个人版 Plugins 与三服沙箱。
 - 2026-10-08：按服务器/RPG 侧 rebuild 参数映射补充建图计划解析：`autocreate`、`difficulty`、`worldevil`、`worldname`；`seed_*` 按位值表合并，优先级为 flag 组合值 → `seed` 复合串 → 随机；`difficulty` 与复合 seed 只透传并记录日志，不自行换算。
 - 2026-10-08：新增通用本地 Control API（默认关闭）：稳定 `serverId`、`/tsm/status`、`/tsm/servers`、start/stop/restart/command、SSE `/tsm/events`、`/tsm/world/rebuild`，以及 `server.state/ready/crash/restart/giveup` 和 `world.rebuild.*` 事件；个人版 overlay 开启，公共 Core 不写私人项目名。
+- 2026-10-08：修 Control API 联调反馈：SSE 连接先 flush `: connected` 注释，避免无回放事件时客户端拿不到响应头；首次连接默认不灌历史，支持 `Last-Event-ID` / `?since=` 重放；手动停止和维护退出不再发 `server.crash`。
