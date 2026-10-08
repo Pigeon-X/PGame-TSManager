@@ -28,6 +28,11 @@ POST /tsm/servers/{id}/restart
 POST /tsm/servers/{id}/command
 GET  /tsm/events
 POST /tsm/world/rebuild
+GET  /tsm/external
+GET  /tsm/external/{id}
+POST /tsm/external/{id}/start
+POST /tsm/external/{id}/stop
+POST /tsm/external/{id}/restart
 ```
 
 鉴权：
@@ -71,6 +76,9 @@ world.rebuild.backup_created
 world.rebuild.generating
 world.rebuild.ready
 world.rebuild.failed
+process.started
+process.stopped
+process.unhealthy
 ```
 
 ## World Rebuild
@@ -88,6 +96,31 @@ world.rebuild.failed
 ```
 
 TSM 是 `server.properties` 和 `Servers\Worlds\*.wld` 的唯一写入者。
+
+## ExternalProcess
+
+`externalProcesses` 是通用外部进程列表。公共 Core 只定义结构，默认列表为空，私人条目由个人版 overlay 配置。
+
+```json
+{
+  "kind": "external-process",
+  "id": "example",
+  "name": "Example",
+  "enabled": true,
+  "workdir": "C:\\Example",
+  "exe": "Example.exe",
+  "processName": "",
+  "args": [],
+  "stopArgs": [],
+  "healthMode": "http",
+  "healthPorts": [1234],
+  "healthUrl": "http://127.0.0.1:1234/api/v1/health",
+  "logDir": "C:\\Example\\Logs",
+  "logActiveSeconds": 300,
+  "watchdog": "none",
+  "autoRestart": false
+}
+```
 
 ## 稳定 serverId
 

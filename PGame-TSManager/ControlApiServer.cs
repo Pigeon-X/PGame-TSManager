@@ -21,6 +21,7 @@ internal sealed class ControlApiServer : IDisposable
     private HttpListener? _listener;
     private Task? _loop;
     private readonly object _sseGate = new();
+    private readonly Dictionary<string, ExternalProcessRuntime> _externalProcesses = new(StringComparer.OrdinalIgnoreCase);
 
     public ControlApiServer(ManagerConfig config, Func<MainWindow?> windowFactory)
     {
@@ -32,6 +33,9 @@ internal sealed class ControlApiServer : IDisposable
     {
         if (!_config.controlApiEnabled) return;
         ControlEventHub.BufferSize = Math.Max(32, _config.controlApiEventBuffer);
+        _externalProcesses.Clear();
+        foreach (var process in _config.externalProcesses.Where(x => x != null && x.enabled && !string.IsNullOrWhiteSpace(x.id)))
+            _externalProcesses[process.id] = new ExternalProcessRuntime(process);
         if (string.IsNullOrWhiteSpace(_config.controlApiToken))
         {
             _config.controlApiToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
@@ -91,9 +95,35 @@ internal sealed class ControlApiServer : IDisposable
                 await HandleEventsAsync(ctx);
                 return;
             }
+            if (method == "GET" && path == "/tsm/external")
+            {
+                await WriteJsonAsync(ctx, 200, new
+                {
+                    ok = true,
+                    contractVersion = "tsm.control.v1",
+                    externalProcesses = _externalProcesses.Values.Select(x => x.Snapshot(true)).ToList()
+                });
+                return;
+            }
+            if (method == "GET" && path.StartsWith("/tsm/external/", StringComparison.OrdinalIgnoreCase))
+            {
+                var id = Uri.UnescapeDataString(path["/tsm/external/".Length..]);
+                if (!_externalProcesses.TryGetValue(id, out var external))
+                {
+                    await WriteJsonAsync(ctx, 404, new { ok = false, error = "external_process_not_found", id });
+                    return;
+                }
+                await WriteJsonAsync(ctx, 200, new { ok = true, contractVersion = "tsm.control.v1", process = external.Snapshot(true) });
+                return;
+            }
             if (method == "POST" && path == "/tsm/world/rebuild")
             {
                 await HandleWorldRebuildAsync(ctx);
+                return;
+            }
+            if (method == "POST" && path.StartsWith("/tsm/external/", StringComparison.OrdinalIgnoreCase))
+            {
+                await HandleExternalActionAsync(ctx, path);
                 return;
             }
             if (method == "POST" && path.StartsWith("/tsm/servers/", StringComparison.OrdinalIgnoreCase))
@@ -143,6 +173,7 @@ internal sealed class ControlApiServer : IDisposable
                 managerRunning = true,
                 serverCount = window.Containers.Count,
                 runningCount = running,
+                externalCount = _externalProcesses.Count,
                 at = DateTimeOffset.Now.ToString("o")
             };
         }).Task;
@@ -270,6 +301,41 @@ internal sealed class ControlApiServer : IDisposable
             requestId,
             state = "accepted"
         });
+    }
+
+    private async Task HandleExternalActionAsync(HttpListenerContext ctx, string path)
+    {
+        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 4) { await WriteJsonAsync(ctx, 400, new { ok = false, error = "invalid_path" }); return; }
+        var id = Uri.UnescapeDataString(parts[2]);
+        var action = parts[3].ToLowerInvariant();
+        if (!_externalProcesses.TryGetValue(id, out var process))
+        {
+            await WriteJsonAsync(ctx, 404, new { ok = false, error = "external_process_not_found", id });
+            return;
+        }
+
+        try
+        {
+            if (action == "start") await process.StartAsync();
+            else if (action == "stop") await process.StopAsync();
+            else if (action == "restart")
+            {
+                await process.StopAsync();
+                await process.StartAsync();
+            }
+            else
+            {
+                await WriteJsonAsync(ctx, 404, new { ok = false, error = "unknown_action" });
+                return;
+            }
+            await WriteJsonAsync(ctx, 202, new { ok = true, id, state = action == "stop" ? "stopping" : "starting" });
+        }
+        catch (Exception ex)
+        {
+            ControlEventHub.Publish("process.unhealthy", null, new { processId = id, error = ex.Message });
+            await WriteJsonAsync(ctx, 500, new { ok = false, error = ex.Message });
+        }
     }
 
     private async Task HandleEventsAsync(HttpListenerContext ctx)

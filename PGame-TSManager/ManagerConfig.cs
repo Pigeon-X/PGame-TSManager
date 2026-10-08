@@ -102,6 +102,26 @@ namespace PGameTSManager
         }
     }
 
+    public class ExternalProcessProfile
+    {
+        public string kind { get; set; } = "external-process";
+        public string id { get; set; } = "";
+        public string name { get; set; } = "";
+        public bool enabled { get; set; } = true;
+        public string workdir { get; set; } = "";
+        public string exe { get; set; } = "";
+        public string processName { get; set; } = "";
+        public List<string> args { get; set; } = new();
+        public List<string> stopArgs { get; set; } = new();
+        public string healthMode { get; set; } = "process";
+        public List<int> healthPorts { get; set; } = new();
+        public string healthUrl { get; set; } = "";
+        public string logDir { get; set; } = "";
+        public int logActiveSeconds { get; set; } = 300;
+        public string watchdog { get; set; } = "none";
+        public bool autoRestart { get; set; }
+    }
+
     public class ManagerConfig
     {
         [JsonIgnore]
@@ -136,6 +156,7 @@ namespace PGameTSManager
         public string toolsDir = "Tools";
         public int backupKeep = 10;
         public List<ServerProfile> serverProfiles = new();
+        public List<ExternalProcessProfile> externalProcesses = new();
 
         /// <summary>运行时母本目录；留空 = 程序目录（exe/bin/i18n/runtimes/x64/GeoIP.dat 所在处）。</summary>
         public string sharedRuntimeDir = "Core";
