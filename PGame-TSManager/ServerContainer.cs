@@ -428,6 +428,9 @@ namespace PGameTSManager
             get { try { return _process?.Id ?? 0; } catch { return 0; } }
         }
 
+        /// <summary>该服运行沙箱的 ServerPlugins 目录（插件热升级/查询用）。</summary>
+        public string ServerPluginsDirectory => Path.Combine(RuntimeDirectory, "ServerPlugins");
+
         public long MemoryBytes
         {
             get { try { return _process?.WorkingSet64 ?? 0; } catch { return 0; } }

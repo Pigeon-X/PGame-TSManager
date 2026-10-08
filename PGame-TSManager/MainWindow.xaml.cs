@@ -10,6 +10,7 @@ using System.Windows.Documents;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Threading;
+using System.Management;
 
 namespace PGameTSManager
 {
@@ -112,6 +113,8 @@ namespace PGameTSManager
         // ---------- 在线人数：定时轮询 REST ----------
         private DispatcherTimer? _statusTimer;
         private DispatcherTimer? _scheduleTimer;
+        private DateTime _lastConflictScanUtc = DateTime.MinValue;
+        private readonly HashSet<int> _reportedConflictPids = new();
         private string _lastAlertResult = "";
 
         private void StartScheduleTimer()
@@ -149,6 +152,7 @@ namespace PGameTSManager
                 }
                 UpdateTrayTip();
                 UpdateActionStates();
+                TickUnmanagedScan();
 
                 // 告警发送结果回显（异步发送完才会变）
                 var r = Alerter.LastResult;
@@ -159,6 +163,63 @@ namespace PGameTSManager
                 }
             };
             _statusTimer.Start();
+        }
+
+        /// <summary>
+        /// P2：发现“非 TSM 托管的同名 TShock.Server 进程”时发 server.process.conflict（只告警，不清理、不拒绝）。
+        /// 通过 WMI 读命令行里的 -port 映射到 serverId；同一 PID 只报一次，进程消失后可再次告警。
+        /// </summary>
+        private void TickUnmanagedScan()
+        {
+            if ((DateTime.UtcNow - _lastConflictScanUtc).TotalSeconds < 30) return;
+            _lastConflictScanUtc = DateTime.UtcNow;
+            try
+            {
+                var managed = new HashSet<int>(
+                    Containers.Where(c => c.IsRunning).Select(c => c.ProcessId).Where(p => p > 0));
+                var seen = new HashSet<int>();
+                using var searcher = new ManagementObjectSearcher(
+                    "SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name='TShock.Server.exe'");
+                foreach (ManagementBaseObject mo in searcher.Get())
+                {
+                    int pid;
+                    try { pid = Convert.ToInt32(mo["ProcessId"]); } catch { continue; }
+                    seen.Add(pid);
+                    if (managed.Contains(pid)) continue;
+                    var cmd = mo["CommandLine"] as string ?? "";
+                    var port = ParsePortArgument(cmd);
+                    var serverId = port > 0
+                        ? Containers.FirstOrDefault(c => c.GamePort == port)?.StableId
+                        : null;
+                    if (!_reportedConflictPids.Add(pid)) continue;
+                    ControlEventHub.Publish("server.process.conflict", serverId, new
+                    {
+                        serverId,
+                        pid,
+                        name = "TShock.Server",
+                        port,
+                        managed = false
+                    });
+                    AppendLine($"[冲突] 发现非 TSM 托管的 TShock.Server 进程 pid={pid}"
+                        + (port > 0 ? $" port={port}" : "") + "（只告警，不自动清理）。");
+                }
+                foreach (var stale in _reportedConflictPids.Where(p => !seen.Contains(p)).ToList())
+                    _reportedConflictPids.Remove(stale);
+            }
+            catch { }
+        }
+
+        private static int ParsePortArgument(string commandLine)
+        {
+            if (string.IsNullOrWhiteSpace(commandLine)) return 0;
+            var parts = commandLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < parts.Length - 1; i++)
+            {
+                if (parts[i].Equals("-port", StringComparison.OrdinalIgnoreCase) &&
+                    int.TryParse(parts[i + 1].Trim('"'), out var port))
+                    return port;
+            }
+            return 0;
         }
 
         private void UpdateTrayTip()

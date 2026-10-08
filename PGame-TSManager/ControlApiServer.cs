@@ -209,9 +209,9 @@ internal sealed class ControlApiServer : IDisposable
     private async Task HandleServerActionAsync(HttpListenerContext ctx, string path)
     {
         var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length != 4) { await WriteJsonAsync(ctx, 400, new { ok = false, error = "invalid_path" }); return; }
+        if (parts.Length < 4) { await WriteJsonAsync(ctx, 400, new { ok = false, error = "invalid_path" }); return; }
         var id = Uri.UnescapeDataString(parts[2]);
-        var action = parts[3].ToLowerInvariant();
+        var action = string.Join("/", parts.Skip(3)).ToLowerInvariant();
         var window = _windowFactory();
         if (window == null) { await WriteJsonAsync(ctx, 503, new { ok = false, error = "manager_not_ready" }); return; }
 
@@ -267,6 +267,31 @@ internal sealed class ControlApiServer : IDisposable
             {
                 await WriteJsonAsync(ctx, 500, new { ok = false, id, error = ex.Message });
             }
+            return;
+        }
+        if (action == "plugins/reload")
+        {
+            // 结构化插件热更：先确认运行沙箱里存在该 DLL，再发 /hr load 并回传结果。
+            // 与 /command 不同：插件不存在时明确回 404 plugin_not_found。
+            var body = await ReadBodyAsync(ctx.Request);
+            var raw = "";
+            try { raw = JObject.Parse(body)["plugin"]?.ToString() ?? ""; } catch { }
+            var plugin = raw.Trim();
+            if (string.IsNullOrWhiteSpace(plugin))
+            {
+                await WriteJsonAsync(ctx, 400, new { ok = false, error = "plugin_required" });
+                return;
+            }
+            var name = plugin.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? plugin[..^4] : plugin;
+            var dll = Path.Combine(container.ServerPluginsDirectory, name + ".dll");
+            if (!File.Exists(dll))
+            {
+                await WriteJsonAsync(ctx, 404, new { ok = false, error = "plugin_not_found", plugin = name });
+                return;
+            }
+            var err = container.SendCommandViaRest("/hr load " + name, out var output);
+            await WriteJsonAsync(ctx, err == null ? 200 : 400,
+                new { ok = err == null, plugin = name, found = true, output, error = err });
             return;
         }
 

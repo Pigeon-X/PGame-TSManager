@@ -27,6 +27,7 @@ POST /tsm/servers/{id}/stop
 POST /tsm/servers/{id}/restart
 POST /tsm/servers/{id}/command
 POST /tsm/servers/{id}/syncplugins
+POST /tsm/servers/{id}/plugins/reload
 GET  /tsm/events
 POST /tsm/world/rebuild
 GET  /tsm/external
@@ -82,6 +83,7 @@ world.rebuild.failed
 process.started
 process.stopped
 process.unhealthy
+server.process.conflict
 ```
 
 ## World Rebuild
@@ -145,6 +147,27 @@ TSM 是 `server.properties` 和 `Servers\Worlds\*.wld` 的唯一写入者。
 - `/hr load <插件>` **会重新读盘**：把沙箱 DLL 换成坏字节 → 报 `Bad IL format`；换回好文件 → 正常加载。
 - 所以插件热升级流程 = `POST .../syncplugins` → `/hr load <插件>`，**无需重启**。
 - `PGame-TSManager.exe --syncplugins` 已同步修正：除根目录镜像外，也把总库同步进每个沙箱。
+
+### 结构化插件热更
+
+`POST /tsm/servers/{id}/plugins/reload` body `{ "plugin": "FixTools" }`：
+
+- 先查运行沙箱 `ServerPlugins\<plugin>.dll` 是否存在；
+- 存在 → 200 `{ok:true, plugin:"FixTools", found:true, output:"…已加载"}`；
+- 不存在 → 404 `{ok:false, error:"plugin_not_found", plugin:"…"}`（比 `/command` 的结构化程度更高）。
+
+## 非托管同名进程检测（P2）
+
+TSM 每 ~30s 经 WMI 扫描 `TShock.Server.exe`，凡是**不属于任何 TSM 容器**的进程，发一次事件：
+
+```json
+{ "Type": "server.process.conflict", "ServerId": null,
+  "Payload": { "serverId": null, "pid": 7436, "name": "TShock.Server", "port": 0, "managed": false } }
+```
+
+- 只告警：**不清理、不拒绝启动**（避免误杀）。
+- 能映射时用命令行 `-port` 回填 `serverId`（映射不到则为 `null`）。
+- 同一 PID 只报一次；进程消失后再出现会重新告警。
 
 ## ExternalProcess
 
