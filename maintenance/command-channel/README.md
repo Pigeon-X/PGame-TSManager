@@ -59,6 +59,14 @@ PGame-TSManager.exe --send <服务器名> <指令>
 
 结果写入程序目录 `sendresult.txt`，退出码 0 = 成功。
 
+> Windows GUI 子系统程序从 SSH / PowerShell 用 `&` 调用时不会按预期等待完整退出。
+> 外部脚本要拿退出码和 `sendresult.txt`，请使用：
+>
+> ```powershell
+> Start-Process -FilePath .\PGame-TSManager.exe `
+>   -ArgumentList @('--send','流光城','/help') -Wait -PassThru
+> ```
+
 ## 实测（2026-10-06，远程 114.28.145.124）
 
 ```
