@@ -32,6 +32,24 @@ namespace PGameTSManager
     }
 
     /// <summary>
+    /// rebuild 只读预演结果（dryRun）。只解析清单/世界路径/生成参数，不产生任何文件或进程副作用。
+    /// </summary>
+    public sealed class RebuildPreview
+    {
+        public string ServerId { get; init; } = "";
+        public string WorldPath { get; init; } = "";
+        public string WorldName { get; init; } = "";
+        public bool WorldExists { get; init; }
+        public long WorldSize { get; init; }
+        public string WouldBackupTo { get; init; } = "";
+        public int AutoCreate { get; init; }
+        public string Difficulty { get; init; } = "";
+        public string WorldEvil { get; init; } = "";
+        public string Seed { get; init; } = "";
+        public bool ServerPropertiesExists { get; init; }
+    }
+
+    /// <summary>
     /// 一台服务器 = PGame-TSManager 根目录这个 TShock 的一个「配置目录 + 世界」。
     ///
     /// 启动方式（等价于旧版 TSM 的思路，并已适配 TShock 6.2）：
@@ -538,6 +556,51 @@ namespace PGameTSManager
                 OnPropertyChanged(nameof(StatusBrush));
                 OnPropertyChanged(nameof(StatusText));
             }
+        }
+
+        /// <summary>
+        /// 只读世界重建预演：解析清单、世界路径与生成参数，绝不改文件、停服、删图。
+        /// 供 Control API 的 dryRun 使用，让外部项目能安全校验 rebuild 参数。
+        /// </summary>
+        public RebuildPreview PreviewRebuild(string requestId, string actor)
+        {
+            var manifest = _profile.LoadManifest()
+                ?? throw new InvalidOperationException("找不到服务器清单 config.json");
+            var worldPath = ResolveWorldPath(manifest);
+            if (string.IsNullOrWhiteSpace(worldPath))
+                throw new InvalidOperationException("该服没有配置世界文件");
+
+            var plan = ReadWorldBuildPlan(RuntimeDirectory, manifest);
+            var worldExists = File.Exists(worldPath);
+            var preview = new RebuildPreview
+            {
+                ServerId = StableId,
+                WorldPath = worldPath,
+                WorldName = plan.WorldName,
+                WorldExists = worldExists,
+                WorldSize = worldExists ? new FileInfo(worldPath).Length : 0,
+                WouldBackupTo = worldExists ? worldPath + ".bak-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") : "",
+                AutoCreate = plan.AutoCreate,
+                Difficulty = plan.Difficulty,
+                WorldEvil = plan.WorldEvil,
+                Seed = plan.EffectiveSeed,
+                ServerPropertiesExists = File.Exists(Path.Combine(RuntimeDirectory, "server.properties"))
+            };
+
+            ControlEventHub.Publish("world.rebuild.dryrun", StableId, new
+            {
+                requestId,
+                actor,
+                preview.WorldPath,
+                preview.AutoCreate,
+                difficulty = preview.Difficulty,
+                worldevil = preview.WorldEvil,
+                seed = string.IsNullOrWhiteSpace(preview.Seed) ? "<random>" : preview.Seed,
+                preview.WorldExists,
+                preview.WorldSize,
+                preview.ServerPropertiesExists
+            });
+            return preview;
         }
 
         /// <summary>

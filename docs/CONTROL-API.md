@@ -99,6 +99,37 @@ process.unhealthy
 
 TSM 是 `server.properties` 和 `Servers\Worlds\*.wld` 的唯一写入者。
 
+### 只读预演（dryRun）
+
+带 `"dryRun": true` 时**只解析清单/世界路径/生成参数并回 200**，不停服、不备份、不删图、不建图；此模式**不需要 `confirm`**，`requestId` 缺省会自动生成。
+
+```json
+{ "serverId": "liuguang-realm", "dryRun": true }
+```
+
+```json
+{
+  "ok": true,
+  "contractVersion": "tsm.control.v1",
+  "dryRun": true,
+  "serverId": "liuguang-realm",
+  "requestId": "dryrun-<guid>",
+  "worldPath": "Servers\\Worlds\\3.流光神域.wld",
+  "worldName": "流光神域",
+  "worldExists": true,
+  "worldSize": 12404014,
+  "wouldBackupTo": "...\\3.流光神域.wld.bak-<时间戳>",
+  "autoCreate": 3,
+  "difficulty": "2",
+  "worldevil": "random",
+  "seed": "392",
+  "serverPropertiesExists": true,
+  "note": "dryRun 不产生任何文件/进程变更"
+}
+```
+
+同时会发布 `world.rebuild.dryrun` 事件。真建（`dryRun` 缺省/false）仍要求 `confirm:true` + `requestId`，否则 `400 serverId_requestId_confirm_required`。
+
 ## ExternalProcess
 
 `externalProcesses` 是通用外部进程列表。公共 Core 只定义结构，默认列表为空，私人条目由个人版 overlay 配置。

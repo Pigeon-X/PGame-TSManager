@@ -268,7 +268,9 @@ internal sealed class ControlApiServer : IDisposable
         var reason = json["reason"]?.ToString() ?? "";
         var actor = json["actor"]?.ToString() ?? "";
         var confirm = json["confirm"]?.ToObject<bool>() ?? false;
-        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(requestId) || !confirm)
+        var dryRun = json["dryRun"]?.ToObject<bool>() ?? false;
+        if (dryRun && string.IsNullOrWhiteSpace(requestId)) requestId = "dryrun-" + Guid.NewGuid().ToString("N");
+        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(requestId) || (!dryRun && !confirm))
         {
             await WriteJsonAsync(ctx, 400, new { ok = false, error = "serverId_requestId_confirm_required" });
             return;
@@ -278,6 +280,38 @@ internal sealed class ControlApiServer : IDisposable
         if (window == null) { await WriteJsonAsync(ctx, 503, new { ok = false, error = "manager_not_ready" }); return; }
         var container = await window.Dispatcher.InvokeAsync(() => window.FindContainer(id)).Task;
         if (container == null) { await WriteJsonAsync(ctx, 404, new { ok = false, error = "server_not_found", id }); return; }
+
+        if (dryRun)
+        {
+            try
+            {
+                var preview = await window.Dispatcher.InvokeAsync(() => container.PreviewRebuild(requestId, actor)).Task;
+                await WriteJsonAsync(ctx, 200, new
+                {
+                    ok = true,
+                    contractVersion = "tsm.control.v1",
+                    dryRun = true,
+                    serverId = id,
+                    requestId,
+                    worldPath = preview.WorldPath,
+                    worldName = preview.WorldName,
+                    worldExists = preview.WorldExists,
+                    worldSize = preview.WorldSize,
+                    wouldBackupTo = preview.WouldBackupTo,
+                    autoCreate = preview.AutoCreate,
+                    difficulty = preview.Difficulty,
+                    worldevil = preview.WorldEvil,
+                    seed = string.IsNullOrWhiteSpace(preview.Seed) ? "<random>" : preview.Seed,
+                    serverPropertiesExists = preview.ServerPropertiesExists,
+                    note = "dryRun 不产生任何文件/进程变更"
+                });
+            }
+            catch (Exception ex)
+            {
+                await WriteJsonAsync(ctx, 400, new { ok = false, error = ex.Message });
+            }
+            return;
+        }
 
         _ = Task.Run(async () =>
         {
