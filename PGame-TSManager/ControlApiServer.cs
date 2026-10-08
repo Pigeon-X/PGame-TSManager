@@ -23,6 +23,15 @@ internal sealed class ControlApiServer : IDisposable
     private readonly object _sseGate = new();
     private readonly Dictionary<string, ExternalProcessRuntime> _externalProcesses = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>本管理器进程的启动时间（客户端用来识别 TSM 是否重启过）。</summary>
+    private static readonly DateTimeOffset ManagerStartedAt = ResolveProcessStart();
+
+    private static DateTimeOffset ResolveProcessStart()
+    {
+        try { return new DateTimeOffset(System.Diagnostics.Process.GetCurrentProcess().StartTime); }
+        catch { return DateTimeOffset.Now; }
+    }
+
     public ControlApiServer(ManagerConfig config, Func<MainWindow?> windowFactory)
     {
         _config = config;
@@ -174,6 +183,8 @@ internal sealed class ControlApiServer : IDisposable
                 serverCount = window.Containers.Count,
                 runningCount = running,
                 externalCount = _externalProcesses.Count,
+                managerStartedAt = ManagerStartedAt.ToString("o"),
+                eventEpoch = ControlEventHub.EventEpoch,
                 at = DateTimeOffset.Now.ToString("o")
             };
         }).Task;
@@ -200,6 +211,7 @@ internal sealed class ControlApiServer : IDisposable
                 restTokenAlias = c.StableId + "-rest",
                 world = c.WorldName,
                 pid = c.SafeProcessId(),
+                rebuilding = c.IsRebuilding,
                 at = DateTimeOffset.Now.ToString("o")
             }).ToList()
         ).Task;
@@ -352,6 +364,12 @@ internal sealed class ControlApiServer : IDisposable
             return;
         }
 
+        if (!container.TryBeginRebuild())
+        {
+            await WriteJsonAsync(ctx, 409, new { ok = false, error = "rebuild_in_progress", serverId = id, requestId });
+            return;
+        }
+
         _ = Task.Run(async () =>
         {
             try
@@ -363,6 +381,10 @@ internal sealed class ControlApiServer : IDisposable
             {
                 ControlEventHub.Publish("world.rebuild.failed", container.StableId,
                     new { requestId, actor, reason, error = ex.Message });
+            }
+            finally
+            {
+                container.EndRebuild();
             }
         });
 

@@ -21,6 +21,21 @@ namespace PGameTSManager
         private static readonly ConcurrentDictionary<Guid, Action<ControlEvent>> Subscribers = new();
         private static long _seq;
 
+        /// <summary>
+        /// 本进程的事件纪元（= 启动时的 Seq 下界）。客户端可用它区分
+        /// “没有新事件” 与 “TSM 重启过”，从而安全地做 Last-Event-ID 断线补发。
+        /// </summary>
+        public static long EventEpoch { get; private set; }
+
+        static ControlEventHub()
+        {
+            // 关键：Seq 跨进程重启也必须单调递增，否则客户端把 seq 落盘去重时会丢事件。
+            // 用毫秒时间戳作为下界：重启后新 seq 一定大于上一次运行的所有 seq。
+            var floor = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            _seq = floor;
+            EventEpoch = floor;
+        }
+
         public static int BufferSize { get; set; } = 512;
         public static long LatestSeq
         {

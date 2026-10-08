@@ -428,6 +428,18 @@ namespace PGameTSManager
             get { try { return _process?.Id ?? 0; } catch { return 0; } }
         }
 
+        private int _rebuildInProgress;
+
+        /// <summary>是否正在重建世界（并发保护；Control API 用它回 409）。</summary>
+        public bool IsRebuilding => System.Threading.Volatile.Read(ref _rebuildInProgress) == 1;
+
+        /// <summary>尝试进入“正在重建”状态；已在重建中返回 false（不排队、不覆盖）。</summary>
+        public bool TryBeginRebuild() =>
+            System.Threading.Interlocked.CompareExchange(ref _rebuildInProgress, 1, 0) == 0;
+
+        /// <summary>结束重建状态（无论成功失败都要调用）。</summary>
+        public void EndRebuild() => System.Threading.Interlocked.Exchange(ref _rebuildInProgress, 0);
+
         /// <summary>该服运行沙箱的 ServerPlugins 目录（插件热升级/查询用）。</summary>
         public string ServerPluginsDirectory => Path.Combine(RuntimeDirectory, "ServerPlugins");
 

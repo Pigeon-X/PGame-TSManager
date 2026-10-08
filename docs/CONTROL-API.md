@@ -133,6 +133,8 @@ TSM 是 `server.properties` 和 `Servers\Worlds\*.wld` 的唯一写入者。
 
 同时会发布 `world.rebuild.dryrun` 事件。真建（`dryRun` 缺省/false）仍要求 `confirm:true` + `requestId`，否则 `400 serverId_requestId_confirm_required`。
 
+并发保护：同一服的 rebuild 已在执行时，第二个请求返回 **`409 {ok:false, error:"rebuild_in_progress"}`**（不排队、不覆盖）。`GET /tsm/servers` 的每项带 `rebuilding:true/false`。
+
 ## 插件热升级（Live Plugin Sync）
 
 `POST /tsm/servers/{id}/syncplugins` 把插件总库按该服清单**同步进运行沙箱** `Core\_runtime\<服>\ServerPlugins`（不是根目录那份），运行中调用安全。
@@ -205,3 +207,24 @@ TSM 每 ~30s 经 WMI 扫描 `TShock.Server.exe`，凡是**不属于任何 TSM �
   "rootPath": "Servers\\Profiles\\2.生存2"
 }
 ```
+
+## 状态字段与事件序号（客户端去重必读）
+
+`GET /tsm/status`：
+
+```json
+{
+  "ok": true,
+  "contractVersion": "tsm.control.v1",
+  "managerRunning": true,
+  "managerStartedAt": "2026-10-08T23:52:10.1234567+08:00",
+  "eventEpoch": 1760025130123,
+  "serverCount": 3, "runningCount": 3, "externalCount": 2,
+  "at": "..."
+}
+```
+
+- **`Seq` 跨进程重启单调递增**：`ControlEventHub` 用毫秒时间戳作为启动下界，重启后新事件 seq 一定大于上一次运行的所有 seq。（曾经每次从 1 重计，会把客户端落盘的 seq 去重基线顶掉、静默丢事件。）
+- `eventEpoch` = 本进程的 seq 下界；`managerStartedAt` = 进程启动时间。客户端可用二者区分“没有新事件”与“TSM 重启过”，从而安全恢复 `Last-Event-ID` 断线补发。
+- `GET /tsm/servers` 每项：`id, name, state, gamePort, restPort, restTokenAlias, world, pid, rebuilding, at`。
+  **停机服的 `pid` 为 `null`**（客户端字段需可空，例如 `int?`）。
