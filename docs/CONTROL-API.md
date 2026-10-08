@@ -135,6 +135,22 @@ TSM 是 `server.properties` 和 `Servers\Worlds\*.wld` 的唯一写入者。
 
 并发保护：同一服的 rebuild 已在执行时，第二个请求返回 **`409 {ok:false, error:"rebuild_in_progress"}`**（不排队、不覆盖）。`GET /tsm/servers` 的每项带 `rebuilding:true/false`。
 
+收尾事件 `world.rebuild.ready` / `world.rebuild.failed` 的 payload 带换图后的世界校验信息：
+
+```json
+{
+  "Type": "world.rebuild.ready",
+  "Payload": {
+    "requestId": "…", "worldPath": "Servers\\Worlds\\2.泰拉大陆.wld",
+    "ready": true,
+    "size": 12317136,
+    "mtimeUtc": "2026-10-08T16:04:50.1234567Z"
+  }
+}
+```
+
+> 校验建议：**同种子重建体积可能只差 1 字节**（确定性生成），所以请用「`ready:true` + `mtimeUtc` 变化」判定换图成功，不要只比 `size`。
+
 ## 插件热升级（Live Plugin Sync）
 
 `POST /tsm/servers/{id}/syncplugins` 把插件总库按该服清单**同步进运行沙箱** `Core\_runtime\<服>\ServerPlugins`（不是根目录那份），运行中调用安全。

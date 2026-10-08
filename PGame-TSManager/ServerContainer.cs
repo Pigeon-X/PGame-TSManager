@@ -690,11 +690,29 @@ namespace PGameTSManager
             IsRunning = true;
 
             var ready = await WaitUntilReadyAsync(TimeSpan.FromSeconds(Math.Max(300, _managerConfig.watchdogWorldBuildSuppressSeconds + 120)));
+
+            // 供客户端校验“换图成功”：同种子重建体积可能只差 1 字节（确定性生成），
+            // 所以同时给出 mtimeUtc，客户端应以“ready + mtime 变化”双条件判定。
+            long worldSize = 0;
+            var worldMTimeUtc = "";
+            try
+            {
+                if (File.Exists(worldPath))
+                {
+                    var fi = new FileInfo(worldPath);
+                    worldSize = fi.Length;
+                    worldMTimeUtc = fi.LastWriteTimeUtc.ToString("o");
+                }
+            }
+            catch { }
+
             ControlEventHub.Publish(ready ? "world.rebuild.ready" : "world.rebuild.failed", StableId, new
             {
                 requestId,
                 worldPath,
-                ready
+                ready,
+                size = worldSize,
+                mtimeUtc = worldMTimeUtc
             });
         }
 
