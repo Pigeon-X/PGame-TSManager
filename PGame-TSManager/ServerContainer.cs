@@ -18,6 +18,19 @@ using PGameTSManager.Annotations;
 
 namespace PGameTSManager
 {
+    internal sealed class WorldBuildPlan
+    {
+        public int AutoCreate { get; init; }
+        public string Difficulty { get; init; } = "";
+        public string WorldEvil { get; init; } = "";
+        public string WorldName { get; init; } = "";
+        public string Seed { get; init; } = "";
+        public int SeedFlags { get; init; }
+
+        // 固定优先级：seed_* 组合值 > seed 复合串 > 随机。
+        public string EffectiveSeed => SeedFlags > 0 ? SeedFlags.ToString(CultureInfo.InvariantCulture) : Seed;
+    }
+
     /// <summary>
     /// 一台服务器 = PGame-TSManager 根目录这个 TShock 的一个「配置目录 + 世界」。
     ///
@@ -908,10 +921,8 @@ namespace PGameTSManager
 
             if (!string.IsNullOrWhiteSpace(worldPath) && !File.Exists(worldPath))
             {
-                var explicitAuto = TryGetAutoCreateFromArguments(_profile.arguments);
-                if (explicitAuto <= 0) explicitAuto = TryGetAutoCreateFromArguments(manifest.Parameters);
-                if (explicitAuto <= 0) explicitAuto = manifest.AutoCreate ?? ReadAutoCreateFromServerProperties(RuntimeDirectory);
-                autoCreateSize = Math.Max(1, explicitAuto);
+                var plan = ReadWorldBuildPlan(RuntimeDirectory, manifest);
+                autoCreateSize = Math.Max(1, plan.AutoCreate);
 
                 if (!HasArgument(_profile.arguments, "autocreate") &&
                     !HasArgument(manifest.Parameters, "autocreate"))
@@ -919,6 +930,44 @@ namespace PGameTSManager
                     parts.Add("-autocreate");
                     parts.Add(autoCreateSize.ToString(CultureInfo.InvariantCulture));
                 }
+
+                var explicitAuto = TryGetAutoCreateFromArguments(_profile.arguments);
+                if (explicitAuto <= 0) explicitAuto = TryGetAutoCreateFromArguments(manifest.Parameters);
+                if (explicitAuto > 0) autoCreateSize = explicitAuto;
+
+                if (!HasArgument(_profile.arguments, "seed") && !HasArgument(manifest.Parameters, "seed"))
+                {
+                    var seed = plan.EffectiveSeed;
+                    if (!string.IsNullOrWhiteSpace(seed))
+                    {
+                        parts.Add("-seed");
+                        parts.Add(Quote(seed));
+                    }
+                }
+
+                if (!HasArgument(_profile.arguments, "difficulty") && !HasArgument(manifest.Parameters, "difficulty") &&
+                    !string.IsNullOrWhiteSpace(plan.Difficulty))
+                {
+                    parts.Add("-difficulty");
+                    parts.Add(Quote(plan.Difficulty));
+                }
+
+                if (!HasArgument(_profile.arguments, "worldevil") && !HasArgument(manifest.Parameters, "worldevil") &&
+                    !string.IsNullOrWhiteSpace(plan.WorldEvil))
+                {
+                    parts.Add("-worldevil");
+                    parts.Add(Quote(plan.WorldEvil));
+                }
+
+                if (!HasArgument(_profile.arguments, "worldname") && !HasArgument(manifest.Parameters, "worldname") &&
+                    !string.IsNullOrWhiteSpace(plan.WorldName))
+                {
+                    parts.Add("-worldname");
+                    parts.Add(Quote(plan.WorldName));
+                }
+
+                AddText($"[建图参数] autocreate={autoCreateSize} difficulty={plan.Difficulty} worldevil={plan.WorldEvil} " +
+                        $"seed={(string.IsNullOrWhiteSpace(plan.EffectiveSeed) ? "<随机>" : plan.EffectiveSeed)} worldname={plan.WorldName}\n");
             }
 
             if (manifest.MaxPlayers > 0) { parts.Add("-maxplayers"); parts.Add(manifest.MaxPlayers.ToString(CultureInfo.InvariantCulture)); }
@@ -940,24 +989,66 @@ namespace PGameTSManager
             return Math.Max(Math.Max(180, _managerConfig.watchdogWorldBuildSuppressSeconds), minimum);
         }
 
-        private static int ReadAutoCreateFromServerProperties(string runtimeDirectory)
+        private static WorldBuildPlan ReadWorldBuildPlan(string runtimeDirectory, ServerManifest manifest)
         {
+            var props = ReadServerProperties(runtimeDirectory);
+            var flags = 0;
+            try
+            {
+                flags |= ReadSeedFlag(props, "seed_drunk", 1);
+                flags |= ReadSeedFlag(props, "seed_notthebees", 2);
+                flags |= ReadSeedFlag(props, "seed_fortheworthy", 4);
+                flags |= ReadSeedFlag(props, "seed_celebration", 8);
+                flags |= ReadSeedFlag(props, "seed_theconstant", 16);
+                flags |= ReadSeedFlag(props, "seed_remix", 32);
+                flags |= ReadSeedFlag(props, "seed_notraps", 64);
+                flags |= ReadSeedFlag(props, "seed_zenith", 128);
+                flags |= ReadSeedFlag(props, "seed_skyblock", 256);
+            }
+            catch { }
+
+            var autoCreate = manifest.AutoCreate ?? GetInt(props, "autocreate", 1);
+            return new WorldBuildPlan
+            {
+                AutoCreate = autoCreate,
+                Difficulty = GetString(props, "difficulty"),
+                WorldEvil = GetString(props, "worldevil"),
+                WorldName = GetString(props, "worldname"),
+                Seed = GetString(props, "seed"),
+                SeedFlags = flags
+            };
+        }
+
+        private static Dictionary<string, string> ReadServerProperties(string runtimeDirectory)
+        {
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             try
             {
                 var path = Path.Combine(runtimeDirectory, "server.properties");
-                if (!File.Exists(path)) return 0;
+                if (!File.Exists(path)) return result;
                 foreach (var raw in File.ReadAllLines(path))
                 {
                     var line = raw.Trim();
-                    if (line.Length == 0 || line.StartsWith("#") || !line.StartsWith("autocreate", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (line.Length == 0 || line.StartsWith("#")) continue;
                     var eq = line.IndexOf('=');
-                    if (eq < 0) continue;
-                    if (!line.Substring(0, eq).Trim().Equals("autocreate", StringComparison.OrdinalIgnoreCase)) continue;
-                    return int.TryParse(line[(eq + 1)..].Trim(), out var size) ? size : 0;
+                    if (eq <= 0) continue;
+                    result[line[..eq].Trim()] = line[(eq + 1)..].Trim();
                 }
             }
             catch { }
-            return 0;
+            return result;
+        }
+
+        private static int ReadSeedFlag(Dictionary<string, string> props, string key, int bit)
+            => string.Equals(GetString(props, key), "1", StringComparison.OrdinalIgnoreCase) ? bit : 0;
+
+        private static string GetString(Dictionary<string, string> props, string key)
+            => props.TryGetValue(key, out var value) ? value : "";
+
+        private static int GetInt(Dictionary<string, string> props, string key, int fallback)
+        {
+            var value = GetString(props, key);
+            return int.TryParse(value, out var parsed) ? parsed : fallback;
         }
 
         private static bool HasArgument(string? arguments, string name)

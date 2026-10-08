@@ -61,3 +61,4 @@
 - 2026-10-08：TSM 控制台新增 ANSI 真彩色解析。HelpPlus 等插件给控制台输出 `\x1b[38;2;R;G;Bm` 时，TSM 不再显示 `[38;2;...m` 乱码，而是转成 WPF 颜色片段渲染。
 - 2026-10-08：按 RPG/服务器侧对接口信补 P0/P2：世界 `.wld` 不存在时 TSM 自动从每服 `server.properties` / profile `自动建图` / 启动参数读取 `autocreate` 并补 `-autocreate`；自动建图期间按小/中/大图最低 300/480/600 秒保护看门狗，默认保护 600 秒。
 - 2026-10-08：按维度侧对接要求，通用 TShock 模板和新建服务器脚本固定写入 `127.0.0.1` 本机白名单；维度子服插件产物由维度 inbox 同步到个人版 Plugins 与三服沙箱。
+- 2026-10-08：按服务器/RPG 侧 rebuild 参数映射补充建图计划解析：`autocreate`、`difficulty`、`worldevil`、`worldname`；`seed_*` 按位值表合并，优先级为 flag 组合值 → `seed` 复合串 → 随机；`difficulty` 与复合 seed 只透传并记录日志，不自行换算。
