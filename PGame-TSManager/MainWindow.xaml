@@ -340,7 +340,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <!-- 流光维度自定义标题栏 -->
+                <!-- 自定义标题栏 -->
                 <Border Grid.Row="0" CornerRadius="15,15,0,0">
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">

@@ -342,7 +342,7 @@ namespace PGameTSManager
 
         /// <summary>该服的配置目录（1.PigeonServers\&lt;序号.名字&gt;）。</summary>
         public string ProfileDirectory => ServerDirectory;
-        /// <summary>下拉框显示用：带序号，例如 "1. 流光城"（序号来自服务器目录名）。</summary>
+        /// <summary>下拉框显示用：带序号，例如 "1. 生存"（序号来自服务器目录名）。</summary>
         public string ListLabel
         {
             get

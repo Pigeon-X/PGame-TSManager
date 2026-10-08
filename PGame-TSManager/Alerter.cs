@@ -9,11 +9,14 @@ using System.Threading.Tasks;
 namespace PGameTSManager
 {
     /// <summary>
-    /// 告警：把「服务器掉线 / 反复崩溃 / 日志出现致命异常」发到测试群。
+    /// 告警：把「服务器掉线 / 反复崩溃 / 日志出现致命异常」发到配置里指定的群。
     ///
-    /// 走的是远程服务器上现成的上报脚本（WebSocket → SnowLuma → QQ 群）：
-    ///   AI维护文件\12-机器人\机器人上报测试群.ps1 -Text "..." -GroupId 1125570228
-    /// 找不到脚本 / 发送失败都静默处理，绝不影响管理器本身。
+    /// Core 不内置任何私人路径与群号：上报脚本和群号全部来自 config.json 的
+    /// alertScript / alertGroupId / alertGroupIds；未配置就等于关闭，发送失败静默处理，
+    /// 绝不影响管理器本身。
+    ///
+    /// 脚本契约（外部实现只需满足这个约定）：
+    ///   &lt;script&gt; -Text "&lt;告警正文&gt;" -GroupId &lt;群号&gt;
     /// </summary>
     internal static class Alerter
     {
@@ -22,8 +25,8 @@ namespace PGameTSManager
 
         public static bool Enabled { get; set; }
         public static string ScriptPath { get; set; } = "";
-        public static long GroupId { get; set; } = 1125570228;
-        public static List<long> GroupIds { get; set; } = new() { 1125570228, 561150136 };
+        public static long GroupId { get; set; }
+        public static List<long> GroupIds { get; set; } = new();
         public static int MinIntervalSeconds { get; set; } = 60;
 
         /// <summary>最近一次发送结果（给界面显示用）。</summary>
@@ -39,19 +42,10 @@ namespace PGameTSManager
                 GroupId = cfg.alertGroupId;
                 GroupIds = (cfg.alertGroupIds != null && cfg.alertGroupIds.Count > 0)
                     ? cfg.alertGroupIds.Where(x => x > 0).Distinct().ToList()
-                    : new List<long> { GroupId };
+                    : (GroupId > 0 ? new List<long> { GroupId } : new List<long>());
 
-                var configured = cfg.alertScript;
-                if (!string.IsNullOrWhiteSpace(configured))
-                {
-                    ScriptPath = ManagerConfig.Resolve(configured);
-                    return;
-                }
-
-                // 留空 = 自动找桌面上的上报脚本
-                var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-                var guess = Path.Combine(desktop, "AI维护文件", "12-机器人", "机器人上报测试群.ps1");
-                ScriptPath = File.Exists(guess) ? guess : "";
+                // 只认配置项；不猜路径、不内置私人脚本位置。
+                ScriptPath = string.IsNullOrWhiteSpace(cfg.alertScript) ? "" : ManagerConfig.Resolve(cfg.alertScript);
             }
             catch { }
         }

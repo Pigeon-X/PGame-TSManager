@@ -167,15 +167,16 @@ namespace PGameTSManager
         /// <summary>致命日志统计窗口秒数。</summary>
         public int watchdogLogErrorWindowSeconds = 60;
 
-        // —— 告警：异常/掉线自动发测试群 ——
-        /// <summary>是否自动上报测试群。</summary>
-        public bool alertEnabled = true;
-        /// <summary>上报脚本路径；留空 = 自动找桌面 AI维护文件\12-机器人\机器人上报测试群.ps1。</summary>
+        // —— 告警：异常/掉线时调用外部上报脚本 ——
+        // Core 不内置私人脚本路径与群号：三项都留空 = 告警关闭。
+        /// <summary>是否启用外部告警。</summary>
+        public bool alertEnabled = false;
+        /// <summary>上报脚本路径（相对可执行文件目录或绝对路径）；留空 = 不告警。</summary>
         public string alertScript = "";
         /// <summary>兼容旧配置：单个上报群号。</summary>
-        public long alertGroupId = 1125570228;
+        public long alertGroupId = 0;
         /// <summary>上报到的群号列表；未配置时回退到 alertGroupId。</summary>
-        public List<long> alertGroupIds = new() { 1125570228, 561150136 };
+        public List<long> alertGroupIds = new();
         /// <summary>同类告警最小间隔秒数（防刷屏）。</summary>
         public int alertMinIntervalSeconds = 60;
         /// <summary>顺序启动时，单台服务器等待「就绪」的最长秒数（超时就跳过，继续下一台）。</summary>
@@ -261,7 +262,7 @@ namespace PGameTSManager
             }
             catch { }
 
-            // ★ 按「服务器目录名前面的序号」排序：1.流光城 → 2.泰拉大陆 → 3.流光神域
+            // ★ 按「服务器目录名前面的序号」排序：1.生存 → 2.生存2 → 3.xxx
             //   新增服务器只要把目录叫 4.xxx / 5.xxx，就会自动排在后面，不用改配置里的顺序。
             return list
                 .OrderBy(OrdinalKey)
@@ -300,7 +301,7 @@ namespace PGameTSManager
             var rest = s.Substring(i).TrimStart('.', '、', '-', '_', ' ');
             return rest.Length > 0 ? rest : s;
         }
-        /// <summary>取名字开头的序号（"1.流光城" → 1，"10.xxx" → 10）。没有序号返回 0。</summary>
+        /// <summary>取名字开头的序号（"1.生存" → 1，"10.xxx" → 10）。没有序号返回 0。</summary>
         public static int OrdinalOf(string? text)
         {
             if (string.IsNullOrWhiteSpace(text)) return 0;

@@ -9,7 +9,7 @@ namespace PGameTSManager
     /// <summary>
     /// 无界面指令通道（给远程运维 / 自检用）。用法：
     ///   PGame-TSManager.exe --send &lt;服务器名&gt; &lt;指令&gt;
-    ///   例：PGame-TSManager.exe --send 流光城 "/help"
+    ///   例：PGame-TSManager.exe --send 生存 "/help"
     /// 走 TShock REST 的 rawcmd，结果同时写入 sendresult.txt。
     /// </summary>
     internal static class Cli

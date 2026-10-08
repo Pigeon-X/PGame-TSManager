@@ -23,7 +23,7 @@ namespace PGameTSManager
         public override string ToString() => Display;
     }
 
-    /// <summary>内置中文物品表，数据来自 TSWeb ID.json。</summary>
+    /// <summary>内置中文物品表，数据来自 Terraria 官方 ID 名称表（Core\Data\item-names.zh-CN.json）。</summary>
     public static class ItemCatalog
     {
         private static readonly Lazy<List<ItemNameEntry>> _all = new(Load);

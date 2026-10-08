@@ -1,0 +1,4 @@
+{
+  "TShockAPI.dll": "TShock 核心接口，所有插件依赖",
+  "HotReload.dll": "运行时热重载插件"
+}

@@ -251,6 +251,9 @@ dotnet publish PGame-TSManager/PGame-TSManager.csproj `
 | 个人服务器配置 | 无 | 有 |
 | 世界、数据库、玩家数据 | 不进入 Git | 不进入 Git |
 
+边界规则与对接原则见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)：
+TSM 只做「TShock 多进程控制面」，业务层（RPG / 维度 / Bot / 绑定）不进公共 Core。
+
 ## 致谢
 
 - 旧版多服管理器思路来自 [cc004/TSManager](https://github.com/cc004/TSManager)。
