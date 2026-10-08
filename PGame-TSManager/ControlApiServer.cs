@@ -205,6 +205,7 @@ internal sealed class ControlApiServer : IDisposable
             {
                 id = c.StableId,
                 name = c.Name,
+                label = c.ListLabel,
                 state = c.IsRunning ? "running" : "stopped",
                 gamePort = c.GamePort,
                 restPort = c.RestPort,

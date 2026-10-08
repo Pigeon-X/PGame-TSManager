@@ -228,3 +228,15 @@ TSM 每 ~30s 经 WMI 扫描 `TShock.Server.exe`，凡是**不属于任何 TSM �
 - `eventEpoch` = 本进程的 seq 下界；`managerStartedAt` = 进程启动时间。客户端可用二者区分“没有新事件”与“TSM 重启过”，从而安全恢复 `Last-Event-ID` 断线补发。
 - `GET /tsm/servers` 每项：`id, name, state, gamePort, restPort, restTokenAlias, world, pid, rebuilding, at`。
   **停机服的 `pid` 为 `null`**（客户端字段需可空，例如 `int?`）。
+
+## 当前 serverId ↔ 服务器（2026-10-09 起统一为数字）
+
+| id | 服 | 游戏端口 | REST |
+|---|---|---|---|
+| `0` | 鸽子直播服 | 2020 | 7877 |
+| `1` | 流光城 | 2021 | 7878 |
+| `2` | 泰拉大陆 | 2023 | 7879 |
+| `3` | 流光神域 | 2024 | 7880 |
+
+- **旧 id 已废弃**：`pigeon-live / liuguang-city / terra-mainland / liuguang-realm` 不再作为 `id`（但按名字匹配仍可用）。
+- `/tsm/servers` 每项额外带 **`label`**（下拉框同款，含序号，如 `"0. 鸽子直播服"`、`"1. 流光城"`）。

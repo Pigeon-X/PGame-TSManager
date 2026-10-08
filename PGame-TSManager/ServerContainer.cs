@@ -379,19 +379,22 @@ namespace PGameTSManager
 
         /// <summary>该服的配置目录（1.PigeonServers\&lt;序号.名字&gt;）。</summary>
         public string ProfileDirectory => ServerDirectory;
-        /// <summary>下拉框显示用：带序号，例如 "1. 生存"（序号来自服务器目录名）。</summary>
+        /// <summary>下拉框显示用：带序号，例如 "1. 生存"（序号来自服务器目录名；0.xxx 也保留 "0. "）。</summary>
         public string ListLabel
         {
             get
             {
                 var n = 0;
+                var hasOrdinal = false;
                 try
                 {
                     var dir = ServerDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                    n = ManagerConfig.OrdinalOf(Path.GetFileName(dir));
+                    var leaf = Path.GetFileName(dir);
+                    n = ManagerConfig.OrdinalOf(leaf);
+                    hasOrdinal = !string.IsNullOrEmpty(leaf) && char.IsDigit(leaf[0]);
                 }
                 catch { }
-                return n > 0 ? n + ". " + Name : Name;
+                return hasOrdinal ? n + ". " + Name : Name;
             }
         }
         public string Name => string.IsNullOrWhiteSpace(_profile.name)
