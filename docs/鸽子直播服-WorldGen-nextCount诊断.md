@@ -4,6 +4,35 @@
 > 范围：`serverId=0` 鸽子直播服建图 StackOverflow
 > 状态：已定位到 HookGen 包装层；尚未锁定具体触发插件
 
+---
+
+## ⚠ 更新（2026-10-09，TSM 会话）：已锁定并已解决 —— 本文件下方结论作废
+
+**结论：触发者是 `PigeonRPG.ProgressLoot.dll`，且与「世界参数」强相关。**
+
+独立临时沙箱二分（全程不影响在跑的四个服，`autocreate` 用 2/经典 做快速复现）：
+
+| 测试集 | 参数 | 结果 |
+|---|---|---|
+| 仅 TShockAPI | 2 / 经典 | ✅ |
+| A 半 10 插件（依赖闭合） | 2 / 经典 | ✅ |
+| B1：PChrome.PVP + PigeonMiniGamesAPI + PeaceMode + PGameAPI | 2 / 经典 | ✅ |
+| B2a：ProgressGuard + ProgressLoot + ProgressSync | 2 / 经典 | ❌ StackOverflow |
+| PigeonRPG.ProgressGuard 单独 | 2 / 经典 | ✅ |
+| PigeonRPG.ProgressSync 单独 | 2 / 经典 | ✅ |
+| **PigeonRPG.ProgressLoot 单独** | 2 / 经典 | ❌ **StackOverflow** |
+| **PigeonRPG.ProgressLoot 单独** | **3 / 大师 / random** | ✅ **11,849,183 B** |
+
+⇒ 不是 OTAPI HookGen 本身坏，而是 **ProgressLoot 的 WorldGen 钩子在「中图 + 经典」参数组合下自递归**；
+大图 + 大师参数下正常（这也解释了泰拉大陆 / 流光神域同样挂 ProgressLoot 却能建图）。
+
+**已实施修复**：直播服改为 `autocreate=3` + `difficulty=2` + `worldevil=random`（`server.properties` + 清单 `自动建图=3`），
+随后 TSM 真机 rebuild → `ready`，世界 6,886,177 → **11,964,749 B（8400×2400）**，日志 `Difficulty: 2`，**无 StackOverflow**。
+
+**约束**：直播服必须保持 `autocreate=3 + difficulty=2`，否则会退回旧崩溃参数组合。
+
+---
+
 ## 一、现象
 
 带插件建图时退出码 `-1073741571`（STATUS_STACK_OVERFLOW），栈为：
