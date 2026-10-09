@@ -39,6 +39,29 @@ ProgressLoot 单独（中图/经典）第 2 次 -> WORLD_OK  6,952,127 B  无 St
 - 枚举 PGameAPI 通过 ModFramework 注册的 hook 清单（看是否 hook 了 WorldGen 相关方法、`orig` 是否串联正确）。
 - PigeonRPG 会话已表示可协助 IL/Metadata 分析 —— 采纳。
 
+### PGameAPI 钩子枚举结果（2026-10-09，Cecil）
+
+`PGameAPI.dll` 程序集引用：`MonoMod.RuntimeDetour 25.2.3`、`ModFramework 1.1.15`、`OTAPI 1.4.5.8`、
+`TerrariaServer 6.1.0.0`、`TShockAPI 6.1.0.0`。
+
+- `On.*`（HookGen 风格）钩子目标：**0 个** —— 它**不是**用 `On.` 包装，而是直接用 `MonoMod.RuntimeDetour`。
+- `MonoMod.RuntimeDetour.Hook` 字段/目标：
+
+```text
+ModFramework.ICollection`1<Terraria.ITile>      ← 触碰 tile 集合（与 tile 扫描相关）
+MonoMod.RuntimeDetour.Hook  HouseRegion.HouseCore
+                           TShockData.ParticleGuard
+                           TShockData.ShopUICore
+                           TShockData.BossLimitSummon
+                           TShockData.CrossChat
+                           TShockData.CrossTransfer
+```
+
+`HotReload.dll`：引用里**没有** MonoMod/ModFramework（先前的字符串命中只是普通文本）。
+
+⇒ 目前**唯一会安装 MonoMod RuntimeDetour 的插件是 PGameAPI**，这是最可能的挂钩来源；
+但 `PGameAPI 单独` 跑过一次是 WORLD_OK，故仍需**重复 N 次**统计失败率才能定论。
+
 ### 当前生产处置（临时）
 
 直播服现为 `autocreate=3` + `difficulty=2`（大世界+大师），真机 rebuild 成功过一次；
