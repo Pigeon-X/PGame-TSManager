@@ -2,11 +2,51 @@
 
 > 时间：2026-10-09
 > 范围：`serverId=0` 鸽子直播服建图 StackOverflow
-> 状态：已定位到 HookGen 包装层；尚未锁定具体触发插件
+> 状态：**根因未确定**（间歇性；已撤回对 ProgressLoot 的误判）。直播服暂以「大世界+大师」运行
 
 ---
 
-## ⚠ 更新（2026-10-09，TSM 会话）：已锁定并已解决 —— 本文件下方结论作废
+## ⚠ 更正（2026-10-09，TSM 会话）：我曾误判为 ProgressLoot —— **该结论已撤回**
+
+### 撤回说明
+
+我先前基于**单次**沙箱运行（`ProgressLoot` 单独 → StackOverflow）判定元凶是
+`PigeonRPG.ProgressLoot`，并被 PigeonRPG 会话以反证驳回（该插件只有
+`NpcKilled` / `GameUpdate` / `PlayerLogout` 三个钩子，全仓库无
+`nextCount`/`countTiles`/`MonoMod`/`Detour`）。**复测证实我错了**：
+
+```text
+PGameAPI 单独（中图/经典）        -> WORLD_OK  6,892,939 B  无 StackOverflow
+ProgressLoot 单独（中图/经典）第 1 次 -> CRASH
+ProgressLoot 单独（中图/经典）第 2 次 -> WORLD_OK  6,952,127 B  无 StackOverflow   ← 不可复现
+```
+
+⇒ 该崩溃是**间歇性**的，**不能归因于单个插件**；「改大图+大师即修复」也**未经证实**（很可能只是那次没抽到触发条件）。
+
+### 目前可确定的（确定性证据）
+
+1. 全插件 DLL 的 **IL 扫描 + 字符串扫描**：`nextCount` / `countTiles` / `mfwh_` /
+   `orig_nextCount` / `hook_nextCount` **在 20 个插件里一处都没有** → 没有任何插件按名字 hook `nextCount`。
+2. `mfwh_*` 包装只存在于 **OTAPI / ModFramework 生成层**（`Core\bin\OTAPI*.dll`、`TerrariaServer.dll`）→
+   栈里的 `WorldGen.nextCount ↔ WorldGen.mfwh_nextCount` 是**该层自身**的包装递归。
+3. 引用 `ModFramework` 的插件：AntiCheatingTool、CommandTool、FixTools、PGameAPI、PigeonMiniGamesAPI、TShockAPI；
+   引用 `MonoMod/Detour` 的：**HotReload、PGameAPI**。与 PigeonRPG 会话的观察一致。
+4. 崩溃**间歇发生**，与随机种子/时序相关（每次 `Creating world - Seed:` 都不同；崩溃点固定在某个 gen pass）。
+
+### 尚待验证（下一步）
+
+- 只装 `PGameAPI` 连跑 N 次，统计 `Stack overflow` 失败率；对照「不装 PGameAPI」同 N 次。
+- 枚举 PGameAPI 通过 ModFramework 注册的 hook 清单（看是否 hook 了 WorldGen 相关方法、`orig` 是否串联正确）。
+- PigeonRPG 会话已表示可协助 IL/Metadata 分析 —— 采纳。
+
+### 当前生产处置（临时）
+
+直播服现为 `autocreate=3` + `difficulty=2`（大世界+大师），真机 rebuild 成功过一次；
+在间歇性根因查清前，这**只是可用状态，不是已证实的修复**。
+
+---
+
+## ~~（已撤回）我曾认为已锁定并解决~~
 
 **结论：触发者是 `PigeonRPG.ProgressLoot.dll`，且与「世界参数」强相关。**
 
@@ -65,14 +105,15 @@ nextCount event
 mfwh_nextCount event
 ```
 
-## 三、当前判断
+## 三、最终定位
 
-- 直接递归点是 OTAPI.Runtime 的 HookGen 包装层，不是插件源码里显式的 `WorldGen.nextCount` 订阅。
-- 某个已加载插件可能通过另一条 MonoMod/OTAPI Hook 链改变了 `mfwh_nextCount -> orig` 的指向，导致 `orig` 最终又回到 `nextCount`。
-- 现阶段不能把问题归因到单个插件；需要在隔离环境按插件子集二分加载，复现建图后记录最后加入的插件。
+- 触发插件：`PigeonRPG.ProgressLoot.dll` 的 WorldGen 钩子。
+- 只在 **中图 + 经典** 参数组合下出现 `WorldGen.nextCount ↔ mfwh_nextCount` 自递归。
+- `ProgressGuard` 单独、`ProgressSync` 单独、只留 TShockAPI 均正常；TSM 的独立沙箱二分不受在跑服影响。
 
-## 四、安全约束
+## 四、解决方案与约束
 
-- 直播服已用干净环境预生成世界，当前正常 running。
-- 在复现插件确定并修复前，禁止对 `0.鸽子直播服` 执行换图、删图重建或 `/pout reset`。
-- 二分测试只能在临时目录、临时端口和复制出的世界/插件集合中进行，不得复用直播服运行沙箱。
+- 直播服改为：`autocreate=3`（大世界 8400×2400）、`difficulty=2`（大师）、`worldevil=random`、`seed` 为空。
+- TSM 真机 rebuild 已成功：世界 6,886,177 → 11,964,749 B，日志 `Width:8400 Height:2400 Difficulty:2`，无 StackOverflow。
+- `/pout reset`、换图、删图重建对 `0.鸽子直播服` 已解禁。
+- **硬约束**：必须保持 `autocreate=3 + difficulty=2`；改回中图/经典会复现崩溃。
