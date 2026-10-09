@@ -1,4 +1,4 @@
-<#
+﻿<#
   修补 OTAPI 的「自递归改指入口」缺陷。
 
   背景：OTAPI/ModFramework 改写 Terraria 时，把原方法改名为 mfwh_<Name>，并生成入口 <Name>（派发 hook 事件后调用 mfwh_<Name>）。
@@ -20,6 +20,8 @@
 param(
     [Parameter(Mandatory = $true)][string]$OtapiPath,
     [Parameter(Mandatory = $true)][string]$CecilPath,
+    # 默认写到 <输入>.patched —— 绝不原地覆盖（原地写在 PS5.1 下若中途失败会把原文件截断成 0 字节）
+    [string]$OutputPath = '',
     [switch]$Backup,
     [switch]$WhatIfOnly
 )
@@ -31,6 +33,10 @@ if (-not ('Mono.Cecil.AssemblyDefinition' -as [type])) { Add-Type -Path $CecilPa
 
 $target = (Resolve-Path -LiteralPath $OtapiPath).Path
 Write-Host ("OTAPI: " + $target) -ForegroundColor Cyan
+if ([string]::IsNullOrWhiteSpace($OutputPath)) { $OutputPath = $target + '.patched' }
+if ([IO.Path]::GetFullPath($OutputPath).Equals($target, [StringComparison]::OrdinalIgnoreCase)) {
+    throw '安全限制：OutputPath 不能等于输入文件（禁止原地写）。'
+}
 
 # 必须 InMemory 读取：默认 ReadAssembly(path) 会一直占用文件句柄，导致后续 Write 撞锁
 $readerParams = New-Object Mono.Cecil.ReaderParameters
@@ -74,16 +80,9 @@ foreach ($top in $asm.MainModule.Types) {
                 if ($op.Parameters.Count -ne $m.Parameters.Count) { continue }
 
                 # 同签名 → 改指 mfwh_<entryName>
-                $newRef = New-Object Mono.Cecil.MethodReference(
-                    $m.Name,
-                    [Mono.Cecil.TypeReference]$m.ReturnType,
-                    [Mono.Cecil.TypeReference]$type)
-                foreach ($p in $m.Parameters) {
-                    $newRef.Parameters.Add((New-Object Mono.Cecil.ParameterDefinition(
-                        [Mono.Cecil.TypeReference]$p.ParameterType)))
-                }
-                $newRef.HasThis = $m.HasThis
-                $ins.Operand = $newRef
+                # 关键：直接复用 mfwh_X 的 MethodDefinition 作为操作数。
+                # 手工 new MethodReference 会缺少 module/scope，写出的 IL 运行时无效（曾导致服务器起不来）。
+                $ins.Operand = $m
                 $rewritten++
             }
             if ($rewritten -gt 0) {
@@ -106,13 +105,18 @@ if ($WhatIfOnly) {
 
 if ($totalSites -eq 0) { $asm.Dispose(); Write-Host '无需改动。' -ForegroundColor Green; exit 0 }
 
-if ($Backup) {
-    $bak = $target + '.pre-selfrecursion-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
-    Copy-Item -LiteralPath $target -Destination $bak -Force
-    Write-Host ('备份：' + $bak) -ForegroundColor DarkGray
-}
-
-$asm.Write($target)
+if (Test-Path -LiteralPath $OutputPath) { Remove-Item -LiteralPath $OutputPath -Force }
+$asm.Write($OutputPath)
 $asm.Dispose()
-Write-Host ("已写盘：" + $target) -ForegroundColor Green
-Write-Host '提示：只对上游原始 DLL 执行；TShock 上游更新 OTAPI 后重跑本脚本即可。' -ForegroundColor DarkGray
+
+# 校验产物：必须可读、且体积与输入同量级（防止写到一半的空/坏文件被拿去替换）
+$inSize = (Get-Item -LiteralPath $target).Length
+$outSize = (Get-Item -LiteralPath $OutputPath).Length
+if ($outSize -lt ($inSize * 0.9)) { throw ("产物异常：输出 $outSize 字节 < 输入 $inSize 字节的 90%，已中止") }
+$chkParams = New-Object Mono.Cecil.ReaderParameters
+$chkParams.InMemory = $true
+$chk = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($OutputPath, $chkParams)
+$chk.Dispose()
+
+Write-Host ("已写出：" + $OutputPath + "（" + $outSize + " 字节，校验通过）") -ForegroundColor Green
+Write-Host '替换步骤请另行执行（停服 → 换文件 → 起服）；TShock 上游更新后重跑本脚本即可。' -ForegroundColor DarkGray
