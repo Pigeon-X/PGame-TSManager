@@ -23,6 +23,9 @@ internal sealed class ControlApiServer : IDisposable
     private readonly object _sseGate = new();
     private readonly Dictionary<string, ExternalProcessRuntime> _externalProcesses = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>SSE 注释心跳间隔（秒）：避免客户端长时间收不到任何字节而误判断线、反复重连。</summary>
+    private const int SseHeartbeatSeconds = 25;
+
     /// <summary>本管理器进程的启动时间（客户端用来识别 TSM 是否重启过）。</summary>
     private static readonly DateTimeOffset ManagerStartedAt = ResolveProcessStart();
 
@@ -453,7 +456,13 @@ internal sealed class ControlApiServer : IDisposable
         using var sub = ControlEventHub.Subscribe(ev => WriteSse(response, ev));
         try
         {
-            await Task.Delay(Timeout.Infinite, _cts.Token);
+            // 周期写 SSE 注释 ": ping"，既是保活心跳，也用作断连探测：
+            // 写失败（客户端已断开）即结束本连接处理，避免订阅与任务长期泄漏。
+            while (!_cts.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(SseHeartbeatSeconds), _cts.Token);
+                if (!WriteSseComment(response, ": ping\n\n")) break;
+            }
         }
         catch { }
         finally
@@ -475,7 +484,7 @@ internal sealed class ControlApiServer : IDisposable
         return long.TryParse(raw, out var value) ? value : 0;
     }
 
-    private void WriteSseComment(HttpListenerResponse response, string text)
+    private bool WriteSseComment(HttpListenerResponse response, string text)
     {
         try
         {
@@ -485,8 +494,9 @@ internal sealed class ControlApiServer : IDisposable
                 response.OutputStream.Write(bytes, 0, bytes.Length);
                 response.OutputStream.Flush();
             }
+            return true;
         }
-        catch { }
+        catch { return false; }
     }
 
     private void WriteSse(HttpListenerResponse response, ControlEvent ev)
