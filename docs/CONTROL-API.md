@@ -79,6 +79,7 @@ world.rebuild.started
 world.rebuild.backup_created
 world.rebuild.generating
 world.rebuild.ready
+world.rebuild.timeout
 world.rebuild.failed
 process.started
 process.stopped
@@ -150,6 +151,22 @@ TSM 是 `server.properties` 和 `Servers\Worlds\*.wld` 的唯一写入者。
 ```
 
 > 校验建议：**同种子重建体积可能只差 1 字节**（确定性生成），所以请用「`ready:true` + `mtimeUtc` 变化」判定换图成功，不要只比 `size`。
+
+### ⚠ 等待超时 ≠ 重建失败（`world.rebuild.timeout`）
+
+大世界 + 全插件时，生成可能刚好超过首段等待窗口（= `max(300, watchdogWorldBuildSuppressSeconds + 120)` 秒；
+配置 600 时即 720s）。实测：世界在超时后约 6 秒才落地 → 曾被误报 `world.rebuild.failed`。
+
+现在改为：
+
+1. 首段等待超时 **不再发 `failed`**，改发信息性事件 `world.rebuild.timeout`
+   （payload：`requestId / worldPath / waitedSeconds / hint`）；
+2. 随后**继续等待最多 15 分钟**，真正就绪才发 `world.rebuild.ready`；
+3. `world.rebuild.failed` 现在只代表“确实没起来”（进程退出/始终未就绪）。
+
+客户端建议：`timeout` 只提示「仍在进行」，**不要**当失败处理；最终以 `ready` / `failed` 为准。
+另：`world.rebuild.generating` 的 `autoCreate/difficulty/worldevil/seed` 现在上报的是**实际生效**参数
+（取自 `server.properties`，而不是清单里的 `自动建图`）。
 
 ## 插件热升级（Live Plugin Sync）
 
