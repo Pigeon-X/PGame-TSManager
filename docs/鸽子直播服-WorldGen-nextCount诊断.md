@@ -2,7 +2,51 @@
 
 > 时间：2026-10-09
 > 范围：`serverId=0` 鸽子直播服建图 StackOverflow
-> 状态：**根因未确定**（间歇性；已撤回对 ProgressLoot 的误判）。直播服暂以「大世界+大师」运行
+> 状态：**根因已确认（IL 级）** —— OTAPI/ModFramework 改写缺陷：`mfwh_*` 体内自递归回调"入口"，
+> 导致栈占用 2× + 重复派发 hook 事件。**与任何插件无关。**（先前的 ProgressLoot / PGameAPI / 种子假设均已排除）
+
+---
+
+## ✅ 已确认根因（2026-10-09，服务器/RPG 侧 IL 分析 + TSM 独立复核）
+
+**机制**（`OTAPI.dll`，Cecil 读取）：
+
+```text
+WorldGen.nextCount        (入口) : 派发 Invoke nextCount 事件 → call mfwh_nextCount
+WorldGen.mfwh_nextCount   (原体) : 4 处自递归全部 call nextCount （应 call mfwh_nextCount）
+WorldGen.mfwh_countTiles  (原体) : 18 处 call nextCount（应走 mfwh_*）
+```
+
+⇒ 每层递归 = **入口帧 + 原方法帧**（原版 1 帧），且**每层重跑一次 hook 事件派发** ⇒
+栈占用约 **2×**，爆栈阈值降到约一半。`nextCount` 是 4 路 flood fill，深度随**连通地形路径长度**增长
+⇒ **间歇性、与世界形状/时序相关、与插件和热重载无关**。
+
+**这解释了此前全部观察**：20 个插件 DLL 无 `nextCount/countTiles/mfwh_`、零热重载也崩、同 seed 有时 OK。
+
+### 影响范围（TSM 全局扫描 `OTAPI.dll`，2026-10-09）
+
+「`mfwh_*` 方法体内回调**自己入口**」的共 **100 处**（示例）：
+
+```text
+Terraria.WorldGen   nextCount / countTiles(调 nextCount) / GenerateWorld / KillTile / SpawnTownNPC …
+Terraria.Main       Update / Initialize / DrawMap / NewText …
+Terraria.Item       Prefix / SetDefaults / NewItem …
+Terraria.NPC        SpawnNPC / FindClosestPlayer …
+Terraria.Projectile Kill / NewProjectile / CutTiles …
+Terraria.WorldFile  ValidateWorld / _SaveWorld …
+```
+
+⇒ 不止 `nextCount`：**这 100 个方法全部是「2× 栈 + 重复事件」**。
+PigeonRPG / PGameAPI / HotReload 全部洗清。
+
+### 修法（优先级）
+
+1. **[ThreadStatic] 递归重入保护**：包装层重入时直接走原方法、不再派发事件 → 栈立即减半，改动最小；
+2. **治本**：把这批 `mfwh_*` 体内的自递归/内部调用由「入口」改指 `mfwh_*` / trampoline（纯 IL 操作数改写）；
+3. 备选：`nextCount` 改迭代实现。
+
+> TSM 侧现状：项目**已有 OTAPI 补丁管线**（`Core\bin\OTAPI.dll.orig-startup` 即补丁前原件），
+> 可将上述 ② 做成与现有补丁同款的 IL 补丁；待窗口+授权后实施并回归。
 
 ---
 
@@ -128,15 +172,10 @@ nextCount event
 mfwh_nextCount event
 ```
 
-## 三、最终定位
 
-- 触发插件：`PigeonRPG.ProgressLoot.dll` 的 WorldGen 钩子。
-- 只在 **中图 + 经典** 参数组合下出现 `WorldGen.nextCount ↔ mfwh_nextCount` 自递归。
-- `ProgressGuard` 单独、`ProgressSync` 单独、只留 TShockAPI 均正常；TSM 的独立沙箱二分不受在跑服影响。
+## 三、当前结论
 
-## 四、解决方案与约束
-
-- 直播服改为：`autocreate=3`（大世界 8400×2400）、`difficulty=2`（大师）、`worldevil=random`、`seed` 为空。
-- TSM 真机 rebuild 已成功：世界 6,886,177 → 11,964,749 B，日志 `Width:8400 Height:2400 Difficulty:2`，无 StackOverflow。
-- `/pout reset`、换图、删图重建对 `0.鸽子直播服` 已解禁。
-- **硬约束**：必须保持 `autocreate=3 + difficulty=2`；改回中图/经典会复现崩溃。
+- `PigeonRPG.ProgressLoot` 的首次 CRASH 不可复现，20 插件 DLL 中无 `nextCount/countTiles/mfwh_`；PigeonRPG 无需改动。
+- 崩溃是间歇性问题；大图+大师不是已证实修复，只是当前未触发。
+- 唯一会安装 MonoMod RuntimeDetour 的插件是 PGameAPI，作为最可能来源继续 N 次重复统计。
+- 直播服已解禁 `/pout reset`、换图、删图重建；若再出现 StackOverflow，保留 stdout+stderr 并通知 TSM。
