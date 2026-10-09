@@ -682,22 +682,60 @@ namespace PGameTSManager
             }
 
             UpdateServerPropertiesForRebuild(RuntimeDirectory, manifest, worldPath);
+            // 上报“实际生效”的建图参数（可能来自 server.properties，而不是清单里的 自动建图）
+            var plan = ReadWorldBuildPlan(RuntimeDirectory, manifest);
             ControlEventHub.Publish("world.rebuild.generating", StableId, new
             {
                 requestId,
                 worldPath,
-                autoCreate = manifest.AutoCreate ?? 0
+                autoCreate = plan.AutoCreate,
+                difficulty = plan.Difficulty,
+                worldevil = plan.WorldEvil,
+                seed = string.IsNullOrWhiteSpace(plan.EffectiveSeed) ? "<random>" : plan.EffectiveSeed
             });
 
             if (File.Exists(worldPath)) File.Delete(worldPath);
             IsRunning = true;
 
-            var ready = await WaitUntilReadyAsync(TimeSpan.FromSeconds(Math.Max(300, _managerConfig.watchdogWorldBuildSuppressSeconds + 120)));
+            var firstWait = TimeSpan.FromSeconds(Math.Max(300, _managerConfig.watchdogWorldBuildSuppressSeconds + 120));
+            var ready = await WaitUntilReadyAsync(firstWait);
+            if (!ready && IsRunning)
+            {
+                // 关键：等待就绪超时 != 重建失败。大世界 + 全插件时生成可能刚好超过窗口
+                // （实测 720s 窗口，世界在超时后 ~6s 才落地 → 曾被误报 world.rebuild.failed）。
+                ControlEventHub.Publish("world.rebuild.timeout", StableId, new
+                {
+                    requestId,
+                    worldPath,
+                    waitedSeconds = (int)firstWait.TotalSeconds,
+                    hint = "等待就绪超时，重建很可能仍在进行或刚刚完成；请以服务端状态与后续 ready 事件为准，不要据此判定失败"
+                });
+                AddText($"[重建] 等待就绪超时（{(int)firstWait.TotalSeconds}s），继续等待最多 15 分钟…\n");
+                ready = await WaitUntilReadyAsync(TimeSpan.FromMinutes(15));
+            }
+
+            // 供客户端校验“换图成功”：同种子重建体积可能只差 1 字节（确定性生成），
+            // 所以同时给出 mtimeUtc，客户端应以“ready + mtime 变化”双条件判定。
+            long worldSize = 0;
+            var worldMTimeUtc = "";
+            try
+            {
+                if (File.Exists(worldPath))
+                {
+                    var fi = new FileInfo(worldPath);
+                    worldSize = fi.Length;
+                    worldMTimeUtc = fi.LastWriteTimeUtc.ToString("o");
+                }
+            }
+            catch { }
+
             ControlEventHub.Publish(ready ? "world.rebuild.ready" : "world.rebuild.failed", StableId, new
             {
                 requestId,
                 worldPath,
-                ready
+                ready,
+                size = worldSize,
+                mtimeUtc = worldMTimeUtc
             });
         }
 
