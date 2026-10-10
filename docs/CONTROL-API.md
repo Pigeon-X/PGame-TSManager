@@ -51,6 +51,30 @@ Authorization: Bearer <token>
 
 `id` 是每服稳定 `serverId`，不是中文名、目录名或端口。
 
+### ⚠ POST 必须带 body 或 `Content-Length: 0`（否则直接 411）
+
+底层是 `HttpListener`：**没有 body 且没有 `Content-Length` 的 POST 会在路由之前就被拒掉**，
+返回 `HTTP/1.1 411 Length Required`（HTML 错误页，不是 JSON），请求**根本不会执行**。
+
+实测踩坑（2026-10-11 维护窗口）：`curl -X POST http://127.0.0.1:8765/tsm/servers/2/restart`
+→ `411 Length Required`，服务器完全没动，而调用方看到的是「响应异常」而不是「重启失败」。
+
+各种客户端的正确写法：
+
+```powershell
+# PowerShell（Invoke-RestMethod / Invoke-WebRequest）自动带 Content-Length: 0，可直接用
+Invoke-RestMethod -Method Post -Uri "$base/tsm/servers/2/restart" -Headers $h
+```
+
+```text
+# curl：加 -d "" 或显式声明长度
+curl -s -X POST -H "X-TSM-Token: $T" -d "" http://127.0.0.1:8765/tsm/servers/2/restart
+curl -s -X POST -H "X-TSM-Token: $T" -H "Content-Length: 0" http://127.0.0.1:8765/tsm/servers/2/restart
+```
+
+返回体：`{"ok":true,"id":"2","state":"restarting"}`（HTTP 202）。`restart` 是**异步**的
+（停服 → 等进程退出 → 起服），调用方应轮询 `GET /tsm/servers` 看 `state`/`pid` 变化，不要用响应本身判断完成。
+
 ## 事件
 
 ```json
