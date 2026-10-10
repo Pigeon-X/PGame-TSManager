@@ -212,8 +212,36 @@ TSM 是 `server.properties` 和 `Servers\Worlds\*.wld` 的唯一写入者。
 `POST /tsm/servers/{id}/plugins/reload` body `{ "plugin": "FixTools" }`：
 
 - 先查运行沙箱 `ServerPlugins\<plugin>.dll` 是否存在；
-- 存在 → 200 `{ok:true, plugin:"FixTools", found:true, output:"…已加载"}`；
+- 存在 → 200 `{ok:true, plugin:"FixTools", found:true, output:"…已加载", verifiedBy:"rest"}`；
 - 不存在 → 404 `{ok:false, error:"plugin_not_found", plugin:"…"}`（比 `/command` 的结构化程度更高）。
+
+#### ⚠ 成功判定是「两条腿」（2026-10-11 实测修正）
+
+`PGameAPI` 这类插件热重载时会**重建自身全部模块**，期间 TShock 主线程阻塞、连接被重置 →
+TSM 到 TShock 的 REST 请求直接抛 `An error occurred while sending the request.`（**不是 HTTP 4xx**），
+但插件**其实加载成功**（日志有 `[HotReload] 已加载 PGameAPI v1.0.0`）。
+旧实现只看 REST 结果 → 对 PGameAPI 返回 400，把成功报成失败（Bot 的 `/tsm 插件` 会误报）。
+
+现在的判定：
+
+1. REST 通 → 200，`verifiedBy:"rest"`；
+2. REST 抛错 → 回读该服沙箱日志 `Core\_runtime\<服>\Logs\<最新>.log`，最多等 8 秒，
+   看到 `…已加载 <插件>` → **200**，`verifiedBy:"log"`，并把命中的日志行放进 `verifiedLine`；
+3. 两条都没成 → 400，字段含义：
+
+| 字段 | 含义 |
+|---|---|
+| `ok` | 最终判定（`true` 才算加载成功） |
+| `found` | 沙箱里是否有该 DLL（`false` 时是 404） |
+| `output` | TShock 命令回显（REST 成功时才有） |
+| `error` | REST 层错误文本（`null` = REST 成功） |
+| `httpStatus` | TShock 侧 HTTP 码；**`null` = 连响应都没拿到**（连接被重置/超时） |
+| `verifiedBy` | `rest` / `log` / `null`（未通过任何一条） |
+| `verifiedLine` | `verifiedBy=log` 时命中的那行日志原文 |
+
+客户端建议：**`ok` 为准**；`verifiedBy:"log"` 属正常成功，无需再自查。
+插件显示名与 DLL 名不一致时（例：`FixTools.dll` 的显示名是「流光系统」），
+日志行按插件名匹配不到会退化为「本窗口内任意一次 `已加载`」，此时请以返回的 `verifiedLine` 自行确认。
 
 ## 非托管同名进程检测（P2）
 

@@ -451,6 +451,86 @@ namespace PGameTSManager
         /// <summary>该服运行沙箱的 ServerPlugins 目录（插件热升级/查询用）。</summary>
         public string ServerPluginsDirectory => Path.Combine(RuntimeDirectory, "ServerPlugins");
 
+        /// <summary>该服运行沙箱的 TShock 日志目录（_runtime\&lt;服&gt;\Logs）——热更核验用。</summary>
+        public string RuntimeLogsDirectory => Path.Combine(RuntimeDirectory, "Logs");
+
+        /// <summary>该服沙箱里最新的 TShock 日志文件；没有则返回空串。</summary>
+        public string NewestRuntimeLogPath()
+        {
+            try
+            {
+                var dir = RuntimeLogsDirectory;
+                if (!Directory.Exists(dir)) return "";
+                var f = new DirectoryInfo(dir).GetFiles("*.log")
+                    .OrderByDescending(x => x.LastWriteTimeUtc)
+                    .FirstOrDefault();
+                return f?.FullName ?? "";
+            }
+            catch { return ""; }
+        }
+
+        /// <summary>安全取文件长度（读不到算 0）。</summary>
+        public static long SafeFileLength(string path)
+        {
+            try { return string.IsNullOrEmpty(path) ? 0 : new FileInfo(path).Length; }
+            catch { return 0; }
+        }
+
+        /// <summary>
+        /// 等日志里出现「已加载 &lt;插件&gt;」，用于 plugins/reload 的结构化判定。
+        ///
+        /// 背景（2026-10-11 实测）：PGameAPI 这类插件热重载时会重建自身全部模块，
+        /// 期间 TShock 主线程阻塞、连接被重置 → TSM 到 TShock 的 REST 请求抛
+        /// “An error occurred while sending the request.”，但插件**其实加载成功**
+        /// （日志有 `[HotReload] 已加载 PGameAPI v1.0.0`）。只看 REST 结果会把成功报成失败。
+        ///
+        /// 优先按插件名匹配；名字对不上（例如 FixTools.dll 的显示名是「流光系统」）时，
+        /// 退化为「本窗口内出现任意一次 `[HotReload] 已加载`」，并把命中的那一行回给调用方，
+        /// 让调用方自己判断是不是它要的那个插件（不会静默放行）。
+        /// </summary>
+        public string? WaitForHotReloadLogLine(string path, long fromOffset, string pluginName, TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow.Add(timeout);
+            string? fallback = null;
+            DateTime? fallbackAtUtc = null;
+            while (true)
+            {
+                try
+                {
+                    var probe = string.IsNullOrEmpty(path) || !File.Exists(path) ? NewestRuntimeLogPath() : path;
+                    if (!string.IsNullOrEmpty(probe))
+                    {
+                        using var fs = new FileStream(probe, FileMode.Open, FileAccess.Read,
+                            FileShare.ReadWrite | FileShare.Delete);
+                        var start = Math.Min(fromOffset, fs.Length);
+                        fs.Seek(start, SeekOrigin.Begin);
+                        using var sr = new StreamReader(fs, Encoding.UTF8);
+                        foreach (var line in sr.ReadToEnd().Split('\n'))
+                        {
+                            var t = line.Trim();
+                            if (t.Length == 0 || t.IndexOf("已加载", StringComparison.Ordinal) < 0) continue;
+                            if (!string.IsNullOrEmpty(pluginName) &&
+                                t.IndexOf(pluginName, StringComparison.OrdinalIgnoreCase) >= 0)
+                                return t;
+                            if (fallback == null)
+                            {
+                                fallback = t;
+                                fallbackAtUtc = DateTime.UtcNow;
+                            }
+                        }
+                    }
+                }
+                catch { }
+
+                // 只有「名字对不上」的兜底命中时，多给 2 秒等精确匹配，避免每次热更都白等满超时。
+                if (fallback != null && fallbackAtUtc.HasValue &&
+                    DateTime.UtcNow - fallbackAtUtc.Value >= TimeSpan.FromSeconds(2))
+                    return fallback;
+                if (DateTime.UtcNow >= deadline) return fallback;
+                System.Threading.Thread.Sleep(250);
+            }
+        }
+
         public long MemoryBytes
         {
             get { try { return _process?.WorkingSet64 ?? 0; } catch { return 0; } }
@@ -1485,8 +1565,17 @@ namespace PGameTSManager
         /// 成功返回 null 且 output = 命令回显；失败返回错误描述。
         /// </summary>
         public string? SendCommandViaRest(string cmd, out string output)
+            => SendCommandViaRest(cmd, out output, out _);
+
+        /// <summary>
+        /// 同 <see cref="SendCommandViaRest(string, out string)"/>，另外回传 TShock 侧 HTTP 状态码：
+        /// <c>0</c> 表示根本没拿到响应（连接被重置/超时等传输层失败）。
+        /// 插件热更期间服务器主线程阻塞会命中这种情形，调用方需要能区分「REST 失败」与「HTTP 4xx/5xx」。
+        /// </summary>
+        public string? SendCommandViaRest(string cmd, out string output, out int httpStatus)
         {
             output = "";
+            httpStatus = 0;
             ArmWatchdogSuppression(cmd);
             var manifest = _profile.LoadManifest();
             var port = manifest?.RestPort ?? 0;
@@ -1504,8 +1593,14 @@ namespace PGameTSManager
                     using var content = new StringContent("", Encoding.UTF8, "application/x-www-form-urlencoded");
                     using var resp = Http.PostAsync(url, content).GetAwaiter().GetResult();
                     var body = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-                    if (!resp.IsSuccessStatusCode) { lastErr = $"HTTP {(int)resp.StatusCode}（{path}）"; continue; }
+                    if (!resp.IsSuccessStatusCode)
+                    {
+                        httpStatus = (int)resp.StatusCode;
+                        lastErr = $"HTTP {(int)resp.StatusCode}（{path}）";
+                        continue;
+                    }
 
+                    httpStatus = (int)resp.StatusCode;
                     output = FormatRestResponse(body);
                     return null;
                 }

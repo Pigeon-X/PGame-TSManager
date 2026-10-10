@@ -305,9 +305,36 @@ internal sealed class ControlApiServer : IDisposable
                 await WriteJsonAsync(ctx, 404, new { ok = false, error = "plugin_not_found", plugin = name });
                 return;
             }
-            var err = container.SendCommandViaRest("/hr load " + name, out var output);
-            await WriteJsonAsync(ctx, err == null ? 200 : 400,
-                new { ok = err == null, plugin = name, found = true, output, error = err });
+
+            // 判定成功要两条腿走路（2026-10-11 实测）：
+            //   · REST 通了 → 直接算成功；
+            //   · REST 抛错（PGameAPI 这类插件热重载会重建自身模块、阻塞主线程 → 连接被重置，
+            //     报 "An error occurred while sending the request."）→ 回读沙箱日志，
+            //     看到 `[HotReload] 已加载 …` 就按成功算，并把命中的日志行回给调用方。
+            // 只看 REST 结果会把「已加载成功」误报成失败（Bot 的 /tsm 插件 就会误报）。
+            var logPath = container.NewestRuntimeLogPath();
+            var logOffset = ServerContainer.SafeFileLength(logPath);
+            var err = container.SendCommandViaRest("/hr load " + name, out var output, out var httpStatus);
+            string? logLine = null;
+            if (err != null)
+            {
+                var logFile = logPath;
+                var offset = logOffset;
+                logLine = await Task.Run(() =>
+                    container.WaitForHotReloadLogLine(logFile, offset, name, TimeSpan.FromSeconds(8)));
+            }
+            var ok = err == null || logLine != null;
+            await WriteJsonAsync(ctx, ok ? 200 : 400, new
+            {
+                ok,
+                plugin = name,
+                found = true,
+                output,
+                error = err,
+                httpStatus = httpStatus == 0 ? (int?)null : httpStatus,
+                verifiedBy = err == null ? "rest" : (logLine != null ? "log" : null),
+                verifiedLine = logLine
+            });
             return;
         }
 
