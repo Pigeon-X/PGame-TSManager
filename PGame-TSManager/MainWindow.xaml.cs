@@ -255,9 +255,12 @@ namespace PGameTSManager
                 {
                     if (!c.IsRunning) continue;
                     var cpu = c.SampleCpuPercent();
+                    // PlayerCount == -1 表示「未知」（尚未从 REST 取到人数：刚起服/刚换图/REST 未就绪）。
+                    // 采样 CSV 里写 -1 会污染「人数 × 资源」拟合，统一按 0 落盘。
+                    var players = Math.Max(0, c.PlayerCount);
                     rows.Add(string.Join(",",
                         now, c.StableId, c.ListLabel.Replace(',', ' '),
-                        c.PlayerCount.ToString(),
+                        players.ToString(),
                         cpu.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture),
                         (c.MemoryBytes / 1024L / 1024L).ToString(),
                         (c.PrivateBytes / 1024L / 1024L).ToString()));
