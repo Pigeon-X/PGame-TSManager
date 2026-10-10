@@ -456,6 +456,42 @@ namespace PGameTSManager
             get { try { return _process?.WorkingSet64 ?? 0; } catch { return 0; } }
         }
 
+        /// <summary>私有内存（Private/提交量）。空闲时不会随工作集压缩而下降，只有进程内 GC 才回落。</summary>
+        public long PrivateBytes
+        {
+            get { try { return _process?.PrivateMemorySize64 ?? 0; } catch { return 0; } }
+        }
+
+        private DateTime _lastCpuSampleUtc = DateTime.MinValue;
+        private TimeSpan _lastCpuTotal = TimeSpan.Zero;
+
+        /// <summary>
+        /// 自上次采样以来的 CPU 占用百分比（1 个核 = 100%）。首次调用返回 0（缺基线）。
+        /// </summary>
+        public double SampleCpuPercent()
+        {
+            try
+            {
+                var p = _process;
+                if (p == null) return 0;
+                var nowUtc = DateTime.UtcNow;
+                var total = p.TotalProcessorTime;
+                if (_lastCpuSampleUtc == DateTime.MinValue)
+                {
+                    _lastCpuSampleUtc = nowUtc;
+                    _lastCpuTotal = total;
+                    return 0;
+                }
+                var elapsedMs = (nowUtc - _lastCpuSampleUtc).TotalMilliseconds;
+                var cpuMs = (total - _lastCpuTotal).TotalMilliseconds;
+                _lastCpuSampleUtc = nowUtc;
+                _lastCpuTotal = total;
+                if (elapsedMs <= 0) return 0;
+                return Math.Round(cpuMs / elapsedMs * 100.0, 1);
+            }
+            catch { return 0; }
+        }
+
         public string TodayLogPath => Path.Combine(
             ManagerConfig.Resolve(_managerConfig.logDir),
             SanitizeFileName(Name) + "-" + DateTime.Now.ToString("yyyyMMdd") + ".log");

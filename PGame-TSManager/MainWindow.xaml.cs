@@ -55,6 +55,7 @@ namespace PGameTSManager
 
             StartStatusTimer();
             StartScheduleTimer();
+            StartCapacityTimer();
             BuildTrayMenu();
 
             if (StartAllOnLoad)
@@ -113,6 +114,7 @@ namespace PGameTSManager
         // ---------- 在线人数：定时轮询 REST ----------
         private DispatcherTimer? _statusTimer;
         private DispatcherTimer? _scheduleTimer;
+        private DispatcherTimer? _capacityTimer;
         private DateTime _lastConflictScanUtc = DateTime.MinValue;
         private readonly HashSet<int> _reportedConflictPids = new();
         private string _lastAlertResult = "";
@@ -220,6 +222,49 @@ namespace PGameTSManager
                     return port;
             }
             return 0;
+        }
+
+        /// <summary>
+        /// 容量采样：定期把每服的 (人数 / CPU% / 工作集 / 私有) 追加到 Core\Data\capacity-samples.csv。
+        /// 用于长期拟合「人数 × 单核占用」，判断单服吃满一个核的拐点。
+        /// </summary>
+        private void StartCapacityTimer()
+        {
+            if (!_cfg.capacitySampleEnabled) return;
+            _capacityTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(Math.Max(10, _cfg.capacitySampleSeconds)) };
+            _capacityTimer.Tick += (_, _) => TickCapacitySample();
+            _capacityTimer.Start();
+        }
+
+        private void TickCapacitySample()
+        {
+            try
+            {
+                var dir = ManagerConfig.Resolve(_cfg.dataDir);
+                Directory.CreateDirectory(dir);
+                var path = Path.Combine(dir, "capacity-samples.csv");
+                if (!File.Exists(path))
+                {
+                    File.AppendAllText(path,
+                        "时间,serverId,label,人数,cpu百分比,工作集MB,私有MB" + Environment.NewLine,
+                        new UTF8Encoding(false));
+                }
+                var now = DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                var rows = new List<string>();
+                foreach (var c in Containers)
+                {
+                    if (!c.IsRunning) continue;
+                    var cpu = c.SampleCpuPercent();
+                    rows.Add(string.Join(",",
+                        now, c.StableId, c.ListLabel.Replace(',', ' '),
+                        c.PlayerCount.ToString(),
+                        cpu.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture),
+                        (c.MemoryBytes / 1024L / 1024L).ToString(),
+                        (c.PrivateBytes / 1024L / 1024L).ToString()));
+                }
+                if (rows.Count > 0) File.AppendAllLines(path, rows, new UTF8Encoding(false));
+            }
+            catch { }
         }
 
         private void UpdateTrayTip()

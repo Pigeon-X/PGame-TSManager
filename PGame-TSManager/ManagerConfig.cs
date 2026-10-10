@@ -179,6 +179,13 @@ namespace PGameTSManager
         /// <summary>工作集低于该值时不再压缩，避免无意义操作。</summary>
         public int idleMemoryTrimMinWorkingSetMB = 256;
 
+        /// <summary>
+        /// 容量采样：每隔 capacitySampleSeconds 秒，把每服的 (人数, CPU%, 工作集, 私有) 追加到
+        /// Core\Data\capacity-samples.csv —— 用于拟合「人数 × 单核占用」曲线。
+        /// </summary>
+        public bool capacitySampleEnabled = true;
+        public int capacitySampleSeconds = 60;
+
         // —— 本地控制 API（默认关闭；个人版 overlay 才开启） ——
         public bool controlApiEnabled = false;
         public string controlApiHost = "127.0.0.1";
