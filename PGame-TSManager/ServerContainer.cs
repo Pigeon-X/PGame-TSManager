@@ -279,10 +279,15 @@ namespace PGameTSManager
                 if (process.WorkingSet64 < minBytes) return;
 
                 var before = process.WorkingSet64 / 1024L / 1024L;
+                var beforePriv = process.PrivateMemorySize64 / 1024L / 1024L;
                 if (!IdleMemoryTrim.TryTrim(process)) return;
                 _lastIdleTrimUtc = now;
                 var after = process.WorkingSet64 / 1024L / 1024L;
-                AddText($"[内存压缩] 空服 {Name}：{before} MB → {after} MB（端口保持监听）\n");
+                var afterPriv = process.PrivateMemorySize64 / 1024L / 1024L;
+                // 说明：跨进程只能压「工作集」（EmptyWorkingSet）；「私有内存(Private)」只会随进程内 GC 回落。
+                // 空闲服因为几乎不分配对象，可能长时间不触发 gen2 GC → Private 保持在启动峰值（大图约 1.0GB）。
+                AddText($"[内存压缩] 空服 {Name}：工作集 {before}→{after} MB，私有 {beforePriv}→{afterPriv} MB"
+                    + "（跨进程仅能压工作集；Private 需进程内 GC，空闲时不会自动触发）\n");
             }
             catch
             {

@@ -291,6 +291,17 @@ namespace PGameTSManager
                 {
                     foreach (var d in Directory.GetDirectories(dir))
                     {
+                        // ★ 跳过备份/临时目录：曾因 0.xxx.bak-* 被自动发现 → 同一台服出现两个实例、
+                        //   且备份实例抢占端口。约定：profile 备份放 Backups\，不要留在 Servers\Profiles\。
+                        var leaf = Path.GetFileName(d.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                        if (leaf.Contains(".bak", StringComparison.OrdinalIgnoreCase) ||
+                            leaf.Contains(".old", StringComparison.OrdinalIgnoreCase) ||
+                            leaf.Contains(".tmp", StringComparison.OrdinalIgnoreCase) ||
+                            leaf.StartsWith("~", StringComparison.Ordinal))
+                        {
+                            continue;
+                        }
+
                         var manifestPath = Path.Combine(d, ServerProfile.ManifestFileName);
                         if (!File.Exists(manifestPath)) continue;
 
