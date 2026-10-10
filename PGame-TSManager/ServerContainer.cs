@@ -114,7 +114,7 @@ namespace PGameTSManager
                     if (process != null)
                     {
                         _userStopRequested = true;                 // ★ 手动停止：看门狗不要自动拉起
-                        try { process.Kill(true); } catch { try { process.Kill(); } catch { } }
+                        BeginGracefulStop(process);                 // ★ 先落盘/优雅关服，超时才强杀（见方法注释）
                         OnPropertyChanged(nameof(IsRunning));
                     }
                 }
@@ -654,7 +654,56 @@ namespace PGameTSManager
         }
 
         /// <summary>
-        /// 退出 TSM 时的同步停服：先请求 TShock /stop，超时后强杀整棵进程树，确保不残留服务器进程。
+        /// 手动停止一台服：先让 TShock 自己**保存并退出**，超时才强杀整棵进程树。
+        ///
+        /// ⚠ 背景（2026-10-11 实测修）：这里原来是直接 <c>process.Kill(true)</c>，等于**硬杀**——
+        /// 世界只靠 TShock 自动保存，停服那一刻之后未落盘的地形/玩家数据会丢。证据：
+        ///   · 每次启动日志第一行都是 `TShock被强制关闭。建议使用exit指令进行正常安全关闭。`；
+        ///   · 10-10 23:43:48 → 10-11 00:57 那一轮（3.5 小时）日志里**一次保存都没有**，
+        ///     而 00:57 的换新版重启就是直接杀掉它的 → 那段时间的地形改动全丢。
+        /// 现在顺序：`/save`（先保证落盘）→ `/off`（TShock 保存后自行退出）→ 最多等 12 秒 → 仍在才强杀。
+        /// 异步执行，不阻塞 UI 线程；`_userStopRequested` 已置位，看门狗不会把它当崩溃拉起来。
+        /// </summary>
+        private void BeginGracefulStop(Process process)
+        {
+            Task.Run(() =>
+            {
+                var saved = false;
+                try
+                {
+                    string output;
+                    saved = SendCommandViaRest("/save", out output) == null;   // ① 先落盘
+                }
+                catch { }
+
+                try
+                {
+                    string output;
+                    SendCommandViaRest("/off", out output);                    // ② 保存并关服
+                }
+                catch { }
+
+                try { process.WaitForExit(12000); } catch { }
+
+                try
+                {
+                    if (process.HasExited)
+                    {
+                        AddText(saved
+                            ? "[停止] 已保存并正常关服。\n"
+                            : "[停止] 进程已退出（/save 未确认，未落盘部分可能丢失）。\n");
+                        return;
+                    }
+                }
+                catch { return; }
+
+                AddText("[停止] 优雅关服未在 12 秒内退出，改用强制结束进程。\n");
+                try { process.Kill(true); } catch { try { process.Kill(); } catch { } }
+            });
+        }
+
+        /// <summary>
+        /// 退出 TSM 时的同步停服：先请 TShock 保存并退出，超时后强杀整棵进程树，确保不残留服务器进程。
         /// </summary>
         public void StopForExit(TimeSpan gracefulTimeout)
         {
@@ -667,7 +716,8 @@ namespace PGameTSManager
                 var stopTask = Task.Run(() =>
                 {
                     string output;
-                    return SendCommandViaRest("/stop", out output);
+                    SendCommandViaRest("/save", out output);     // 先落盘
+                    return SendCommandViaRest("/off", out output); // 再优雅关服
                 });
                 stopTask.Wait(TimeSpan.FromSeconds(3));
             }

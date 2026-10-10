@@ -243,6 +243,19 @@ TSM 到 TShock 的 REST 请求直接抛 `An error occurred while sending the req
 插件显示名与 DLL 名不一致时（例：`FixTools.dll` 的显示名是「流光系统」），
 日志行按插件名匹配不到会退化为「本窗口内任意一次 `已加载`」，此时请以返回的 `verifiedLine` 自行确认。
 
+#### ⚠ 会阻塞主线程的热重载一律走 `/plugins/reload`，不要用 `/command` 发 `/hr load`
+
+`/command` 是**通用指令通道**，不带上面对日志做复核的判定：同一条 TSM→TShock 通道被 reset 时，
+它只能如实回 400（`{"ok":false,"error":"An error occurred while sending the request."}`），
+而插件其实已经加载成功 —— 调用方会把成功误报成失败。
+
+```text
+✅ POST /tsm/servers/{id}/plugins/reload  {"plugin":"PGameAPI"}   → 200 verifiedBy:"log"
+❌ POST /tsm/servers/{id}/command        {"command":"/hr load PGameAPI"} → 400（假失败）
+```
+
+`/command` 仍适合普通指令（`/save`、`/playing`、`/warp` 等）；只有**热重载**这类会重建模块、阻塞主线程的操作要走结构化端点。
+
 ## 非托管同名进程检测（P2）
 
 TSM 每 ~30s 经 WMI 扫描 `TShock.Server.exe`，凡是**不属于任何 TSM 容器**的进程，发一次事件：
