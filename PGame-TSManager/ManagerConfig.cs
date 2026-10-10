@@ -186,6 +186,17 @@ namespace PGameTSManager
         public bool capacitySampleEnabled = true;
         public int capacitySampleSeconds = 60;
 
+        /// <summary>
+        /// 空服周期保存：TShock 自己的自动保存**只在有人在线时**才跑（实测：有人≈每 10 分钟；
+        /// 0 人服完全没有自动存档）。但 0 人时插件仍会改世界（例：TileHelper 在世界加载后贴
+        /// 出生点.sec3）→ 崩溃/断电后这些改动会丢。这里每隔 periodicSaveMinutes 分钟，
+        /// 对「正在运行且当前 0 人在线」的服发一次 /save 兜底。
+        /// </summary>
+        public bool periodicSaveEnabled = true;
+        public int periodicSaveMinutes = 30;
+        /// <summary>true = 只保存 0 人在线的服（有人在线时交给 TShock 自己的自动保存）。</summary>
+        public bool periodicSaveOnlyWhenEmpty = true;
+
         // —— 本地控制 API（默认关闭；个人版 overlay 才开启） ——
         public bool controlApiEnabled = false;
         public string controlApiHost = "127.0.0.1";

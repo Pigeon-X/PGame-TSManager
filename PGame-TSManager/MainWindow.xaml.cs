@@ -56,6 +56,7 @@ namespace PGameTSManager
             StartStatusTimer();
             StartScheduleTimer();
             StartCapacityTimer();
+            StartPeriodicSaveTimer();
             BuildTrayMenu();
 
             if (StartAllOnLoad)
@@ -115,6 +116,7 @@ namespace PGameTSManager
         private DispatcherTimer? _statusTimer;
         private DispatcherTimer? _scheduleTimer;
         private DispatcherTimer? _capacityTimer;
+        private DispatcherTimer? _periodicSaveTimer;
         private DateTime _lastConflictScanUtc = DateTime.MinValue;
         private readonly HashSet<int> _reportedConflictPids = new();
         private string _lastAlertResult = "";
@@ -268,6 +270,38 @@ namespace PGameTSManager
                 if (rows.Count > 0) File.AppendAllLines(path, rows, new UTF8Encoding(false));
             }
             catch { }
+        }
+
+        /// <summary>
+        /// 空服周期保存：TShock 的自动保存只在「有人在线」时才跑（实测有人≈每 10 分钟、0 人服完全没有），
+        /// 而 0 人时插件仍会改世界（例：TileHelper 世界加载后贴 出生点.sec3）→ 崩溃/断电会丢。
+        /// 这里按 periodicSaveMinutes 给「运行中且 0 人」的服补一次 /save。
+        /// </summary>
+        private void StartPeriodicSaveTimer()
+        {
+            if (!_cfg.periodicSaveEnabled) return;
+            var minutes = Math.Max(5, _cfg.periodicSaveMinutes);
+            _periodicSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(minutes) };
+            _periodicSaveTimer.Tick += (_, _) => TickPeriodicSave();
+            _periodicSaveTimer.Start();
+        }
+
+        private void TickPeriodicSave()
+        {
+            foreach (var c in Containers)
+            {
+                try
+                {
+                    if (!c.IsRunning) continue;
+                    // 有人在线时交给 TShock 自己的自动保存，避免重复写盘。
+                    if (_cfg.periodicSaveOnlyWhenEmpty && c.PlayerCount > 0) continue;
+                    var err = c.SendCommandViaRest("/save", out _);
+                    AppendLine(err == null
+                        ? $"[定时保存] {c.ListLabel} 已保存世界（0 人在线兜底）。"
+                        : $"[定时保存] {c.ListLabel} 保存失败：{err}");
+                }
+                catch { }
+            }
         }
 
         private void UpdateTrayTip()
